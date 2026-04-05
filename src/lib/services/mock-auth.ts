@@ -51,7 +51,48 @@ export class MockAuthService implements AuthService {
   async getTrainees(): Promise<Profile[]> {
     return this.users
       .filter((u) => u.role === "trainee")
-      .map((u) => this.toProfile(u));
+      .map((u) => this.toProfileWithOverrides(u));
+  }
+
+  async inviteTrainee(phone: string, name: string): Promise<Profile> {
+    const existing = this.users.find((u) => u.phone === phone);
+    if (existing) throw new Error("Phone already registered");
+    const user: MockUser = {
+      id: `trainee-${Date.now()}`,
+      phone,
+      name,
+      role: "trainee",
+    };
+    this.users.push(user);
+    return this.toProfile(user);
+  }
+
+  async updateTrainee(id: string, updates: {
+    isRecurring?: boolean;
+    preferredDay?: number | null;
+    preferredTime?: string | null;
+    isActive?: boolean;
+    name?: string;
+  }): Promise<Profile> {
+    const user = this.users.find((u) => u.id === id);
+    if (!user) throw new Error("Trainee not found");
+    if (updates.name !== undefined) user.name = updates.name;
+    const profile = this.toProfile(user);
+    if (updates.isRecurring !== undefined) profile.isRecurring = updates.isRecurring;
+    if (updates.preferredDay !== undefined) profile.preferredDay = updates.preferredDay;
+    if (updates.preferredTime !== undefined) profile.preferredTime = updates.preferredTime;
+    if (updates.isActive !== undefined) profile.isActive = updates.isActive;
+    // Store the extended profile data — in mock mode we keep a map
+    this.profileOverrides.set(id, profile);
+    return profile;
+  }
+
+  private profileOverrides = new Map<string, Profile>();
+
+  private toProfileWithOverrides(user: MockUser): Profile {
+    const override = this.profileOverrides.get(user.id);
+    if (override) return { ...override, name: user.name };
+    return this.toProfile(user);
   }
 
   /** Set current user directly (for testing) */

@@ -15,6 +15,18 @@ export interface AuthService {
 
   /** List all trainees */
   getTrainees(): Promise<Profile[]>;
+
+  /** Invite new trainee by phone */
+  inviteTrainee(phone: string, name: string): Promise<Profile>;
+
+  /** Update trainee recurring settings */
+  updateTrainee(id: string, updates: {
+    isRecurring?: boolean;
+    preferredDay?: number | null;
+    preferredTime?: string | null;
+    isActive?: boolean;
+    name?: string;
+  }): Promise<Profile>;
 }
 
 export interface MockUser {
