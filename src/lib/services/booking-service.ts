@@ -1,5 +1,6 @@
 import { Booking, Slot, EditLog } from "@/lib/types";
 import { GoogleCalendarService } from "./google-calendar";
+import { NotificationService, NotificationPayload } from "./notification";
 
 export class BookingError extends Error {
   constructor(message: string) {
@@ -10,6 +11,7 @@ export class BookingError extends Error {
 
 export interface BookingStore {
   getSlot(slotId: string): Slot | undefined;
+  /** Update slot. If slot has a version, check it matches current version (optimistic lock). */
   updateSlot(slot: Slot): void;
   addBooking(booking: Booking): void;
   getBooking(bookingId: string): Booking | undefined;
@@ -44,12 +46,19 @@ export function getWeekStart(date: string): string {
 export class BookingService {
   constructor(
     private store: BookingStore,
-    private calendar?: GoogleCalendarService
+    private calendar?: GoogleCalendarService,
+    private notifier?: NotificationService
   ) {}
 
   getRemainingEdits(traineeId: string, weekStart: string): number {
     const log = this.store.getEditLog(traineeId, weekStart);
     return MAX_EDITS_PER_WEEK - (log?.editCount || 0);
+  }
+
+  private async notify(payload: NotificationPayload): Promise<void> {
+    if (this.notifier) {
+      try { await this.notifier.notifyCoach(payload); } catch { /* non-blocking */ }
+    }
   }
 
   private checkEditLimit(traineeId: string, slotDate: string, isAutoBooked: boolean): void {
@@ -171,6 +180,12 @@ export class BookingService {
 
     if (!skipEditLimit) {
       this.trackEdit(traineeId, slot.date, booking.isAutoBooked);
+      await this.notify({
+        type: "cancel",
+        traineeName: traineeId, // caller can pass name via context
+        slotDate: slot.date,
+        slotTime: slot.startTime,
+      });
     }
   }
 
@@ -199,6 +214,16 @@ export class BookingService {
 
     // Track as single edit
     this.trackEdit(traineeId, oldSlot.date, oldBooking.isAutoBooked);
+
+    const newSlot = this.store.getSlot(newSlotId);
+    await this.notify({
+      type: "reschedule",
+      traineeName: traineeId,
+      slotDate: oldSlot.date,
+      slotTime: oldSlot.startTime,
+      newSlotDate: newSlot?.date,
+      newSlotTime: newSlot?.startTime,
+    });
 
     return newBooking;
   }
@@ -263,15 +288,20 @@ export class MockBookingStore implements BookingStore {
   private editLogs = new Map<string, EditLog>();
 
   addSlot(slot: Slot): void {
-    this.slots.set(slot.id, slot);
+    this.slots.set(slot.id, { ...slot, version: slot.version ?? 1 });
   }
 
   getSlot(slotId: string): Slot | undefined {
-    return this.slots.get(slotId);
+    const slot = this.slots.get(slotId);
+    return slot ? { ...slot } : undefined; // return copy
   }
 
   updateSlot(slot: Slot): void {
-    this.slots.set(slot.id, slot);
+    const current = this.slots.get(slot.id);
+    if (current && slot.version !== undefined && current.version !== slot.version) {
+      throw new BookingError("Slot was modified by another request");
+    }
+    this.slots.set(slot.id, { ...slot, version: (current?.version ?? 0) + 1 });
   }
 
   addBooking(booking: Booking): void {

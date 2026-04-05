@@ -5,6 +5,7 @@ import { InMemoryTokenStore, TokenStore } from "./token-store";
 import { AuthService } from "./auth";
 import { MockAuthService } from "./mock-auth";
 import { BookingService, BookingStore, MockBookingStore } from "./booking-service";
+import { NotificationService, MockNotificationService } from "./notification";
 
 const isMock = process.env.MOCK_SERVICES === "true";
 
@@ -13,6 +14,7 @@ let realCalendarService: RealGoogleCalendarService | null = null;
 let tokenStore: TokenStore;
 let authService: AuthService;
 let bookingStore: BookingStore;
+let notificationService: NotificationService;
 let bookingService: BookingService;
 
 export function getTokenStore(): TokenStore {
@@ -68,10 +70,22 @@ export function getBookingStore(): BookingStore {
   return bookingStore;
 }
 
+export function getNotificationService(): NotificationService {
+  if (!notificationService) {
+    // TODO: replace with real email/push service in production
+    notificationService = new MockNotificationService();
+  }
+  return notificationService;
+}
+
 export function getBookingService(): BookingService {
   if (!bookingService) {
     const calendar = isMock ? undefined : getCalendarService();
-    bookingService = new BookingService(getBookingStore(), calendar);
+    bookingService = new BookingService(
+      getBookingStore(),
+      calendar,
+      getNotificationService()
+    );
   }
   return bookingService;
 }

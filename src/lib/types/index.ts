@@ -41,6 +41,7 @@ export interface Slot {
   capacity: number;
   lockoutOverride: boolean;
   currentBookings: number;
+  version?: number; // optimistic locking
 }
 
 export interface Booking {
