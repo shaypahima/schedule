@@ -1,4 +1,5 @@
 import { Booking, Slot } from "@/lib/types";
+import { GoogleCalendarService } from "./google-calendar";
 
 export class BookingError extends Error {
   constructor(message: string) {
@@ -18,9 +19,16 @@ export interface BookingStore {
 }
 
 export class BookingService {
-  constructor(private store: BookingStore) {}
+  constructor(
+    private store: BookingStore,
+    private calendar?: GoogleCalendarService
+  ) {}
 
-  async book(traineeId: string, slotId: string): Promise<Booking> {
+  async book(
+    traineeId: string,
+    slotId: string,
+    traineeName?: string
+  ): Promise<Booking> {
     const slot = this.store.getSlot(slotId);
     if (!slot) throw new BookingError("Slot not found");
 
@@ -34,11 +42,24 @@ export class BookingService {
       .find((b) => b.traineeId === traineeId);
     if (existing) throw new BookingError("Already booked");
 
+    // Create Google Calendar event if calendar service available
+    let googleEventId: string | null = null;
+    if (this.calendar && traineeName) {
+      const start = new Date(`${slot.date}T${slot.startTime}:00+03:00`);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const event = await this.calendar.createEvent({
+        summary: traineeName,
+        start,
+        end,
+      });
+      googleEventId = event.id;
+    }
+
     const booking: Booking = {
       id: `booking-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       slotId,
       traineeId,
-      googleEventId: null,
+      googleEventId,
       isAutoBooked: false,
       status: "confirmed",
       createdAt: new Date(),
@@ -64,6 +85,15 @@ export class BookingService {
 
     const slot = this.store.getSlot(booking.slotId);
     if (!slot) throw new BookingError("Slot not found");
+
+    // Delete Google Calendar event if exists
+    if (this.calendar && booking.googleEventId) {
+      try {
+        await this.calendar.deleteEvent(booking.googleEventId);
+      } catch {
+        // Calendar event may already be deleted — proceed with cancel
+      }
+    }
 
     this.store.updateBooking({ ...booking, status: "cancelled" });
     this.store.updateSlot({

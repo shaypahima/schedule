@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const booking = await getBookingService().book(session.id, slotId);
+    const booking = await getBookingService().book(session.id, slotId, session.name);
     return NextResponse.json(booking, { status: 201 });
   } catch (err) {
     if (err instanceof BookingError) {

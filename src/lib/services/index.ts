@@ -1,5 +1,7 @@
 import { GoogleCalendarService } from "./google-calendar";
 import { MockGoogleCalendarService } from "./mock-google-calendar";
+import { RealGoogleCalendarService } from "./real-google-calendar";
+import { InMemoryTokenStore, TokenStore } from "./token-store";
 import { AuthService } from "./auth";
 import { MockAuthService } from "./mock-auth";
 import { BookingService, BookingStore, MockBookingStore } from "./booking-service";
@@ -7,19 +9,41 @@ import { BookingService, BookingStore, MockBookingStore } from "./booking-servic
 const isMock = process.env.MOCK_SERVICES === "true";
 
 let calendarService: GoogleCalendarService;
+let realCalendarService: RealGoogleCalendarService | null = null;
+let tokenStore: TokenStore;
 let authService: AuthService;
 let bookingStore: BookingStore;
 let bookingService: BookingService;
+
+export function getTokenStore(): TokenStore {
+  if (!tokenStore) {
+    // TODO: Replace with Supabase-backed store in Phase 3 (Supabase integration)
+    tokenStore = new InMemoryTokenStore();
+  }
+  return tokenStore;
+}
 
 export function getCalendarService(): GoogleCalendarService {
   if (!calendarService) {
     if (isMock) {
       calendarService = new MockGoogleCalendarService();
     } else {
-      throw new Error("Real Google Calendar service not yet implemented");
+      calendarService = new RealGoogleCalendarService(getTokenStore());
     }
   }
   return calendarService;
+}
+
+/**
+ * Returns the real calendar service for OAuth2 flows.
+ * Returns null if in mock mode.
+ */
+export function getRealCalendarService(): RealGoogleCalendarService | null {
+  if (isMock) return null;
+  if (!realCalendarService) {
+    realCalendarService = new RealGoogleCalendarService(getTokenStore());
+  }
+  return realCalendarService;
 }
 
 export function getAuthService(): AuthService {
@@ -46,7 +70,8 @@ export function getBookingStore(): BookingStore {
 
 export function getBookingService(): BookingService {
   if (!bookingService) {
-    bookingService = new BookingService(getBookingStore());
+    const calendar = isMock ? undefined : getCalendarService();
+    bookingService = new BookingService(getBookingStore(), calendar);
   }
   return bookingService;
 }
