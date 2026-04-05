@@ -18,9 +18,12 @@ export interface BookingStore {
   getTraineeBookings(traineeId: string): Booking[];
   getEditLog(traineeId: string, weekStart: string): EditLog | undefined;
   incrementEditCount(traineeId: string, weekStart: string): void;
+  getTraineeBookingsForWeek(traineeId: string, weekStart: string): Booking[];
 }
 
 const MAX_EDITS_PER_WEEK = 3;
+const MAX_SESSIONS_PER_WEEK = 2;
+const LOCKOUT_HOURS = 7;
 
 /** Get the Sunday of the week containing the given date (YYYY-MM-DD) */
 export function getWeekStart(date: string): string {
@@ -60,6 +63,23 @@ export class BookingService {
     this.store.incrementEditCount(traineeId, weekStart);
   }
 
+  private checkWeeklyLimit(traineeId: string, slotDate: string): void {
+    const weekStart = getWeekStart(slotDate);
+    const bookings = this.store.getTraineeBookingsForWeek(traineeId, weekStart);
+    if (bookings.length >= MAX_SESSIONS_PER_WEEK) {
+      throw new BookingError("Max 2 sessions per week");
+    }
+  }
+
+  private checkLockout(slot: Slot): void {
+    if (slot.lockoutOverride) return;
+    const sessionStart = new Date(`${slot.date}T${slot.startTime}:00+03:00`);
+    const lockoutTime = new Date(sessionStart.getTime() - LOCKOUT_HOURS * 60 * 60 * 1000);
+    if (new Date() > lockoutTime) {
+      throw new BookingError("Cannot modify within 7 hours of session");
+    }
+  }
+
   async book(
     traineeId: string,
     slotId: string,
@@ -67,6 +87,9 @@ export class BookingService {
   ): Promise<Booking> {
     const slot = this.store.getSlot(slotId);
     if (!slot) throw new BookingError("Slot not found");
+
+    this.checkLockout(slot);
+    this.checkWeeklyLimit(traineeId, slot.date);
 
     if (slot.currentBookings >= slot.capacity) {
       throw new BookingError("Slot is full");
@@ -123,6 +146,7 @@ export class BookingService {
     if (!slot) throw new BookingError("Slot not found");
 
     if (!skipEditLimit) {
+      this.checkLockout(slot);
       this.checkEditLimit(traineeId, slot.date, booking.isAutoBooked);
     }
 
@@ -159,7 +183,8 @@ export class BookingService {
     const oldSlot = this.store.getSlot(oldBooking.slotId);
     if (!oldSlot) throw new BookingError("Slot not found");
 
-    // Check edit limit once for the whole reschedule (counts as 1 edit)
+    // Check lockout + edit limit once for the whole reschedule (counts as 1 edit)
+    this.checkLockout(oldSlot);
     this.checkEditLimit(traineeId, oldSlot.date, oldBooking.isAutoBooked);
 
     // Cancel old booking (skip edit limit — we already checked)
@@ -217,6 +242,17 @@ export class MockBookingStore implements BookingStore {
     return Array.from(this.bookings.values()).filter(
       (b) => b.traineeId === traineeId && b.status === "confirmed"
     );
+  }
+
+  getTraineeBookingsForWeek(traineeId: string, weekStart: string): Booking[] {
+    const weekEnd = new Date(weekStart + "T00:00:00");
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const weekEndStr = weekEnd.toISOString().slice(0, 10);
+    return Array.from(this.bookings.values()).filter((b) => {
+      if (b.traineeId !== traineeId || b.status !== "confirmed") return false;
+      const slot = this.slots.get(b.slotId);
+      return slot && slot.date >= weekStart && slot.date < weekEndStr;
+    });
   }
 
   getEditLog(traineeId: string, weekStart: string): EditLog | undefined {

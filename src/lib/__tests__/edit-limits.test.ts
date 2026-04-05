@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   MockBookingStore,
   BookingService,
@@ -29,6 +29,7 @@ describe("Edit limits", () => {
   beforeEach(() => {
     store = new MockBookingStore();
     service = new BookingService(store);
+    vi.setSystemTime(new Date("2026-04-04T06:00:00Z"));
 
     // Add slots for the same week (2026-04-05 is Sunday)
     for (let i = 5; i <= 10; i++) {
@@ -41,6 +42,10 @@ describe("Edit limits", () => {
         currentBookings: 0,
       });
     }
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("allows first cancel", async () => {
@@ -104,6 +109,7 @@ describe("Reschedule", () => {
   beforeEach(() => {
     store = new MockBookingStore();
     service = new BookingService(store);
+    vi.setSystemTime(new Date("2026-04-04T06:00:00Z"));
 
     store.addSlot({
       id: "slot-old",
@@ -121,6 +127,10 @@ describe("Reschedule", () => {
       lockoutOverride: false,
       currentBookings: 0,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("reschedule cancels old and books new", async () => {

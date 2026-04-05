@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   MockBookingStore,
   BookingService,
@@ -14,6 +14,7 @@ describe("BookingService with calendar write-back", () => {
     store = new MockBookingStore();
     calendar = new MockGoogleCalendarService();
     service = new BookingService(store, calendar);
+    vi.setSystemTime(new Date("2026-04-04T06:00:00Z"));
 
     store.addSlot({
       id: "slot-1",
@@ -23,6 +24,10 @@ describe("BookingService with calendar write-back", () => {
       lockoutOverride: false,
       currentBookings: 0,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("book with calendar", () => {

@@ -8,6 +8,7 @@ export interface AvailableSlot {
   currentBookings: number;
   remainingCapacity: number;
   lockoutOverride: boolean;
+  lockedOut: boolean;
 }
 
 const SLOT_DURATION_MS = 60 * 60 * 1000; // 60 minutes
@@ -54,6 +55,9 @@ export function generateAvailableSlots(
     // Skip if full
     if (remainingCapacity <= 0) continue;
 
+    const lockoutOverride = existing?.lockoutOverride ?? false;
+    const lockedOut = !lockoutOverride && new Date() > new Date(slotStart.getTime() - 7 * 60 * 60 * 1000);
+
     available.push({
       id: existing?.id ?? `new-${date}-${timeStr}`,
       date,
@@ -61,7 +65,8 @@ export function generateAvailableSlots(
       capacity,
       currentBookings,
       remainingCapacity,
-      lockoutOverride: existing?.lockoutOverride ?? false,
+      lockoutOverride,
+      lockedOut,
     });
   }
 

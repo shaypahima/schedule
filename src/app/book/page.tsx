@@ -9,6 +9,7 @@ interface SlotData {
   capacity: number;
   currentBookings: number;
   remainingCapacity: number;
+  lockedOut: boolean;
 }
 
 interface BookingData {
@@ -234,6 +235,7 @@ export default function BookPage() {
               const isBooked = bookedSlotIds.has(slot.id);
               const myBooking = myBookings.find((b) => b.slotId === slot.id);
               const isRescheduleTarget = rescheduleBookingId && !isBooked;
+              const locked = slot.lockedOut;
 
               return (
                 <div
@@ -252,11 +254,17 @@ export default function BookPage() {
                     </p>
                     <p className="text-sm text-zinc-500">
                       {isBooked
-                        ? "Your session"
+                        ? locked
+                          ? "Your session (locked)"
+                          : "Your session"
                         : `${slot.remainingCapacity} spot${slot.remainingCapacity !== 1 ? "s" : ""} left`}
                     </p>
                   </div>
-                  {isBooked ? (
+                  {isBooked && locked ? (
+                    <span className="text-xs text-zinc-400">
+                      Contact coach to modify
+                    </span>
+                  ) : isBooked ? (
                     <div className="flex gap-2">
                       <button
                         onClick={() =>
@@ -275,6 +283,8 @@ export default function BookPage() {
                         Cancel
                       </button>
                     </div>
+                  ) : locked ? (
+                    <span className="text-xs text-zinc-400">Locked</span>
                   ) : isRescheduleTarget ? (
                     <button
                       onClick={() => handleReschedule(slot.id)}

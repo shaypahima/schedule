@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   MockBookingStore,
   BookingService,
@@ -12,6 +12,7 @@ describe("BookingService", () => {
   beforeEach(() => {
     store = new MockBookingStore();
     service = new BookingService(store);
+    vi.setSystemTime(new Date("2026-04-04T06:00:00Z"));
 
     // Seed a slot with capacity 2 and 0 bookings
     store.addSlot({
@@ -22,6 +23,10 @@ describe("BookingService", () => {
       lockoutOverride: false,
       currentBookings: 0,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("book", () => {
