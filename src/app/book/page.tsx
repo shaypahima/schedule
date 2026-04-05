@@ -27,7 +27,6 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
 
 function getWeekDates(): { label: string; date: string }[] {
   const now = new Date();
-  // Find next Sunday (or today if Sunday)
   const day = now.getDay();
   const sunday = new Date(now);
   sunday.setDate(now.getDate() - day);
@@ -48,10 +47,11 @@ export default function BookPage() {
   const [selectedDay, setSelectedDay] = useState(0);
   const [slots, setSlots] = useState<SlotData[]>([]);
   const [myBookings, setMyBookings] = useState<BookingData[]>([]);
+  const [remainingEdits, setRemainingEdits] = useState(3);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [rescheduleBookingId, setRescheduleBookingId] = useState<string | null>(null);
 
-  // Check auth
   useEffect(() => {
     fetch("/api/auth/session")
       .then((r) => (r.ok ? r.json() : null))
@@ -62,25 +62,32 @@ export default function BookPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Fetch bookings
   const fetchBookings = useCallback(() => {
     fetch("/api/bookings")
       .then((r) => r.json())
-      .then((data) => setMyBookings(data.bookings || []));
+      .then((data) => {
+        setMyBookings(data.bookings || []);
+        if (data.remainingEdits !== undefined) {
+          setRemainingEdits(data.remainingEdits);
+        }
+      });
   }, []);
 
-  // Fetch slots for selected day
+  const refreshSlots = useCallback(() => {
+    return fetch(`/api/slots?date=${days[selectedDay].date}`)
+      .then((r) => r.json())
+      .then((data) => setSlots(data.slots || []));
+  }, [days, selectedDay]);
+
   useEffect(() => {
     if (!user) return;
     setSlotsLoading(true);
     setError("");
-    fetch(`/api/slots?date=${days[selectedDay].date}`)
-      .then((r) => r.json())
-      .then((data) => setSlots(data.slots || []))
+    refreshSlots()
       .catch(() => setError("Failed to load slots"))
       .finally(() => setSlotsLoading(false));
     fetchBookings();
-  }, [user, selectedDay, days, fetchBookings]);
+  }, [user, selectedDay, days, fetchBookings, refreshSlots]);
 
   async function handleBook(slotId: string) {
     setError("");
@@ -94,11 +101,8 @@ export default function BookPage() {
       setError(data.error || "Booking failed");
       return;
     }
-    // Refresh
     fetchBookings();
-    const slotsRes = await fetch(`/api/slots?date=${days[selectedDay].date}`);
-    const slotsData = await slotsRes.json();
-    setSlots(slotsData.slots || []);
+    refreshSlots();
   }
 
   async function handleCancel(bookingId: string) {
@@ -114,9 +118,25 @@ export default function BookPage() {
       return;
     }
     fetchBookings();
-    const slotsRes = await fetch(`/api/slots?date=${days[selectedDay].date}`);
-    const slotsData = await slotsRes.json();
-    setSlots(slotsData.slots || []);
+    refreshSlots();
+  }
+
+  async function handleReschedule(newSlotId: string) {
+    if (!rescheduleBookingId) return;
+    setError("");
+    const res = await fetch("/api/bookings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId: rescheduleBookingId, newSlotId }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error || "Reschedule failed");
+      return;
+    }
+    setRescheduleBookingId(null);
+    fetchBookings();
+    refreshSlots();
   }
 
   async function handleLogout() {
@@ -133,10 +153,10 @@ export default function BookPage() {
   }
 
   const bookedSlotIds = new Set(myBookings.map((b) => b.slotId));
+  const editsLow = remainingEdits <= 1;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
-      {/* Header */}
       <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
         <h1 className="text-lg font-bold text-black dark:text-white">
           Book a Session
@@ -151,6 +171,32 @@ export default function BookPage() {
           </button>
         </div>
       </header>
+
+      {/* Remaining edits banner */}
+      <div
+        className={`border-b px-4 py-2 text-sm ${
+          editsLow
+            ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
+            : "border-zinc-200 bg-white text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+        }`}
+      >
+        {remainingEdits > 0
+          ? `${remainingEdits} edit${remainingEdits !== 1 ? "s" : ""} remaining this week`
+          : "No edits remaining this week"}
+      </div>
+
+      {/* Reschedule mode banner */}
+      {rescheduleBookingId && (
+        <div className="flex items-center justify-between border-b border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+          <span>Select a new slot to reschedule into</span>
+          <button
+            onClick={() => setRescheduleBookingId(null)}
+            className="font-medium underline"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Day selector */}
       <div className="flex gap-1 overflow-x-auto border-b border-zinc-200 bg-white px-2 py-2 dark:border-zinc-800 dark:bg-zinc-900">
@@ -169,14 +215,12 @@ export default function BookPage() {
         ))}
       </div>
 
-      {/* Error */}
       {error && (
         <div className="mx-4 mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
           {error}
         </div>
       )}
 
-      {/* Slots */}
       <div className="p-4">
         {slotsLoading ? (
           <p className="text-center text-zinc-500">Loading slots...</p>
@@ -188,9 +232,8 @@ export default function BookPage() {
           <div className="flex flex-col gap-2">
             {slots.map((slot) => {
               const isBooked = bookedSlotIds.has(slot.id);
-              const myBooking = myBookings.find(
-                (b) => b.slotId === slot.id
-              );
+              const myBooking = myBookings.find((b) => b.slotId === slot.id);
+              const isRescheduleTarget = rescheduleBookingId && !isBooked;
 
               return (
                 <div
@@ -198,7 +241,9 @@ export default function BookPage() {
                   className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
                     isBooked
                       ? "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-900/20"
-                      : "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+                      : isRescheduleTarget
+                        ? "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
+                        : "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
                   }`}
                 >
                   <div>
@@ -212,11 +257,30 @@ export default function BookPage() {
                     </p>
                   </div>
                   {isBooked ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          myBooking && setRescheduleBookingId(myBooking.id)
+                        }
+                        disabled={remainingEdits <= 0}
+                        className="rounded-lg bg-blue-100 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200 disabled:opacity-40 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
+                      >
+                        Reschedule
+                      </button>
+                      <button
+                        onClick={() => myBooking && handleCancel(myBooking.id)}
+                        disabled={remainingEdits <= 0}
+                        className="rounded-lg bg-red-100 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200 disabled:opacity-40 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : isRescheduleTarget ? (
                     <button
-                      onClick={() => myBooking && handleCancel(myBooking.id)}
-                      className="rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                      onClick={() => handleReschedule(slot.id)}
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                     >
-                      Cancel
+                      Move here
                     </button>
                   ) : (
                     <button

@@ -1,4 +1,4 @@
-import { Booking, Slot } from "@/lib/types";
+import { Booking, Slot, EditLog } from "@/lib/types";
 import { GoogleCalendarService } from "./google-calendar";
 
 export class BookingError extends Error {
@@ -16,6 +16,22 @@ export interface BookingStore {
   updateBooking(booking: Booking): void;
   getConfirmedBookingsForSlot(slotId: string): Booking[];
   getTraineeBookings(traineeId: string): Booking[];
+  getEditLog(traineeId: string, weekStart: string): EditLog | undefined;
+  incrementEditCount(traineeId: string, weekStart: string): void;
+}
+
+const MAX_EDITS_PER_WEEK = 3;
+
+/** Get the Sunday of the week containing the given date (YYYY-MM-DD) */
+export function getWeekStart(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const dt = new Date(y, m - 1, d); // local date, no TZ issues
+  const day = dt.getDay(); // 0=Sun
+  dt.setDate(dt.getDate() - day);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 export class BookingService {
@@ -23,6 +39,26 @@ export class BookingService {
     private store: BookingStore,
     private calendar?: GoogleCalendarService
   ) {}
+
+  getRemainingEdits(traineeId: string, weekStart: string): number {
+    const log = this.store.getEditLog(traineeId, weekStart);
+    return MAX_EDITS_PER_WEEK - (log?.editCount || 0);
+  }
+
+  private checkEditLimit(traineeId: string, slotDate: string, isAutoBooked: boolean): void {
+    if (isAutoBooked) return; // auto-booked edits exempt
+    const weekStart = getWeekStart(slotDate);
+    const remaining = this.getRemainingEdits(traineeId, weekStart);
+    if (remaining <= 0) {
+      throw new BookingError("Edit limit reached (3/week)");
+    }
+  }
+
+  private trackEdit(traineeId: string, slotDate: string, isAutoBooked: boolean): void {
+    if (isAutoBooked) return;
+    const weekStart = getWeekStart(slotDate);
+    this.store.incrementEditCount(traineeId, weekStart);
+  }
 
   async book(
     traineeId: string,
@@ -74,7 +110,7 @@ export class BookingService {
     return booking;
   }
 
-  async cancel(bookingId: string, traineeId: string): Promise<void> {
+  async cancel(bookingId: string, traineeId: string, skipEditLimit = false): Promise<void> {
     const booking = this.store.getBooking(bookingId);
     if (!booking || booking.status !== "confirmed") {
       throw new BookingError("Booking not found");
@@ -85,6 +121,10 @@ export class BookingService {
 
     const slot = this.store.getSlot(booking.slotId);
     if (!slot) throw new BookingError("Slot not found");
+
+    if (!skipEditLimit) {
+      this.checkEditLimit(traineeId, slot.date, booking.isAutoBooked);
+    }
 
     // Delete Google Calendar event if exists
     if (this.calendar && booking.googleEventId) {
@@ -100,6 +140,38 @@ export class BookingService {
       ...slot,
       currentBookings: Math.max(0, slot.currentBookings - 1),
     });
+
+    if (!skipEditLimit) {
+      this.trackEdit(traineeId, slot.date, booking.isAutoBooked);
+    }
+  }
+
+  async reschedule(
+    bookingId: string,
+    traineeId: string,
+    newSlotId: string,
+    traineeName?: string
+  ): Promise<Booking> {
+    const oldBooking = this.store.getBooking(bookingId);
+    if (!oldBooking || oldBooking.status !== "confirmed") {
+      throw new BookingError("Booking not found");
+    }
+    const oldSlot = this.store.getSlot(oldBooking.slotId);
+    if (!oldSlot) throw new BookingError("Slot not found");
+
+    // Check edit limit once for the whole reschedule (counts as 1 edit)
+    this.checkEditLimit(traineeId, oldSlot.date, oldBooking.isAutoBooked);
+
+    // Cancel old booking (skip edit limit — we already checked)
+    await this.cancel(bookingId, traineeId, true);
+
+    // Book new slot
+    const newBooking = await this.book(traineeId, newSlotId, traineeName);
+
+    // Track as single edit
+    this.trackEdit(traineeId, oldSlot.date, oldBooking.isAutoBooked);
+
+    return newBooking;
   }
 }
 
@@ -109,6 +181,7 @@ export class BookingService {
 export class MockBookingStore implements BookingStore {
   private slots = new Map<string, Slot>();
   private bookings = new Map<string, Booking>();
+  private editLogs = new Map<string, EditLog>();
 
   addSlot(slot: Slot): void {
     this.slots.set(slot.id, slot);
@@ -144,5 +217,24 @@ export class MockBookingStore implements BookingStore {
     return Array.from(this.bookings.values()).filter(
       (b) => b.traineeId === traineeId && b.status === "confirmed"
     );
+  }
+
+  getEditLog(traineeId: string, weekStart: string): EditLog | undefined {
+    return this.editLogs.get(`${traineeId}:${weekStart}`);
+  }
+
+  incrementEditCount(traineeId: string, weekStart: string): void {
+    const key = `${traineeId}:${weekStart}`;
+    const existing = this.editLogs.get(key);
+    if (existing) {
+      existing.editCount++;
+    } else {
+      this.editLogs.set(key, {
+        id: `edit-${Date.now()}`,
+        traineeId,
+        weekStart,
+        editCount: 1,
+      });
+    }
   }
 }
