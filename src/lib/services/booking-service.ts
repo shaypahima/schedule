@@ -19,6 +19,8 @@ export interface BookingStore {
   getEditLog(traineeId: string, weekStart: string): EditLog | undefined;
   incrementEditCount(traineeId: string, weekStart: string): void;
   getTraineeBookingsForWeek(traineeId: string, weekStart: string): Booking[];
+  getAllSlotsForDate(date: string): Slot[];
+  getAllBookings(): Booking[];
 }
 
 const MAX_EDITS_PER_WEEK = 3;
@@ -198,6 +200,56 @@ export class BookingService {
 
     return newBooking;
   }
+
+  /** Admin: book trainee into slot, bypassing all limits */
+  async adminBook(traineeId: string, slotId: string, traineeName?: string): Promise<Booking> {
+    const slot = this.store.getSlot(slotId);
+    if (!slot) throw new BookingError("Slot not found");
+    if (slot.currentBookings >= slot.capacity) throw new BookingError("Slot is full");
+
+    const existing = this.store
+      .getConfirmedBookingsForSlot(slotId)
+      .find((b) => b.traineeId === traineeId);
+    if (existing) throw new BookingError("Already booked");
+
+    let googleEventId: string | null = null;
+    if (this.calendar && traineeName) {
+      const start = new Date(`${slot.date}T${slot.startTime}:00+03:00`);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const event = await this.calendar.createEvent({ summary: traineeName, start, end });
+      googleEventId = event.id;
+    }
+
+    const booking: Booking = {
+      id: `booking-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      slotId,
+      traineeId,
+      googleEventId,
+      isAutoBooked: false,
+      status: "confirmed",
+      createdAt: new Date(),
+    };
+
+    this.store.addBooking(booking);
+    this.store.updateSlot({ ...slot, currentBookings: slot.currentBookings + 1 });
+    return booking;
+  }
+
+  /** Admin: cancel booking, bypassing all limits */
+  async adminCancel(bookingId: string): Promise<void> {
+    const booking = this.store.getBooking(bookingId);
+    if (!booking || booking.status !== "confirmed") throw new BookingError("Booking not found");
+
+    const slot = this.store.getSlot(booking.slotId);
+    if (!slot) throw new BookingError("Slot not found");
+
+    if (this.calendar && booking.googleEventId) {
+      try { await this.calendar.deleteEvent(booking.googleEventId); } catch { /* ok */ }
+    }
+
+    this.store.updateBooking({ ...booking, status: "cancelled" });
+    this.store.updateSlot({ ...slot, currentBookings: Math.max(0, slot.currentBookings - 1) });
+  }
 }
 
 /**
@@ -272,5 +324,13 @@ export class MockBookingStore implements BookingStore {
         editCount: 1,
       });
     }
+  }
+
+  getAllSlotsForDate(date: string): Slot[] {
+    return Array.from(this.slots.values()).filter((s) => s.date === date);
+  }
+
+  getAllBookings(): Booking[] {
+    return Array.from(this.bookings.values());
   }
 }

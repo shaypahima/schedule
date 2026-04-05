@@ -48,6 +48,12 @@ export class MockAuthService implements AuthService {
     this.currentUser = null;
   }
 
+  async getTrainees(): Promise<Profile[]> {
+    return this.users
+      .filter((u) => u.role === "trainee")
+      .map((u) => this.toProfile(u));
+  }
+
   /** Set current user directly (for testing) */
   setCurrentUser(user: MockUser): void {
     this.currentUser = this.toProfile(user);

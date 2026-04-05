@@ -12,6 +12,9 @@ export interface AuthService {
 
   /** Sign out */
   signOut(): Promise<void>;
+
+  /** List all trainees */
+  getTrainees(): Promise<Profile[]>;
 }
 
 export interface MockUser {
