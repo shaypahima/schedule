@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo:*)",
+      "Bash(gh issue:*)",
+      "WebSearch",
+      "Bash(bun install:*)",
+      "Bash(bun run:*)",
+      "Bash(git push:*)",
+      "Bash(bun --env-file ../../.env ./node_modules/.bin/prisma migrate dev --name init)",
+      "Bash(bun build:*)",
+      "Bash(timeout 5 bun --env-file ../../.env run src/index.ts)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(netstat -ano)",
+      "Bash(bun --env-file ../../.env test src/routes/meals.test.ts)",
+      "Bash(bun test:*)",
+      "Bash(find C:UsersshphmDesktopSnapBiteappsapinode_modulesbetter-auth -name *.js)",
+      "Bash(cd:*)",
+      "Bash(bunx prisma:*)",
+      "Bash(dotenv_config_path=.env bunx prisma db push --schema=apps/api/prisma/schema.prisma)",
+      "Bash(./node_modules/.bin/prisma generate:*)",
+      "Bash(ls node_modules/.bin/prisma*)",
+      "Bash(apps/api/node_modules/.bin/prisma db:*)",
+      "Bash(apps/api/node_modules/.bin/prisma generate:*)",
+      "Bash(git init:*)",
+      "Bash(git remote:*)",
+      "Bash(cp -r /c/Users/shphm/Desktop/schedule-temp/* /c/Users/shphm/Desktop/schedule/)",
+      "Bash(cp /c/Users/shphm/Desktop/schedule-temp/.gitignore /c/Users/shphm/Desktop/schedule/)",
+      "Bash(rm -rf /c/Users/shphm/Desktop/schedule-temp)",
+      "Bash(cp /c/Users/shphm/Desktop/schedule-temp/package.json /c/Users/shphm/Desktop/schedule/)",
+      "Bash(cp /c/Users/shphm/Desktop/schedule-temp/package-lock.json /c/Users/shphm/Desktop/schedule/)",
+      "Bash(cp /c/Users/shphm/Desktop/schedule-temp/tsconfig.json /c/Users/shphm/Desktop/schedule/)",
+      "Bash(cp /c/Users/shphm/Desktop/schedule-temp/postcss.config.mjs /c/Users/shphm/Desktop/schedule/)",
+      "Bash(cp -r /c/Users/shphm/Desktop/schedule-temp/src /c/Users/shphm/Desktop/schedule/)",
+      "Bash(npm install:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx next:*)"
+    ]
+  }
+}
