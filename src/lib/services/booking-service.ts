@@ -21,6 +21,8 @@ export interface BookingStore {
   getTraineeBookingsForWeek(traineeId: string, weekStart: string): Booking[];
   getAllSlotsForDate(date: string): Slot[];
   getAllBookings(): Booking[];
+  upsertSlot(slot: Slot): void;
+  resetEditCount(traineeId: string, weekStart: string): void;
 }
 
 const MAX_EDITS_PER_WEEK = 3;
@@ -332,5 +334,13 @@ export class MockBookingStore implements BookingStore {
 
   getAllBookings(): Booking[] {
     return Array.from(this.bookings.values());
+  }
+
+  upsertSlot(slot: Slot): void {
+    this.slots.set(slot.id, slot);
+  }
+
+  resetEditCount(traineeId: string, weekStart: string): void {
+    this.editLogs.delete(`${traineeId}:${weekStart}`);
   }
 }

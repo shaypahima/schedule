@@ -6,7 +6,10 @@ interface SlotData {
   id: string;
   date: string;
   startTime: string;
+  capacity: number;
   remainingCapacity: number;
+  lockoutOverride: boolean;
+  lockedOut: boolean;
 }
 
 interface BookingData {
@@ -113,6 +116,26 @@ export default function AdminPage() {
     fetchBookings();
   }
 
+  async function handleSlotOverride(
+    slotId: string,
+    date: string,
+    startTime: string,
+    updates: { capacity?: number; lockoutOverride?: boolean }
+  ) {
+    setError("");
+    const res = await fetch("/api/admin/slots", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slotId, date, startTime, ...updates }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error || "Override failed");
+      return;
+    }
+    fetchSlots();
+  }
+
   async function handleRemove(bookingId: string) {
     setError("");
     const res = await fetch("/api/admin/bookings", {
@@ -151,6 +174,12 @@ export default function AdminPage() {
           Admin Dashboard
         </h1>
         <div className="flex gap-3">
+          <a
+            href="/admin/trainees"
+            className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+          >
+            Trainees
+          </a>
           <a
             href="/admin/settings"
             className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -209,13 +238,47 @@ export default function AdminPage() {
                   className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
                 >
                   <div className="mb-2 flex items-center justify-between">
-                    <p className="font-medium text-black dark:text-white">
-                      {slot.startTime}
-                    </p>
-                    <span className="text-xs text-zinc-400">
-                      {slot.remainingCapacity} spot
-                      {slot.remainingCapacity !== 1 ? "s" : ""} left
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-black dark:text-white">
+                        {slot.startTime}
+                      </p>
+                      {slot.lockedOut && !slot.lockoutOverride && (
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                          Locked
+                        </span>
+                      )}
+                      {slot.lockoutOverride && (
+                        <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          Lockout off
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-zinc-400">
+                        {slot.remainingCapacity}/{slot.capacity}
+                      </span>
+                      <button
+                        onClick={() =>
+                          handleSlotOverride(slot.id, slot.date, slot.startTime, {
+                            capacity: slot.capacity === 2 ? 3 : 2,
+                          })
+                        }
+                        className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400"
+                        title={`Set capacity to ${slot.capacity === 2 ? 3 : 2}`}
+                      >
+                        Cap {slot.capacity === 2 ? "→3" : "→2"}
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleSlotOverride(slot.id, slot.date, slot.startTime, {
+                            lockoutOverride: !slot.lockoutOverride,
+                          })
+                        }
+                        className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400"
+                      >
+                        {slot.lockoutOverride ? "Enable lockout" : "Disable lockout"}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Booked trainees */}
