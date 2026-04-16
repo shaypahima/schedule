@@ -8,6 +8,9 @@ import { BookingStore, MockBookingStore } from "./booking-service";
 import { NotificationService, MockNotificationService } from "./notification";
 import { createBookingTransaction, BookingTransaction } from "./booking-transaction";
 import { createWeeklyLimits, WeeklyLimits } from "./weekly-limits";
+import { SupabaseBookingStore } from "@/lib/supabase/booking-store";
+import { SupabaseAuthService } from "@/lib/supabase/auth-service";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 function isMock() {
   return process.env.MOCK_SERVICES === "true";
@@ -20,10 +23,9 @@ let authService: AuthService;
 let bookingStore: BookingStore;
 let notificationService: NotificationService;
 
-
 export function getTokenStore(): TokenStore {
   if (!tokenStore) {
-    // TODO: Replace with Supabase-backed store in Phase 3 (Supabase integration)
+    // TODO: Replace with Supabase-backed store
     tokenStore = new InMemoryTokenStore();
   }
   return tokenStore;
@@ -57,7 +59,7 @@ export function getAuthService(): AuthService {
     if (isMock()) {
       authService = new MockAuthService();
     } else {
-      throw new Error("Real auth service not yet implemented");
+      authService = new SupabaseAuthService(getSupabaseClient());
     }
   }
   return authService;
@@ -68,7 +70,7 @@ export function getBookingStore(): BookingStore {
     if (isMock()) {
       bookingStore = new MockBookingStore();
     } else {
-      throw new Error("Real booking store not yet implemented");
+      bookingStore = new SupabaseBookingStore(getSupabaseClient());
     }
   }
   return bookingStore;
@@ -106,7 +108,6 @@ export function getContainer(overrides?: Partial<Container>): Container {
 
 export function resetContainer(): void {
   _container = null;
-  // Also reset old singleton factories so tests get fresh instances
   calendarService = undefined!;
   realCalendarService = null;
   tokenStore = undefined!;

@@ -27,9 +27,9 @@ export async function GET() {
   if (error) return error;
 
   const { store, limits } = getContainer();
-  const bookings = store.getTraineeBookings(session.id);
+  const bookings = await store.getTraineeBookings(session.id);
   const today = todayIL();
-  const remainingEdits = limits.getRemainingEdits(session.id, today);
+  const remainingEdits = await limits.getRemainingEdits(session.id, today);
   return NextResponse.json({ bookings, remainingEdits });
 }
 

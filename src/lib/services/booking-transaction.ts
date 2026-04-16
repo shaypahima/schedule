@@ -95,7 +95,7 @@ export function createBookingTransaction(
 
   return {
     async book(traineeId, slotId, opts = {}) {
-      let slot = store.getSlot(slotId);
+      let slot = await store.getSlot(slotId);
 
       // Auto-create slot from "new-YYYY-MM-DD-HH:mm" placeholder IDs
       if (!slot && slotId.startsWith("new-")) {
@@ -109,7 +109,7 @@ export function createBookingTransaction(
             lockoutOverride: false,
             currentBookings: 0,
           };
-          store.upsertSlot(slot);
+          await store.upsertSlot(slot);
         }
       }
 
@@ -120,7 +120,7 @@ export function createBookingTransaction(
         if (lockout) return { ok: false, error: lockout, message: "Cannot modify within 7 hours of session" };
 
         try {
-          limits.assertCanBook(traineeId, slot.date);
+          await limits.assertCanBook(traineeId, slot.date);
         } catch (e) {
           return { ok: false, error: "WEEKLY_LIMIT", message: (e as Error).message };
         }
@@ -130,16 +130,15 @@ export function createBookingTransaction(
         return { ok: false, error: "SLOT_FULL", message: "Slot is full" };
       }
 
-      const existing = store
-        .getConfirmedBookingsForSlot(slotId)
-        .find((b) => b.traineeId === traineeId);
+      const existingBookings = await store.getConfirmedBookingsForSlot(slotId);
+      const existing = existingBookings.find((b) => b.traineeId === traineeId);
       if (existing) {
         return { ok: false, error: "ALREADY_BOOKED", message: "Already booked" };
       }
 
       // Optimistic lock: increment slot bookings
       try {
-        store.updateSlot({
+        await store.updateSlot({
           ...slot,
           currentBookings: slot.currentBookings + 1,
         });
@@ -153,9 +152,9 @@ export function createBookingTransaction(
         googleEventId = await createCalendarEvent(slot, opts.traineeName);
       } catch {
         // Rollback slot capacity
-        const fresh = store.getSlot(slotId);
+        const fresh = await store.getSlot(slotId);
         if (fresh) {
-          store.updateSlot({
+          await store.updateSlot({
             ...fresh,
             currentBookings: Math.max(0, fresh.currentBookings - 1),
           });
@@ -173,17 +172,17 @@ export function createBookingTransaction(
         createdAt: new Date(),
       };
 
-      store.addBooking(booking);
+      await store.addBooking(booking);
       return { ok: true, booking };
     },
 
     async cancel(bookingId, traineeId, opts = {}) {
-      const booking = store.getBooking(bookingId);
+      const booking = await store.getBooking(bookingId);
       if (!booking || booking.status !== "confirmed") {
         return { ok: false, error: "NOT_FOUND", message: "Booking not found" };
       }
 
-      const slot = store.getSlot(booking.slotId);
+      const slot = await store.getSlot(booking.slotId);
       if (!slot) return { ok: false, error: "NOT_FOUND", message: "Slot not found" };
 
       if (!opts.bypass) {
@@ -195,7 +194,7 @@ export function createBookingTransaction(
         if (lockout) return { ok: false, error: lockout, message: "Cannot modify within 7 hours of session" };
 
         try {
-          limits.assertCanCancel(traineeId, slot.date, booking.isAutoBooked);
+          await limits.assertCanCancel(traineeId, slot.date, booking.isAutoBooked);
         } catch (e) {
           return { ok: false, error: "EDIT_LIMIT", message: (e as Error).message };
         }
@@ -203,14 +202,14 @@ export function createBookingTransaction(
 
       await deleteCalendarEvent(booking.googleEventId);
 
-      store.updateBooking({ ...booking, status: "cancelled" });
-      store.updateSlot({
+      await store.updateBooking({ ...booking, status: "cancelled" });
+      await store.updateSlot({
         ...slot,
         currentBookings: Math.max(0, slot.currentBookings - 1),
       });
 
       if (!opts.bypass) {
-        limits.trackEdit(traineeId, slot.date, booking.isAutoBooked);
+        await limits.trackEdit(traineeId, slot.date, booking.isAutoBooked);
       }
 
       await notify({
@@ -225,7 +224,7 @@ export function createBookingTransaction(
 
     async reschedule(bookingId, traineeId, newSlotId, opts = {}) {
       // Validate old booking
-      const oldBooking = store.getBooking(bookingId);
+      const oldBooking = await store.getBooking(bookingId);
       if (!oldBooking || oldBooking.status !== "confirmed") {
         return { ok: false, error: "NOT_FOUND", message: "Booking not found" };
       }
@@ -233,7 +232,7 @@ export function createBookingTransaction(
         return { ok: false, error: "NOT_FOUND", message: "Not your booking" };
       }
 
-      const oldSlot = store.getSlot(oldBooking.slotId);
+      const oldSlot = await store.getSlot(oldBooking.slotId);
       if (!oldSlot) return { ok: false, error: "NOT_FOUND", message: "Slot not found" };
 
       // Check lockout + edit limit on old slot BEFORE touching anything
@@ -241,22 +240,21 @@ export function createBookingTransaction(
       if (lockout) return { ok: false, error: lockout, message: "Cannot modify within 7 hours of session" };
 
       try {
-        limits.assertCanReschedule(traineeId, oldSlot.date, oldBooking.isAutoBooked);
+        await limits.assertCanReschedule(traineeId, oldSlot.date, oldBooking.isAutoBooked);
       } catch (e) {
         return { ok: false, error: "EDIT_LIMIT", message: (e as Error).message };
       }
 
       // Validate new slot BEFORE modifying old booking
-      const newSlot = store.getSlot(newSlotId);
+      const newSlot = await store.getSlot(newSlotId);
       if (!newSlot) return { ok: false, error: "NOT_FOUND", message: "New slot not found" };
 
       if (newSlot.currentBookings >= newSlot.capacity) {
         return { ok: false, error: "SLOT_FULL", message: "New slot is full" };
       }
 
-      const alreadyBooked = store
-        .getConfirmedBookingsForSlot(newSlotId)
-        .find((b) => b.traineeId === traineeId);
+      const newSlotBookings = await store.getConfirmedBookingsForSlot(newSlotId);
+      const alreadyBooked = newSlotBookings.find((b) => b.traineeId === traineeId);
       if (alreadyBooked) {
         return { ok: false, error: "ALREADY_BOOKED", message: "Already booked in new slot" };
       }
@@ -276,22 +274,22 @@ export function createBookingTransaction(
 
       // 2. Cancel old booking
       await deleteCalendarEvent(oldBooking.googleEventId);
-      store.updateBooking({ ...oldBooking, status: "cancelled" });
-      store.updateSlot({
+      await store.updateBooking({ ...oldBooking, status: "cancelled" });
+      await store.updateSlot({
         ...oldSlot,
         currentBookings: Math.max(0, oldSlot.currentBookings - 1),
       });
 
       // 3. Book new slot
       try {
-        store.updateSlot({
+        await store.updateSlot({
           ...newSlot,
           currentBookings: newSlot.currentBookings + 1,
         });
       } catch {
         // Rollback: restore old booking
-        store.updateBooking({ ...oldBooking, status: "confirmed" });
-        store.updateSlot({
+        await store.updateBooking({ ...oldBooking, status: "confirmed" });
+        await store.updateSlot({
           ...oldSlot,
           currentBookings: oldSlot.currentBookings,
         });
@@ -310,10 +308,10 @@ export function createBookingTransaction(
         createdAt: new Date(),
       };
 
-      store.addBooking(newBooking);
+      await store.addBooking(newBooking);
 
       // Track as single edit
-      limits.trackEdit(traineeId, oldSlot.date, oldBooking.isAutoBooked);
+      await limits.trackEdit(traineeId, oldSlot.date, oldBooking.isAutoBooked);
 
       await notify({
         type: "reschedule",

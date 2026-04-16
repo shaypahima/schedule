@@ -36,7 +36,7 @@ export async function autoBookRecurring(
     const dateStr = `${slotDate.getFullYear()}-${String(slotDate.getMonth() + 1).padStart(2, "0")}-${String(slotDate.getDate()).padStart(2, "0")}`;
 
     // Check 2/week limit (bypass skips this in tx.book, so check manually)
-    const status = limits.status(trainee.id, dateStr);
+    const status = await limits.status(trainee.id, dateStr);
     if (status.bookingsLeft <= 0) {
       results.push({
         traineeId: trainee.id,

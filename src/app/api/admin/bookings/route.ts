@@ -47,6 +47,7 @@ export async function GET() {
   if (error) return error;
 
   const { store } = getContainer();
-  const bookings = store.getAllBookings().filter((b) => b.status === "confirmed");
+  const allBookings = await store.getAllBookings();
+  const bookings = allBookings.filter((b) => b.status === "confirmed");
   return NextResponse.json({ bookings });
 }

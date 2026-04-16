@@ -11,21 +11,21 @@ export class BookingError extends Error {
 }
 
 export interface BookingStore {
-  getSlot(slotId: string): Slot | undefined;
+  getSlot(slotId: string): Promise<Slot | undefined> | Slot | undefined;
   /** Update slot. If slot has a version, check it matches current version (optimistic lock). */
-  updateSlot(slot: Slot): void;
-  addBooking(booking: Booking): void;
-  getBooking(bookingId: string): Booking | undefined;
-  updateBooking(booking: Booking): void;
-  getConfirmedBookingsForSlot(slotId: string): Booking[];
-  getTraineeBookings(traineeId: string): Booking[];
-  getEditLog(traineeId: string, weekStart: string): EditLog | undefined;
-  incrementEditCount(traineeId: string, weekStart: string): void;
-  getTraineeBookingsForWeek(traineeId: string, weekStart: string): Booking[];
-  getAllSlotsForDate(date: string): Slot[];
-  getAllBookings(): Booking[];
-  upsertSlot(slot: Slot): void;
-  resetEditCount(traineeId: string, weekStart: string): void;
+  updateSlot(slot: Slot): Promise<void> | void;
+  addBooking(booking: Booking): Promise<void> | void;
+  getBooking(bookingId: string): Promise<Booking | undefined> | Booking | undefined;
+  updateBooking(booking: Booking): Promise<void> | void;
+  getConfirmedBookingsForSlot(slotId: string): Promise<Booking[]> | Booking[];
+  getTraineeBookings(traineeId: string): Promise<Booking[]> | Booking[];
+  getEditLog(traineeId: string, weekStart: string): Promise<EditLog | undefined> | EditLog | undefined;
+  incrementEditCount(traineeId: string, weekStart: string): Promise<void> | void;
+  getTraineeBookingsForWeek(traineeId: string, weekStart: string): Promise<Booking[]> | Booking[];
+  getAllSlotsForDate(date: string): Promise<Slot[]> | Slot[];
+  getAllBookings(): Promise<Booking[]> | Booking[];
+  upsertSlot(slot: Slot): Promise<void> | void;
+  resetEditCount(traineeId: string, weekStart: string): Promise<void> | void;
 }
 
 const MAX_EDITS_PER_WEEK = 3;

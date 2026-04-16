@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
   const today = todayIL();
   const weekStart = weekStartForDate(today);
   const { store, limits } = getContainer();
-  store.resetEditCount(traineeId, weekStart);
+  await store.resetEditCount(traineeId, weekStart);
 
-  const remaining = limits.getRemainingEdits(traineeId, weekStart);
+  const remaining = await limits.getRemainingEdits(traineeId, weekStart);
   return NextResponse.json({ traineeId, weekStart, remainingEdits: remaining });
 }

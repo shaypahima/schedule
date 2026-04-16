@@ -10,7 +10,7 @@ export async function PATCH(request: NextRequest) {
   const { slotId, date, startTime, capacity, lockoutOverride } = await request.json();
   const { store } = getContainer();
 
-  let slot = slotId ? store.getSlot(slotId) : undefined;
+  let slot = slotId ? await store.getSlot(slotId) : undefined;
 
   // If slot doesn't exist yet, create it
   if (!slot && date && startTime) {
@@ -23,7 +23,7 @@ export async function PATCH(request: NextRequest) {
       lockoutOverride: lockoutOverride ?? false,
       currentBookings: 0,
     };
-    store.upsertSlot(slot);
+    await store.upsertSlot(slot);
     return NextResponse.json(slot);
   }
 
@@ -36,6 +36,6 @@ export async function PATCH(request: NextRequest) {
     ...(capacity !== undefined && { capacity }),
     ...(lockoutOverride !== undefined && { lockoutOverride }),
   };
-  store.upsertSlot(updated);
+  await store.upsertSlot(updated);
   return NextResponse.json(updated);
 }

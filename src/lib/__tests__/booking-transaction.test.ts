@@ -214,7 +214,7 @@ describe("BookingTransaction", () => {
 
       await tx.reschedule(b.booking.id, "t1", "slot-7");
       const limits = createWeeklyLimits(store);
-      expect(limits.getRemainingEdits("t1", "2026-04-05")).toBe(2);
+      expect(await limits.getRemainingEdits("t1", "2026-04-05")).toBe(2);
     });
 
     it("returns EDIT_LIMIT when exhausted", async () => {

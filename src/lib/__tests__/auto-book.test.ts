@@ -163,6 +163,6 @@ describe("Auto-book cron", () => {
     );
 
     // Edit count should still be 3 remaining
-    expect(limits.getRemainingEdits("t1", "2026-04-05")).toBe(3);
+    expect(await limits.getRemainingEdits("t1", "2026-04-05")).toBe(3);
   });
 });
