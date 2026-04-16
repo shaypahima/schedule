@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/services/session";
+import { requireAdmin } from "@/lib/route-guard";
 import { getAuthService } from "@/lib/services";
 
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session || session.role !== "admin") return null;
-  return session;
-}
-
 export async function GET() {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  }
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   const trainees = await getAuthService().getTrainees();
   return NextResponse.json({
@@ -28,9 +21,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  }
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   const { phone, name } = await request.json();
   if (!phone || !name) {
@@ -49,9 +41,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  }
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   const { id, ...updates } = await request.json();
   if (!id) {

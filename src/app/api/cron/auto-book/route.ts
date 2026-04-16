@@ -2,14 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthService, getBookingService, getBookingStore } from "@/lib/services";
 import { autoBookRecurring, RecurringTrainee } from "@/lib/services/auto-book";
 import { getWeekStart } from "@/lib/services/booking-service";
+import { requireCron } from "@/lib/route-guard";
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret (Vercel sends this header)
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { error } = requireCron(request);
+  if (error) return error;
 
   const authService = getAuthService();
   const allTrainees = await authService.getTrainees();

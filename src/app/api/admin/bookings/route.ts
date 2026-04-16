@@ -1,64 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/services/session";
-import { getBookingService, getBookingStore } from "@/lib/services";
-import { BookingError } from "@/lib/services/booking-service";
-
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session || session.role !== "admin") return null;
-  return session;
-}
+import { requireAdmin } from "@/lib/route-guard";
+import { getContainer } from "@/lib/services";
 
 /** Admin: add trainee to slot */
 export async function POST(request: NextRequest) {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  }
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   const { traineeId, slotId, traineeName } = await request.json();
   if (!traineeId || !slotId) {
     return NextResponse.json({ error: "traineeId and slotId required" }, { status: 400 });
   }
 
-  try {
-    const booking = await getBookingService().adminBook(traineeId, slotId, traineeName);
-    return NextResponse.json(booking, { status: 201 });
-  } catch (err) {
-    if (err instanceof BookingError) {
-      return NextResponse.json({ error: err.message }, { status: 409 });
-    }
-    throw err;
+  const { tx } = getContainer();
+  const result = await tx.book(traineeId, slotId, {
+    bypass: true,
+    traineeName,
+  });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.message }, { status: 409 });
   }
+  return NextResponse.json({ booking: result.booking }, { status: 201 });
 }
 
 /** Admin: remove trainee from slot */
 export async function DELETE(request: NextRequest) {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  }
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   const { bookingId } = await request.json();
   if (!bookingId) {
     return NextResponse.json({ error: "bookingId required" }, { status: 400 });
   }
 
-  try {
-    await getBookingService().adminCancel(bookingId);
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    if (err instanceof BookingError) {
-      return NextResponse.json({ error: err.message }, { status: 409 });
-    }
-    throw err;
+  const { tx } = getContainer();
+  const result = await tx.cancel(bookingId, "", { bypass: true });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.message }, { status: 409 });
   }
+  return NextResponse.json({ success: true });
 }
 
 /** Admin: get all bookings */
 export async function GET() {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  }
+  const { error } = await requireAdmin();
+  if (error) return error;
 
-  const bookings = getBookingStore().getAllBookings().filter((b) => b.status === "confirmed");
+  const { store } = getContainer();
+  const bookings = store.getAllBookings().filter((b) => b.status === "confirmed");
   return NextResponse.json({ bookings });
 }

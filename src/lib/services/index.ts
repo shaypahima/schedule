@@ -6,8 +6,12 @@ import { AuthService } from "./auth";
 import { MockAuthService } from "./mock-auth";
 import { BookingService, BookingStore, MockBookingStore } from "./booking-service";
 import { NotificationService, MockNotificationService } from "./notification";
+import { createBookingTransaction, BookingTransaction } from "./booking-transaction";
+import { createWeeklyLimits, WeeklyLimits } from "./weekly-limits";
 
-const isMock = process.env.MOCK_SERVICES === "true";
+function isMock() {
+  return process.env.MOCK_SERVICES === "true";
+}
 
 let calendarService: GoogleCalendarService;
 let realCalendarService: RealGoogleCalendarService | null = null;
@@ -27,7 +31,7 @@ export function getTokenStore(): TokenStore {
 
 export function getCalendarService(): GoogleCalendarService {
   if (!calendarService) {
-    if (isMock) {
+    if (isMock()) {
       calendarService = new MockGoogleCalendarService();
     } else {
       calendarService = new RealGoogleCalendarService(getTokenStore());
@@ -41,7 +45,7 @@ export function getCalendarService(): GoogleCalendarService {
  * Returns null if in mock mode.
  */
 export function getRealCalendarService(): RealGoogleCalendarService | null {
-  if (isMock) return null;
+  if (isMock()) return null;
   if (!realCalendarService) {
     realCalendarService = new RealGoogleCalendarService(getTokenStore());
   }
@@ -50,7 +54,7 @@ export function getRealCalendarService(): RealGoogleCalendarService | null {
 
 export function getAuthService(): AuthService {
   if (!authService) {
-    if (isMock) {
+    if (isMock()) {
       authService = new MockAuthService();
     } else {
       throw new Error("Real auth service not yet implemented");
@@ -61,7 +65,7 @@ export function getAuthService(): AuthService {
 
 export function getBookingStore(): BookingStore {
   if (!bookingStore) {
-    if (isMock) {
+    if (isMock()) {
       bookingStore = new MockBookingStore();
     } else {
       throw new Error("Real booking store not yet implemented");
@@ -80,7 +84,7 @@ export function getNotificationService(): NotificationService {
 
 export function getBookingService(): BookingService {
   if (!bookingService) {
-    const calendar = isMock ? undefined : getCalendarService();
+    const calendar = isMock() ? undefined : getCalendarService();
     bookingService = new BookingService(
       getBookingStore(),
       calendar,
@@ -88,4 +92,48 @@ export function getBookingService(): BookingService {
     );
   }
   return bookingService;
+}
+
+// --- Container: unified facade over deep modules ---
+
+export interface Container {
+  tx: BookingTransaction;
+  limits: WeeklyLimits;
+  store: BookingStore;
+  auth: AuthService;
+}
+
+let _container: Container | null = null;
+
+export function getContainer(overrides?: Partial<Container>): Container {
+  if (overrides) {
+    const base = buildContainer();
+    return { ...base, ...overrides };
+  }
+  if (!_container) {
+    _container = buildContainer();
+  }
+  return _container;
+}
+
+export function resetContainer(): void {
+  _container = null;
+  // Also reset old singleton factories so tests get fresh instances
+  calendarService = undefined!;
+  realCalendarService = null;
+  tokenStore = undefined!;
+  authService = undefined!;
+  bookingStore = undefined!;
+  notificationService = undefined!;
+  bookingService = undefined!;
+}
+
+function buildContainer(): Container {
+  const store = getBookingStore();
+  const limits = createWeeklyLimits(store);
+  const calendar = isMock() ? null : getCalendarService();
+  const notifier = getNotificationService();
+  const tx = createBookingTransaction(store, limits, calendar, notifier);
+  const auth = getAuthService();
+  return { tx, limits, store, auth };
 }

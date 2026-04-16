@@ -1,85 +1,73 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/services/session";
-import { getBookingService, getBookingStore } from "@/lib/services";
-import { BookingError, getWeekStart } from "@/lib/services/booking-service";
+import { requireAuth } from "@/lib/route-guard";
+import { getContainer } from "@/lib/services";
+import { todayIL } from "@/lib/services/israel-time";
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const { session, error } = await requireAuth();
+  if (error) return error;
 
   const { slotId } = await request.json();
   if (!slotId) {
     return NextResponse.json({ error: "slotId required" }, { status: 400 });
   }
 
-  try {
-    const booking = await getBookingService().book(session.id, slotId, session.name);
-    return NextResponse.json(booking, { status: 201 });
-  } catch (err) {
-    if (err instanceof BookingError) {
-      return NextResponse.json({ error: err.message }, { status: 409 });
-    }
-    throw err;
+  const { tx } = getContainer();
+  const result = await tx.book(session.id, slotId, {
+    traineeName: session.name,
+  });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.message }, { status: 409 });
   }
+  return NextResponse.json({ booking: result.booking }, { status: 201 });
 }
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const { session, error } = await requireAuth();
+  if (error) return error;
 
-  const bookings = getBookingStore().getTraineeBookings(session.id);
-  const today = new Date().toISOString().slice(0, 10);
-  const weekStart = getWeekStart(today);
-  const remainingEdits = getBookingService().getRemainingEdits(session.id, weekStart);
+  const { store, limits } = getContainer();
+  const bookings = store.getTraineeBookings(session.id);
+  const today = todayIL();
+  const remainingEdits = limits.getRemainingEdits(session.id, today);
   return NextResponse.json({ bookings, remainingEdits });
 }
 
 export async function PATCH(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const { session, error } = await requireAuth();
+  if (error) return error;
 
   const { bookingId, newSlotId } = await request.json();
   if (!bookingId || !newSlotId) {
-    return NextResponse.json({ error: "bookingId and newSlotId required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "bookingId and newSlotId required" },
+      { status: 400 }
+    );
   }
 
-  try {
-    const booking = await getBookingService().reschedule(
-      bookingId, session.id, newSlotId, session.name
-    );
-    return NextResponse.json(booking);
-  } catch (err) {
-    if (err instanceof BookingError) {
-      return NextResponse.json({ error: err.message }, { status: 409 });
-    }
-    throw err;
+  const { tx } = getContainer();
+  const result = await tx.reschedule(bookingId, session.id, newSlotId, {
+    traineeName: session.name,
+  });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.message }, { status: 409 });
   }
+  return NextResponse.json({ booking: result.booking });
 }
 
 export async function DELETE(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const { session, error } = await requireAuth();
+  if (error) return error;
 
   const { bookingId } = await request.json();
   if (!bookingId) {
     return NextResponse.json({ error: "bookingId required" }, { status: 400 });
   }
 
-  try {
-    await getBookingService().cancel(bookingId, session.id);
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    if (err instanceof BookingError) {
-      return NextResponse.json({ error: err.message }, { status: 409 });
-    }
-    throw err;
+  const { tx } = getContainer();
+  const result = await tx.cancel(bookingId, session.id);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.message }, { status: 409 });
   }
+  return NextResponse.json({ success: true });
 }

@@ -91,6 +91,7 @@ export default function BookPage() {
   }, [user, selectedDay, days, fetchBookings, refreshSlots]);
 
   async function handleBook(slotId: string) {
+    
     setError("");
     const res = await fetch("/api/bookings", {
       method: "POST",

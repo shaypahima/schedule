@@ -1,4 +1,5 @@
 import { TimePeriod, Slot } from "@/lib/types";
+import { israelSlotToUTC, isLockedOut } from "./israel-time";
 
 export interface AvailableSlot {
   id: string;
@@ -12,7 +13,6 @@ export interface AvailableSlot {
 }
 
 const SLOT_DURATION_MS = 60 * 60 * 1000; // 60 minutes
-const ISRAEL_TZ = "Asia/Jerusalem";
 
 /**
  * Generate available 60-min slots for a given date.
@@ -36,8 +36,7 @@ export function generateAvailableSlots(
     const timeStr = `${String(hour).padStart(2, "0")}:00`;
 
     // Build slot start/end as Date objects for overlap checking
-    // Use the Israel timezone offset for April (IDT = UTC+3)
-    const slotStart = new Date(`${date}T${timeStr}:00+03:00`);
+    const slotStart = israelSlotToUTC(date, timeStr);
     const slotEnd = new Date(slotStart.getTime() + SLOT_DURATION_MS);
 
     // Check if this slot overlaps any busy period
@@ -56,7 +55,7 @@ export function generateAvailableSlots(
     if (remainingCapacity <= 0) continue;
 
     const lockoutOverride = existing?.lockoutOverride ?? false;
-    const lockedOut = !lockoutOverride && new Date() > new Date(slotStart.getTime() - 7 * 60 * 60 * 1000);
+    const lockedOut = !lockoutOverride && isLockedOut(date, timeStr);
 
     available.push({
       id: existing?.id ?? `new-${date}-${timeStr}`,

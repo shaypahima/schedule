@@ -1,6 +1,7 @@
 import { Booking, Slot, EditLog } from "@/lib/types";
 import { GoogleCalendarService } from "./google-calendar";
 import { NotificationService, NotificationPayload } from "./notification";
+import { israelSlotToUTC, isLockedOut, weekStartForDate } from "./israel-time";
 
 export class BookingError extends Error {
   constructor(message: string) {
@@ -31,16 +32,9 @@ const MAX_EDITS_PER_WEEK = 3;
 const MAX_SESSIONS_PER_WEEK = 2;
 const LOCKOUT_HOURS = 7;
 
-/** Get the Sunday of the week containing the given date (YYYY-MM-DD) */
+/** @deprecated Use weekStartForDate from israel-time.ts */
 export function getWeekStart(date: string): string {
-  const [y, m, d] = date.split("-").map(Number);
-  const dt = new Date(y, m - 1, d); // local date, no TZ issues
-  const day = dt.getDay(); // 0=Sun
-  dt.setDate(dt.getDate() - day);
-  const yy = dt.getFullYear();
-  const mm = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
+  return weekStartForDate(date);
 }
 
 export class BookingService {
@@ -86,9 +80,7 @@ export class BookingService {
 
   private checkLockout(slot: Slot): void {
     if (slot.lockoutOverride) return;
-    const sessionStart = new Date(`${slot.date}T${slot.startTime}:00+03:00`);
-    const lockoutTime = new Date(sessionStart.getTime() - LOCKOUT_HOURS * 60 * 60 * 1000);
-    if (new Date() > lockoutTime) {
+    if (isLockedOut(slot.date, slot.startTime, LOCKOUT_HOURS)) {
       throw new BookingError("Cannot modify within 7 hours of session");
     }
   }
@@ -98,7 +90,24 @@ export class BookingService {
     slotId: string,
     traineeName?: string
   ): Promise<Booking> {
-    const slot = this.store.getSlot(slotId);
+    let slot = this.store.getSlot(slotId);
+
+    // Auto-create slot from "new-YYYY-MM-DD-HH:mm" placeholder IDs
+    if (!slot && slotId.startsWith("new-")) {
+      const match = slotId.match(/^new-(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2})$/);
+      if (match) {
+        slot = {
+          id: slotId,
+          date: match[1],
+          startTime: match[2],
+          capacity: 2,
+          lockoutOverride: false,
+          currentBookings: 0,
+        };
+        this.store.upsertSlot(slot);
+      }
+    }
+
     if (!slot) throw new BookingError("Slot not found");
 
     this.checkLockout(slot);
@@ -117,7 +126,7 @@ export class BookingService {
     // Create Google Calendar event if calendar service available
     let googleEventId: string | null = null;
     if (this.calendar && traineeName) {
-      const start = new Date(`${slot.date}T${slot.startTime}:00+03:00`);
+      const start = israelSlotToUTC(slot.date, slot.startTime);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
       const event = await this.calendar.createEvent({
         summary: traineeName,
@@ -230,7 +239,23 @@ export class BookingService {
 
   /** Admin: book trainee into slot, bypassing all limits */
   async adminBook(traineeId: string, slotId: string, traineeName?: string): Promise<Booking> {
-    const slot = this.store.getSlot(slotId);
+    let slot = this.store.getSlot(slotId);
+
+    if (!slot && slotId.startsWith("new-")) {
+      const match = slotId.match(/^new-(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2})$/);
+      if (match) {
+        slot = {
+          id: slotId,
+          date: match[1],
+          startTime: match[2],
+          capacity: 2,
+          lockoutOverride: false,
+          currentBookings: 0,
+        };
+        this.store.upsertSlot(slot);
+      }
+    }
+
     if (!slot) throw new BookingError("Slot not found");
     if (slot.currentBookings >= slot.capacity) throw new BookingError("Slot is full");
 
@@ -241,7 +266,7 @@ export class BookingService {
 
     let googleEventId: string | null = null;
     if (this.calendar && traineeName) {
-      const start = new Date(`${slot.date}T${slot.startTime}:00+03:00`);
+      const start = israelSlotToUTC(slot.date, slot.startTime);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
       const event = await this.calendar.createEvent({ summary: traineeName, start, end });
       googleEventId = event.id;
@@ -329,9 +354,10 @@ export class MockBookingStore implements BookingStore {
   }
 
   getTraineeBookingsForWeek(traineeId: string, weekStart: string): Booking[] {
-    const weekEnd = new Date(weekStart + "T00:00:00");
-    weekEnd.setDate(weekEnd.getDate() + 7);
-    const weekEndStr = weekEnd.toISOString().slice(0, 10);
+    // Compute week end by adding 7 days to YYYY-MM-DD string (pure date math, no TZ)
+    const [y, m, d] = weekStart.split("-").map(Number);
+    const end = new Date(y, m - 1, d + 7);
+    const weekEndStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
     return Array.from(this.bookings.values()).filter((b) => {
       if (b.traineeId !== traineeId || b.status !== "confirmed") return false;
       const slot = this.slots.get(b.slotId);

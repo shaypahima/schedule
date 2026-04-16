@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/services/session";
+import { requireAdmin } from "@/lib/route-guard";
 import { getBookingStore } from "@/lib/services";
-
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session || session.role !== "admin") return null;
-  return session;
-}
 
 /** Admin: update slot capacity or lockout override */
 export async function PATCH(request: NextRequest) {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
-  }
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   const { slotId, date, startTime, capacity, lockoutOverride } = await request.json();
   const store = getBookingStore();

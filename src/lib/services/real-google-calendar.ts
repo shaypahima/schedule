@@ -7,6 +7,7 @@ import {
 } from "@/lib/types";
 import { GoogleCalendarService } from "./google-calendar";
 import { TokenStore } from "./token-store";
+import { ISRAEL_TZ } from "./israel-time";
 
 export function createOAuth2Client(): OAuth2Client {
   return new google.auth.OAuth2(
@@ -84,11 +85,11 @@ export class RealGoogleCalendarService implements GoogleCalendarService {
         summary: params.summary,
         start: {
           dateTime: params.start.toISOString(),
-          timeZone: "Asia/Jerusalem",
+          timeZone: ISRAEL_TZ,
         },
         end: {
           dateTime: params.end.toISOString(),
-          timeZone: "Asia/Jerusalem",
+          timeZone: ISRAEL_TZ,
         },
       },
     });

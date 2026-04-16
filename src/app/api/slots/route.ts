@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCalendarService } from "@/lib/services";
 import { generateAvailableSlots } from "@/lib/services/slot-availability";
+import { israelSlotToUTC } from "@/lib/services/israel-time";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -13,9 +14,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Build day boundaries in Israel timezone (IDT = UTC+3 in summer)
-  const dayStart = new Date(`${date}T00:00:00+03:00`);
-  const dayEnd = new Date(`${date}T23:59:59+03:00`);
+  // Build day boundaries in Israel timezone (DST-aware)
+  const dayStart = israelSlotToUTC(date, "00:00");
+  const dayEnd = israelSlotToUTC(date, "23:59");
 
   const calendar = getCalendarService();
   const { busy } = await calendar.getFreeBusy(dayStart, dayEnd);
