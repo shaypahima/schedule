@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthService } from "@/lib/services";
+import { getContainer } from "@/lib/services";
 
 export async function POST(request: NextRequest) {
   const { phone } = await request.json();
@@ -8,6 +8,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Phone number required" }, { status: 400 });
   }
 
-  await getAuthService().sendOtp(phone);
+  await getContainer().auth.sendOtp(phone);
   return NextResponse.json({ success: true });
 }

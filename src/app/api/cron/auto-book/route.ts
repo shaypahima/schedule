@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthService, getBookingService, getBookingStore } from "@/lib/services";
+import { getContainer } from "@/lib/services";
 import { autoBookRecurring, RecurringTrainee } from "@/lib/services/auto-book";
-import { getWeekStart } from "@/lib/services/booking-service";
 import { requireCron } from "@/lib/route-guard";
 
 export async function GET(request: NextRequest) {
   const { error } = requireCron(request);
   if (error) return error;
 
-  const authService = getAuthService();
-  const allTrainees = await authService.getTrainees();
+  const { auth, tx, limits, store } = getContainer();
+  const allTrainees = await auth.getTrainees();
 
   const recurringTrainees: RecurringTrainee[] = allTrainees
     .filter(
@@ -35,8 +34,9 @@ export async function GET(request: NextRequest) {
 
   const results = await autoBookRecurring(
     recurringTrainees,
-    getBookingService(),
-    getBookingStore(),
+    tx,
+    limits,
+    store,
     weekStart
   );
 

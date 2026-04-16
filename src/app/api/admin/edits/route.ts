@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/route-guard";
-import { getBookingStore, getBookingService } from "@/lib/services";
-import { getWeekStart } from "@/lib/services/booking-service";
+import { getContainer } from "@/lib/services";
+import { todayIL } from "@/lib/services/israel-time";
+import { weekStartForDate } from "@/lib/services/israel-time";
 
 /** Admin: reset trainee edit count for current week */
 export async function POST(request: NextRequest) {
@@ -13,10 +14,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "traineeId required" }, { status: 400 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const weekStart = getWeekStart(today);
-  getBookingStore().resetEditCount(traineeId, weekStart);
+  const today = todayIL();
+  const weekStart = weekStartForDate(today);
+  const { store, limits } = getContainer();
+  store.resetEditCount(traineeId, weekStart);
 
-  const remaining = getBookingService().getRemainingEdits(traineeId, weekStart);
+  const remaining = limits.getRemainingEdits(traineeId, weekStart);
   return NextResponse.json({ traineeId, weekStart, remainingEdits: remaining });
 }

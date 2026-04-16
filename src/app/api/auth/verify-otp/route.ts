@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthService } from "@/lib/services";
+import { getContainer } from "@/lib/services";
 import { setSession } from "@/lib/services/session";
 
 export async function POST(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const profile = await getAuthService().verifyOtp(phone, code);
+    const profile = await getContainer().auth.verifyOtp(phone, code);
     await setSession(profile);
     return NextResponse.json({
       id: profile.id,

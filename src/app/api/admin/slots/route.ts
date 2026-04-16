@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/route-guard";
-import { getBookingStore } from "@/lib/services";
+import { getContainer } from "@/lib/services";
 
 /** Admin: update slot capacity or lockout override */
 export async function PATCH(request: NextRequest) {
@@ -8,7 +8,7 @@ export async function PATCH(request: NextRequest) {
   if (error) return error;
 
   const { slotId, date, startTime, capacity, lockoutOverride } = await request.json();
-  const store = getBookingStore();
+  const { store } = getContainer();
 
   let slot = slotId ? store.getSlot(slotId) : undefined;
 

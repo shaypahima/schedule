@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/route-guard";
-import { getAuthService } from "@/lib/services";
+import { getContainer } from "@/lib/services";
 
 export async function GET() {
   const { error } = await requireAdmin();
   if (error) return error;
 
-  const trainees = await getAuthService().getTrainees();
+  const trainees = await getContainer().auth.getTrainees();
   return NextResponse.json({
     trainees: trainees.map((t) => ({
       id: t.id,
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const profile = await getAuthService().inviteTrainee(phone, name);
+    const profile = await getContainer().auth.inviteTrainee(phone, name);
     return NextResponse.json(profile, { status: 201 });
   } catch (err) {
     return NextResponse.json(
@@ -50,7 +50,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const profile = await getAuthService().updateTrainee(id, updates);
+    const profile = await getContainer().auth.updateTrainee(id, updates);
     return NextResponse.json(profile);
   } catch (err) {
     return NextResponse.json(

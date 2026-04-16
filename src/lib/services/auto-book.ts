@@ -1,4 +1,6 @@
-import { BookingService, BookingStore, getWeekStart } from "./booking-service";
+import { BookingStore } from "./booking-service";
+import { BookingTransaction } from "./booking-transaction";
+import { WeeklyLimits } from "./weekly-limits";
 
 export interface RecurringTrainee {
   id: string;
@@ -20,7 +22,8 @@ export interface AutoBookResult {
  */
 export async function autoBookRecurring(
   trainees: RecurringTrainee[],
-  bookingService: BookingService,
+  tx: BookingTransaction,
+  limits: WeeklyLimits,
   store: BookingStore,
   weekStartDate: string // YYYY-MM-DD (Sunday)
 ): Promise<AutoBookResult[]> {
@@ -32,10 +35,9 @@ export async function autoBookRecurring(
     const slotDate = new Date(y, m - 1, d + trainee.preferredDay);
     const dateStr = `${slotDate.getFullYear()}-${String(slotDate.getMonth() + 1).padStart(2, "0")}-${String(slotDate.getDate()).padStart(2, "0")}`;
 
-    // Check 2/week limit
-    const ws = getWeekStart(dateStr);
-    const weekBookings = store.getTraineeBookingsForWeek(trainee.id, ws);
-    if (weekBookings.length >= 2) {
+    // Check 2/week limit (bypass skips this in tx.book, so check manually)
+    const status = limits.status(trainee.id, dateStr);
+    if (status.bookingsLeft <= 0) {
       results.push({
         traineeId: trainee.id,
         success: false,
@@ -44,60 +46,25 @@ export async function autoBookRecurring(
       continue;
     }
 
-    // Find the slot
     const slotId = `slot-${dateStr}-${trainee.preferredTime}`;
-    const slot = store.getSlot(slotId);
-    if (!slot) {
-      results.push({
-        traineeId: trainee.id,
-        success: false,
-        reason: `Slot not found: ${slotId}`,
-      });
-      continue;
-    }
 
-    if (slot.currentBookings >= slot.capacity) {
-      results.push({
-        traineeId: trainee.id,
-        success: false,
-        reason: "Preferred slot is full",
-      });
-      continue;
-    }
+    const result = await tx.book(trainee.id, slotId, {
+      bypass: true,
+      isAutoBooked: true,
+      traineeName: trainee.name,
+    });
 
-    // Check if already booked for this slot
-    const existing = store
-      .getConfirmedBookingsForSlot(slotId)
-      .find((b) => b.traineeId === trainee.id);
-    if (existing) {
-      results.push({
-        traineeId: trainee.id,
-        success: false,
-        reason: "Already booked in this slot",
-      });
-      continue;
-    }
-
-    try {
-      // Use adminBook to bypass lockout/limits, then mark as auto-booked
-      const booking = await bookingService.adminBook(
-        trainee.id,
-        slotId,
-        trainee.name
-      );
-      // Mark as auto-booked
-      store.updateBooking({ ...booking, isAutoBooked: true });
-
+    if (result.ok) {
       results.push({
         traineeId: trainee.id,
         success: true,
-        bookingId: booking.id,
+        bookingId: result.booking.id,
       });
-    } catch (err) {
+    } else {
       results.push({
         traineeId: trainee.id,
         success: false,
-        reason: err instanceof Error ? err.message : "Unknown error",
+        reason: result.message,
       });
     }
   }
