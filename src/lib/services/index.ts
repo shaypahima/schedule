@@ -4,7 +4,7 @@ import { RealGoogleCalendarService } from "./real-google-calendar";
 import { InMemoryTokenStore, TokenStore } from "./token-store";
 import { AuthService } from "./auth";
 import { MockAuthService } from "./mock-auth";
-import { BookingService, BookingStore, MockBookingStore } from "./booking-service";
+import { BookingStore, MockBookingStore } from "./booking-service";
 import { NotificationService, MockNotificationService } from "./notification";
 import { createBookingTransaction, BookingTransaction } from "./booking-transaction";
 import { createWeeklyLimits, WeeklyLimits } from "./weekly-limits";
@@ -19,7 +19,7 @@ let tokenStore: TokenStore;
 let authService: AuthService;
 let bookingStore: BookingStore;
 let notificationService: NotificationService;
-let bookingService: BookingService;
+
 
 export function getTokenStore(): TokenStore {
   if (!tokenStore) {
@@ -82,18 +82,6 @@ export function getNotificationService(): NotificationService {
   return notificationService;
 }
 
-export function getBookingService(): BookingService {
-  if (!bookingService) {
-    const calendar = isMock() ? undefined : getCalendarService();
-    bookingService = new BookingService(
-      getBookingStore(),
-      calendar,
-      getNotificationService()
-    );
-  }
-  return bookingService;
-}
-
 // --- Container: unified facade over deep modules ---
 
 export interface Container {
@@ -125,7 +113,6 @@ export function resetContainer(): void {
   authService = undefined!;
   bookingStore = undefined!;
   notificationService = undefined!;
-  bookingService = undefined!;
 }
 
 function buildContainer(): Container {
