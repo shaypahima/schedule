@@ -7,7 +7,7 @@ import { Profile, UserRole } from "@/lib/types";
  * and a `profiles` table for app-specific user data.
  */
 export class SupabaseAuthService implements AuthService {
-  constructor(private db: SupabaseClient) {}
+  constructor(private db: SupabaseClient, private admin: SupabaseClient = db) {}
 
   async sendOtp(phone: string): Promise<void> {
     const { error } = await this.db.auth.signInWithOtp({ phone });
@@ -57,14 +57,14 @@ export class SupabaseAuthService implements AuthService {
 
   async inviteTrainee(phone: string, name: string): Promise<Profile> {
     // Create auth user via admin API (service role key required)
-    const { data: authData, error: authError } = await this.db.auth.admin.createUser({
+    const { data: authData, error: authError } = await this.admin.auth.admin.createUser({
       phone,
       phone_confirm: true,
     });
     if (authError) throw new Error(authError.message);
 
     // Create profile row
-    const { data, error } = await this.db
+    const { data, error } = await this.admin
       .from("profiles")
       .insert({
         id: authData.user.id,
@@ -77,6 +77,22 @@ export class SupabaseAuthService implements AuthService {
 
     if (error) throw new Error(error.message);
     return this.mapProfile(data);
+  }
+
+  async deleteTrainee(id: string): Promise<void> {
+    const { data: profile } = await this.admin
+      .from("profiles")
+      .select("is_active")
+      .eq("id", id)
+      .single();
+    if (!profile) throw new Error("Trainee not found");
+    if (profile.is_active) throw new Error("Cannot delete active trainee");
+
+    const { error } = await this.admin
+      .from("profiles")
+      .delete()
+      .eq("id", id);
+    if (error) throw new Error(error.message);
   }
 
   async updateTrainee(
@@ -96,7 +112,7 @@ export class SupabaseAuthService implements AuthService {
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
     if (updates.name !== undefined) dbUpdates.name = updates.name;
 
-    const { data, error } = await this.db
+    const { data, error } = await this.admin
       .from("profiles")
       .update(dbUpdates)
       .eq("id", id)
@@ -135,19 +151,21 @@ export class SupabaseAuthService implements AuthService {
     return this.mapProfile(data);
   }
 
-  private mapProfile(row: Record<string, unknown>): Profile {
+  private mapProfile(row: Record<string, unknown>): Profile & { email?: string | null; status?: string } {
     return {
       id: row.id as string,
-      phone: row.phone as string,
+      phone: (row.phone as string) ?? "",
       name: row.name as string,
       role: row.role as UserRole,
-      isRecurring: row.is_recurring as boolean,
+      isRecurring: (row.is_recurring as boolean) ?? false,
       preferredDay: row.preferred_day as number | null,
       preferredTime: row.preferred_time
         ? String(row.preferred_time).slice(0, 5)
         : null,
-      isActive: row.is_active as boolean,
+      isActive: (row.is_active as boolean) ?? true,
       createdAt: new Date(row.created_at as string),
+      email: (row.email as string | null) ?? null,
+      status: (row.status as string) ?? ((row.is_active as boolean) ? "active" : "deactivated"),
     };
   }
 }

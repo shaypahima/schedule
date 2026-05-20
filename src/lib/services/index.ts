@@ -10,10 +10,20 @@ import { createBookingTransaction, BookingTransaction } from "./booking-transact
 import { createWeeklyLimits, WeeklyLimits } from "./weekly-limits";
 import { SupabaseBookingStore } from "@/lib/supabase/booking-store";
 import { SupabaseAuthService } from "@/lib/supabase/auth-service";
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { SupabaseDevAuthService } from "@/lib/supabase/dev-auth-service";
+import { getSupabaseClient, getSupabaseAdminClient } from "@/lib/supabase/client";
 
-function isMock() {
+/** Fully mocked (in-memory, no DB) — for tests */
+function isFullMock() {
   return process.env.MOCK_SERVICES === "true";
+}
+
+function isMockCalendar() {
+  return isFullMock() || process.env.MOCK_CALENDAR === "true";
+}
+
+function isMockAuth() {
+  return isFullMock() || process.env.MOCK_AUTH === "true";
 }
 
 let calendarService: GoogleCalendarService;
@@ -25,7 +35,6 @@ let notificationService: NotificationService;
 
 export function getTokenStore(): TokenStore {
   if (!tokenStore) {
-    // TODO: Replace with Supabase-backed store
     tokenStore = new InMemoryTokenStore();
   }
   return tokenStore;
@@ -33,7 +42,7 @@ export function getTokenStore(): TokenStore {
 
 export function getCalendarService(): GoogleCalendarService {
   if (!calendarService) {
-    if (isMock()) {
+    if (isMockCalendar()) {
       calendarService = new MockGoogleCalendarService();
     } else {
       calendarService = new RealGoogleCalendarService(getTokenStore());
@@ -42,12 +51,8 @@ export function getCalendarService(): GoogleCalendarService {
   return calendarService;
 }
 
-/**
- * Returns the real calendar service for OAuth2 flows.
- * Returns null if in mock mode.
- */
 export function getRealCalendarService(): RealGoogleCalendarService | null {
-  if (isMock()) return null;
+  if (isMockCalendar()) return null;
   if (!realCalendarService) {
     realCalendarService = new RealGoogleCalendarService(getTokenStore());
   }
@@ -56,10 +61,15 @@ export function getRealCalendarService(): RealGoogleCalendarService | null {
 
 export function getAuthService(): AuthService {
   if (!authService) {
-    if (isMock()) {
+    if (isFullMock()) {
+      // Tests: fully in-memory
       authService = new MockAuthService();
+    } else if (isMockAuth()) {
+      // Dev: real DB profiles, bypass OTP
+      authService = new SupabaseDevAuthService(getSupabaseClient());
     } else {
-      authService = new SupabaseAuthService(getSupabaseClient());
+      // Production: real Supabase Auth with OTP (anon for sign-in, admin for invite)
+      authService = new SupabaseAuthService(getSupabaseClient(), getSupabaseAdminClient());
     }
   }
   return authService;
@@ -67,10 +77,13 @@ export function getAuthService(): AuthService {
 
 export function getBookingStore(): BookingStore {
   if (!bookingStore) {
-    if (isMock()) {
+    if (isFullMock()) {
       bookingStore = new MockBookingStore();
     } else {
-      bookingStore = new SupabaseBookingStore(getSupabaseClient());
+      // Service-role client: backend is trusted; route guards enforce
+      // role + identity before we hit the store. RLS would otherwise
+      // reject queries from the anon client (no auth.uid()).
+      bookingStore = new SupabaseBookingStore(getSupabaseAdminClient());
     }
   }
   return bookingStore;
@@ -78,7 +91,6 @@ export function getBookingStore(): BookingStore {
 
 export function getNotificationService(): NotificationService {
   if (!notificationService) {
-    // TODO: replace with real email/push service in production
     notificationService = new MockNotificationService();
   }
   return notificationService;
@@ -119,7 +131,7 @@ export function resetContainer(): void {
 function buildContainer(): Container {
   const store = getBookingStore();
   const limits = createWeeklyLimits(store);
-  const calendar = isMock() ? null : getCalendarService();
+  const calendar = isMockCalendar() ? null : getCalendarService();
   const notifier = getNotificationService();
   const tx = createBookingTransaction(store, limits, calendar, notifier);
   const auth = getAuthService();
