@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../utils/url_opener.dart';
 import '../auth/auth_repository.dart';
 import '../auth/login_screen.dart';
+import '../coach/calendar_repository.dart';
 import '../coach/coach_settings_screen.dart';
 import 'profile_repository.dart';
 
@@ -75,6 +77,27 @@ class ProfileScreen extends ConsumerWidget {
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const CoachSettingsScreen()),
                   ),
+                ),
+                const SizedBox(height: 12),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final connected = ref.watch(calendarConnectedProvider).valueOrNull;
+                    if (connected == true) {
+                      return const Text(
+                        '✓ יומן Google מחובר',
+                        key: Key('calendar-connected'),
+                      );
+                    }
+                    return FilledButton.tonalIcon(
+                      key: const Key('connect-calendar-button'),
+                      icon: const Icon(Icons.calendar_today),
+                      label: const Text('חבר יומן Google'),
+                      onPressed: () async {
+                        final url = await ref.read(calendarRepositoryProvider).getAuthUrl();
+                        await ref.read(urlOpenerProvider).open(Uri.parse(url));
+                      },
+                    );
+                  },
                 ),
               ],
             ],
