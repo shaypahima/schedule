@@ -154,6 +154,16 @@ class _CoachSlotTile extends ConsumerWidget {
   final List<AdminBooking> bookings;
   const _CoachSlotTile({required this.slot, required this.bookings});
 
+  Future<void> _openOverridesSheet(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _SlotOverridesSheet(slot: slot, bookings: bookings),
+    );
+    ref.invalidate(slotsForDateProvider);
+    ref.invalidate(adminBookingsForDateProvider);
+  }
+
   Future<void> _openAddTraineeSheet(BuildContext context, WidgetRef ref) async {
     final selected = await showModalBottomSheet<TraineeOption>(
       context: context,
@@ -206,8 +216,11 @@ class _CoachSlotTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
+    return GestureDetector(
       key: Key('coach-slot-${slot.startTime}'),
+      onLongPress: () => _openOverridesSheet(context, ref),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -216,7 +229,8 @@ class _CoachSlotTile extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${slot.startTime}  (${bookings.length}/${slot.capacity})',
+                  '${slot.startTime}  (${bookings.length}/${slot.capacity})'
+                  '${slot.lockoutOverride ? "  🔓" : ""}',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -247,6 +261,79 @@ class _CoachSlotTile extends ConsumerWidget {
               ),
             ),
         ],
+      ),
+      ),
+    );
+  }
+}
+
+class _SlotOverridesSheet extends ConsumerWidget {
+  final Slot slot;
+  final List<AdminBooking> bookings;
+  const _SlotOverridesSheet({required this.slot, required this.bookings});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SafeArea(
+      child: Padding(
+        key: const Key('slot-overrides-sheet'),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('עקיפות שעה (${slot.startTime})',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              key: const Key('override-capacity-3'),
+              title: const Text('קיבולת 3 (במקום 2)'),
+              value: slot.capacity >= 3,
+              onChanged: (v) async {
+                await ref.read(adminRepositoryProvider).updateSlot(
+                      slotId: slot.id.startsWith('new-') ? null : slot.id,
+                      date: slot.date,
+                      startTime: slot.startTime,
+                      capacity: v ? 3 : 2,
+                    );
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
+              },
+            ),
+            SwitchListTile(
+              key: const Key('override-lockout'),
+              title: const Text('עקוף חסימת 7 שעות'),
+              subtitle: const Text('מאפשר ביטול/שינוי גם בשעה הסופית'),
+              value: slot.lockoutOverride,
+              onChanged: (v) async {
+                await ref.read(adminRepositoryProvider).updateSlot(
+                      slotId: slot.id.startsWith('new-') ? null : slot.id,
+                      date: slot.date,
+                      startTime: slot.startTime,
+                      lockoutOverride: v,
+                    );
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
+              },
+            ),
+            if (bookings.isNotEmpty) ...[
+              const Divider(),
+              for (final b in bookings)
+                FilledButton.tonal(
+                  key: Key('reset-edits-${b.traineeId}'),
+                  onPressed: () async {
+                    await ref.read(adminRepositoryProvider).resetEdits(b.traineeId);
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('עריכות אופסו ל-${b.traineeName ?? b.traineeId}')),
+                    );
+                  },
+                  child: Text('אפס עריכות: ${b.traineeName ?? b.traineeId}'),
+                ),
+            ],
+          ],
+        ),
       ),
     );
   }

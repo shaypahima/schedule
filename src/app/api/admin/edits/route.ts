@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/route-guard";
 import { getContainer } from "@/lib/services";
-import { todayIL } from "@/lib/services/israel-time";
-import { weekStartForDate } from "@/lib/services/israel-time";
+import { todayIL, weekStartForDate } from "@/lib/services/israel-time";
+import { requireAdminJwt } from "@/lib/services/admin-guard";
 
 /** Admin: reset trainee edit count for current week */
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdminJwt(request);
   if (error) return error;
 
   const { traineeId } = await request.json();

@@ -84,6 +84,14 @@ abstract class AdminRepository {
   });
   Future<void> resendInvite(String email);
   Future<void> updateTrainee(String id, Map<String, dynamic> updates);
+  Future<void> updateSlot({
+    String? slotId,
+    String? date,
+    String? startTime,
+    int? capacity,
+    bool? lockoutOverride,
+  });
+  Future<void> resetEdits(String traineeId);
 }
 
 class HttpAdminRepository implements AdminRepository {
@@ -179,6 +187,36 @@ class HttpAdminRepository implements AdminRepository {
     await _dio.patch<void>(
       '/api/admin/trainees',
       data: {'id': id, ...updates},
+      options: _opts(),
+    );
+  }
+
+  @override
+  Future<void> updateSlot({
+    String? slotId,
+    String? date,
+    String? startTime,
+    int? capacity,
+    bool? lockoutOverride,
+  }) async {
+    await _dio.patch<void>(
+      '/api/admin/slots',
+      data: {
+        ?slotId == null ? null : 'slotId': slotId,
+        ?date == null ? null : 'date': date,
+        ?startTime == null ? null : 'startTime': startTime,
+        ?capacity == null ? null : 'capacity': capacity,
+        ?lockoutOverride == null ? null : 'lockoutOverride': lockoutOverride,
+      },
+      options: _opts(),
+    );
+  }
+
+  @override
+  Future<void> resetEdits(String traineeId) async {
+    await _dio.post<void>(
+      '/api/admin/edits',
+      data: {'traineeId': traineeId},
       options: _opts(),
     );
   }
