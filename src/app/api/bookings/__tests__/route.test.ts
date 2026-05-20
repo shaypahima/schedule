@@ -144,6 +144,45 @@ describe("GET /api/bookings", () => {
     expect(body).toHaveProperty("remainingEdits");
     expect(body.remainingEdits).toBe(3);
   });
+
+  it("each booking has an isLocked flag (lockout = within 7h)", async () => {
+    mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
+    mockFindProfile.mockResolvedValue(traineeProfile);
+
+    // Book at a time well before the slots so book() doesn't lockout-reject.
+    vi.setSystemTime(new Date("2026-04-05T06:00:00Z"));
+
+    const { store } = getContainer();
+    store.upsertSlot({
+      id: "slot-soon",
+      date: "2026-04-06",
+      startTime: "11:00", // 08:00 UTC (UTC+3 in April)
+      capacity: 2,
+      lockoutOverride: false,
+      currentBookings: 0,
+    });
+    store.upsertSlot({
+      id: "slot-later",
+      date: "2026-04-06",
+      startTime: "19:00", // 16:00 UTC
+      capacity: 2,
+      lockoutOverride: false,
+      currentBookings: 0,
+    });
+    await POST(makeRequest({ slotId: "slot-soon" }));
+    await POST(makeRequest({ slotId: "slot-later" }));
+
+    // Advance to 06:00 UTC on the day-of: slot-soon is in 2h (locked),
+    // slot-later is in 10h (not locked).
+    vi.setSystemTime(new Date("2026-04-06T06:00:00Z"));
+
+    const res = await GET(makeGetRequest());
+    const body = await res.json();
+    const soon = body.bookings.find((b: { slotId: string }) => b.slotId === "slot-soon");
+    const later = body.bookings.find((b: { slotId: string }) => b.slotId === "slot-later");
+    expect(soon.isLocked).toBe(true);
+    expect(later.isLocked).toBe(false);
+  });
 });
 
 describe("DELETE /api/bookings", () => {

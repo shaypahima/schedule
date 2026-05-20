@@ -5,6 +5,7 @@ class Booking {
   final String status; // "confirmed" | "cancelled"
   final String? slotDate; // YYYY-MM-DD (enriched by server)
   final String? slotStartTime; // HH:mm
+  final bool isLocked; // within 7h of slot start (server-computed)
 
   const Booking({
     required this.id,
@@ -13,6 +14,7 @@ class Booking {
     required this.status,
     this.slotDate,
     this.slotStartTime,
+    this.isLocked = false,
   });
 
   bool get isConfirmed => status == 'confirmed';
@@ -26,6 +28,7 @@ class Booking {
       status: json['status'] as String,
       slotDate: slot?['date'] as String?,
       slotStartTime: slot?['startTime'] as String?,
+      isLocked: (json['isLocked'] as bool?) ?? false,
     );
   }
 }

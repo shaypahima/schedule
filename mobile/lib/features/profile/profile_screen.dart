@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../coach/coach_settings_screen.dart';
 import 'profile_repository.dart';
 
 String roleLabel(String role) {
@@ -46,6 +47,17 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(profile.email,
                   style: Theme.of(context).textTheme.bodyMedium),
+              if (profile.role == 'admin') ...[
+                const SizedBox(height: 24),
+                FilledButton.tonalIcon(
+                  key: const Key('coach-settings-link'),
+                  icon: const Icon(Icons.settings),
+                  label: const Text('הגדרות מאמן'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const CoachSettingsScreen()),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

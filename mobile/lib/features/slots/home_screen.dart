@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/week_dates.dart';
 import '../bookings/booking.dart';
 import '../bookings/booking_repository.dart';
+import '../coach/contact_coach_card.dart';
 import '../profile/profile_screen.dart';
 import 'slot.dart';
 import 'slot_repository.dart';
@@ -253,26 +254,38 @@ class _MyBookingRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Text(
-              '${booking.slotDate ?? ""}  ${booking.slotStartTime ?? ""}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${booking.slotDate ?? ""}  ${booking.slotStartTime ?? ""}'
+                  '${booking.isLocked ? "  🔒" : ""}',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              IconButton(
+                key: Key('reschedule-booking-${booking.id}'),
+                tooltip: 'שינוי מועד',
+                icon: const Icon(Icons.edit_calendar_outlined),
+                onPressed: booking.isLocked
+                    ? null
+                    : () => _openReschedulePicker(context, ref),
+              ),
+              IconButton(
+                key: Key('cancel-booking-${booking.id}'),
+                tooltip: 'בטל',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: booking.isLocked
+                    ? null
+                    : () => _openCancelDialog(context, ref),
+              ),
+            ],
           ),
-          IconButton(
-            key: Key('reschedule-booking-${booking.id}'),
-            tooltip: 'שינוי מועד',
-            icon: const Icon(Icons.edit_calendar_outlined),
-            onPressed: () => _openReschedulePicker(context, ref),
-          ),
-          IconButton(
-            key: Key('cancel-booking-${booking.id}'),
-            tooltip: 'בטל',
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _openCancelDialog(context, ref),
-          ),
+          if (booking.isLocked)
+            ContactCoachCard(lockedSlotStartTime: booking.slotStartTime),
         ],
       ),
     );

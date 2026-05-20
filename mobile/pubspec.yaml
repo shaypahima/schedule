@@ -30,6 +30,9 @@ dependencies:
   # i18n
   intl: ^0.20.2
 
+  # Deep links (WhatsApp / tel:)
+  url_launcher: ^6.3.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
-import { todayIL } from "@/lib/services/israel-time";
+import { todayIL, isLockedOut } from "@/lib/services/israel-time";
 import { getJwtSession } from "@/lib/services/jwt-session";
 import { findProfile } from "@/lib/services/profile-repo";
+
+const LOCKOUT_HOURS = 7;
 
 async function authedTrainee(request: NextRequest) {
   const session = await getJwtSession(request);
@@ -35,7 +37,14 @@ export async function GET(request: NextRequest) {
   const enriched = await Promise.all(
     bookings.map(async (b) => {
       const slot = await store.getSlot(b.slotId);
-      return { ...b, slot: slot ? { date: slot.date, startTime: slot.startTime } : null };
+      const isLocked = slot
+        ? !slot.lockoutOverride && isLockedOut(slot.date, slot.startTime, LOCKOUT_HOURS)
+        : false;
+      return {
+        ...b,
+        slot: slot ? { date: slot.date, startTime: slot.startTime } : null,
+        isLocked,
+      };
     })
   );
 

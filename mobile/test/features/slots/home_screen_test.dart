@@ -7,32 +7,73 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:velofit/features/bookings/booking.dart';
 import 'package:velofit/features/bookings/booking_repository.dart';
+import 'package:velofit/features/coach/coach_info.dart';
+import 'package:velofit/features/coach/coach_info_repository.dart';
 import 'package:velofit/features/slots/home_screen.dart';
 import 'package:velofit/features/slots/slot.dart';
 import 'package:velofit/features/slots/slot_repository.dart';
+import 'package:velofit/utils/url_opener.dart';
 
 class _FakeSlotRepo extends Mock implements SlotRepository {}
 
 class _FakeBookingRepo extends Mock implements BookingRepository {}
 
+class _FakeCoachInfoRepo extends Mock implements CoachInfoRepository {}
+
+class _CapturingUrlOpener implements UrlOpener {
+  final List<Uri> opened = [];
+  @override
+  Future<void> open(Uri url) async => opened.add(url);
+}
+
+Widget _harnessWithCoach({
+  required SlotRepository repo,
+  BookingRepository? bookings,
+  CoachInfo? coach,
+  UrlOpener? urlOpener,
+  DateTime? now,
+}) {
+  final coachRepo = _FakeCoachInfoRepo();
+  when(() => coachRepo.fetch()).thenAnswer((_) async => coach);
+  return ProviderScope(
+    overrides: [
+      slotRepositoryProvider.overrideWithValue(repo),
+      if (bookings != null) bookingRepositoryProvider.overrideWithValue(bookings),
+      coachInfoRepositoryProvider.overrideWithValue(coachRepo),
+      if (urlOpener != null) urlOpenerProvider.overrideWithValue(urlOpener),
+    ],
+    child: MaterialApp(
+      builder: (context, child) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: child ?? const SizedBox.shrink(),
+      ),
+      home: HomeScreen(now: now ?? DateTime(2026, 5, 20)),
+    ),
+  );
+}
+
 Widget _harness({
   required SlotRepository repo,
   BookingRepository? bookings,
   DateTime? now,
-}) =>
-    ProviderScope(
-      overrides: [
-        slotRepositoryProvider.overrideWithValue(repo),
-        if (bookings != null) bookingRepositoryProvider.overrideWithValue(bookings),
-      ],
-      child: MaterialApp(
-        builder: (context, child) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: child ?? const SizedBox.shrink(),
-        ),
-        home: HomeScreen(now: now ?? DateTime(2026, 5, 20)), // Wed 2026-05-20
+}) {
+  final coachRepo = _FakeCoachInfoRepo();
+  when(() => coachRepo.fetch()).thenAnswer((_) async => null);
+  return ProviderScope(
+    overrides: [
+      slotRepositoryProvider.overrideWithValue(repo),
+      if (bookings != null) bookingRepositoryProvider.overrideWithValue(bookings),
+      coachInfoRepositoryProvider.overrideWithValue(coachRepo),
+    ],
+    child: MaterialApp(
+      builder: (context, child) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: child ?? const SizedBox.shrink(),
       ),
-    );
+      home: HomeScreen(now: now ?? DateTime(2026, 5, 20)), // Wed 2026-05-20
+    ),
+  );
+}
 
 const _aSlot = Slot(
   id: 's1',
@@ -146,6 +187,180 @@ void main() {
 
       expect(find.byKey(const Key('slots-error')), findsOneWidget);
       expect(find.text('שגיאה בטעינת השעות'), findsOneWidget);
+    });
+
+    testWidgets('whatsapp tap opens wa.me URL with Hebrew prefilled message',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      final opener = _CapturingUrlOpener();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(
+            remainingEdits: 3,
+            bookings: [
+              Booking(
+                id: 'b-locked',
+                slotId: 's-locked',
+                traineeId: 't1',
+                status: 'confirmed',
+                slotDate: '2026-05-20',
+                slotStartTime: '10:00',
+                isLocked: true,
+              ),
+            ],
+          ));
+
+      await tester.pumpWidget(_harnessWithCoach(
+        repo: repo,
+        bookings: bookings,
+        coach: const CoachInfo(name: 'דני', contactPhone: '+972501234567'),
+        urlOpener: opener,
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('contact-coach-whatsapp')));
+      await tester.pumpAndSettle();
+
+      expect(opener.opened, hasLength(1));
+      expect(opener.opened.first.scheme, 'https');
+      expect(opener.opened.first.host, 'wa.me');
+      expect(opener.opened.first.path, '/972501234567');
+      expect(
+        opener.opened.first.queryParameters['text'],
+        'היי, אני נעול מהאימון ב-10:00, אפשר חריג?',
+      );
+    });
+
+    testWidgets('call tap opens tel: URL', (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      final opener = _CapturingUrlOpener();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(
+            remainingEdits: 3,
+            bookings: [
+              Booking(
+                id: 'b-locked',
+                slotId: 's-locked',
+                traineeId: 't1',
+                status: 'confirmed',
+                slotDate: '2026-05-20',
+                slotStartTime: '10:00',
+                isLocked: true,
+              ),
+            ],
+          ));
+
+      await tester.pumpWidget(_harnessWithCoach(
+        repo: repo,
+        bookings: bookings,
+        coach: const CoachInfo(name: 'דני', contactPhone: '+972501234567'),
+        urlOpener: opener,
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('contact-coach-call')));
+      await tester.pumpAndSettle();
+
+      expect(opener.opened, hasLength(1));
+      expect(opener.opened.first.toString(), 'tel:+972501234567');
+    });
+
+    testWidgets('null contact phone shows Hebrew missing-contact text',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(
+            remainingEdits: 3,
+            bookings: [
+              Booking(
+                id: 'b-locked',
+                slotId: 's-locked',
+                traineeId: 't1',
+                status: 'confirmed',
+                slotDate: '2026-05-20',
+                slotStartTime: '10:00',
+                isLocked: true,
+              ),
+            ],
+          ));
+
+      await tester.pumpWidget(_harnessWithCoach(
+        repo: repo,
+        bookings: bookings,
+        coach: const CoachInfo(name: 'דני', contactPhone: null),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('contact-coach-missing')), findsOneWidget);
+      expect(find.text('פרטי קשר של המאמן חסרים — פנה למאמן'), findsOneWidget);
+    });
+
+    testWidgets('locked booking shows Contact Coach card with WhatsApp + Call',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(
+            remainingEdits: 3,
+            bookings: [
+              Booking(
+                id: 'b-locked',
+                slotId: 's-locked',
+                traineeId: 't1',
+                status: 'confirmed',
+                slotDate: '2026-05-20',
+                slotStartTime: '10:00',
+                isLocked: true,
+              ),
+            ],
+          ));
+
+      // Override coach info via the harness — provide a fake repo that returns coach
+      await tester.pumpWidget(_harnessWithCoach(
+        repo: repo,
+        bookings: bookings,
+        coach: const CoachInfo(name: 'דני אמסלם', contactPhone: '+972501234567'),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('contact-coach-card')), findsOneWidget);
+      expect(find.byKey(const Key('contact-coach-whatsapp')), findsOneWidget);
+      expect(find.byKey(const Key('contact-coach-call')), findsOneWidget);
+    });
+
+    testWidgets('locked booking disables cancel + reschedule buttons',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(
+            remainingEdits: 3,
+            bookings: [
+              Booking(
+                id: 'b-locked',
+                slotId: 's-locked',
+                traineeId: 't1',
+                status: 'confirmed',
+                slotDate: '2026-05-20',
+                slotStartTime: '10:00',
+                isLocked: true,
+              ),
+            ],
+          ));
+
+      await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
+      await tester.pumpAndSettle();
+
+      final cancelBtn = tester.widget<IconButton>(
+        find.byKey(const Key('cancel-booking-b-locked')),
+      );
+      final rescheduleBtn = tester.widget<IconButton>(
+        find.byKey(const Key('reschedule-booking-b-locked')),
+      );
+      expect(cancelBtn.onPressed, isNull);
+      expect(rescheduleBtn.onPressed, isNull);
     });
 
     testWidgets('reschedule failure surfaces server error and keeps booking',
