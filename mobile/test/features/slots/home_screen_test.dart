@@ -148,12 +148,188 @@ void main() {
       expect(find.text('שגיאה בטעינת השעות'), findsOneWidget);
     });
 
+    testWidgets('reschedule failure surfaces server error and keeps booking',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(
+            remainingEdits: 3,
+            bookings: [
+              Booking(
+                id: 'b1',
+                slotId: 'other-slot',
+                traineeId: 't1',
+                status: 'confirmed',
+                slotDate: '2026-05-20',
+                slotStartTime: '11:00',
+              ),
+            ],
+          ));
+      when(() => bookings.reschedule(any(), any())).thenThrow(
+        const BookingFailure('השעה אינה זמינה', statusCode: 409),
+      );
+
+      await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reschedule-booking-b1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('picker-slot-2026-05-17-10:00')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('השעה אינה זמינה'), findsOneWidget);
+      // Original booking still rendered:
+      expect(find.byKey(const Key('my-booking-b1')), findsOneWidget);
+    });
+
+    testWidgets('picking a slot in picker fires reschedule()', (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(
+            remainingEdits: 3,
+            bookings: [
+              Booking(
+                id: 'b1',
+                slotId: 'other-slot',
+                traineeId: 't1',
+                status: 'confirmed',
+                slotDate: '2026-05-20',
+                slotStartTime: '11:00',
+              ),
+            ],
+          ));
+      when(() => bookings.reschedule(any(), any())).thenAnswer((_) async =>
+          const Booking(
+            id: 'b1',
+            slotId: 's1',
+            traineeId: 't1',
+            status: 'confirmed',
+          ));
+
+      await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reschedule-booking-b1')));
+      await tester.pumpAndSettle();
+
+      // Tap any picker slot (they all point to s1 since the fake returns
+      // the same slot for every day).
+      await tester.tap(find.byKey(const Key('picker-slot-2026-05-17-10:00')));
+      await tester.pumpAndSettle();
+
+      verify(() => bookings.reschedule('b1', 's1')).called(1);
+      expect(find.text('האימון הועבר'), findsOneWidget);
+    });
+
+    testWidgets('reschedule button opens slot picker', (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(
+            remainingEdits: 3,
+            bookings: [
+              Booking(
+                id: 'b1',
+                slotId: 'other-slot',
+                traineeId: 't1',
+                status: 'confirmed',
+                slotDate: '2026-05-20',
+                slotStartTime: '11:00',
+              ),
+            ],
+          ));
+
+      await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('reschedule-booking-b1')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('reschedule-picker')), findsOneWidget);
+      expect(find.text('בחר שעה חדשה'), findsOneWidget);
+    });
+
+    testWidgets('confirm cancel fires cancel() and shows success snackbar',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(
+            remainingEdits: 3,
+            bookings: [
+              Booking(
+                id: 'b1',
+                slotId: 's1',
+                traineeId: 't1',
+                status: 'confirmed',
+                slotDate: '2026-05-20',
+                slotStartTime: '10:00',
+              ),
+            ],
+          ));
+      when(() => bookings.cancel(any())).thenAnswer((_) async {});
+
+      await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('cancel-booking-b1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('כן, בטל'));
+      await tester.pumpAndSettle();
+
+      verify(() => bookings.cancel('b1')).called(1);
+      expect(find.text('האימון בוטל'), findsOneWidget);
+    });
+
+    testWidgets('cancel button on a booking opens Hebrew confirm dialog',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(
+            remainingEdits: 3,
+            bookings: [
+              Booking(
+                id: 'b1',
+                slotId: 's1',
+                traineeId: 't1',
+                status: 'confirmed',
+                slotDate: '2026-05-20',
+                slotStartTime: '10:00',
+              ),
+            ],
+          ));
+
+      await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('cancel-booking-b1')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('cancel-confirm-dialog')), findsOneWidget);
+      expect(find.text('לבטל את האימון בשעה 10:00?'), findsOneWidget);
+    });
+
+    testWidgets('edit counter banner shows X/3 from server', (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async =>
+          const MyBookingsView(bookings: [], remainingEdits: 2));
+
+      await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('edit-counter-banner')), findsOneWidget);
+      expect(find.text('עריכות שנותרו השבוע: 2/3'), findsOneWidget);
+    });
+
     testWidgets('booking failure surfaces server error message in snackbar',
         (tester) async {
       final repo = _FakeSlotRepo();
       final bookings = _FakeBookingRepo();
       when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
-      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(bookings: [], remainingEdits: 3));
       when(() => bookings.book(any())).thenThrow(
         const BookingFailure('הגעת למכסת 2 אימונים בשבוע', statusCode: 409),
       );
@@ -174,7 +350,7 @@ void main() {
       final repo = _FakeSlotRepo();
       final bookings = _FakeBookingRepo();
       when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
-      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(bookings: [], remainingEdits: 3));
       when(() => bookings.book(any())).thenThrow(
         const BookingFailure('השעה התמלאה בדיוק עכשיו', statusCode: 409),
       );
@@ -199,7 +375,7 @@ void main() {
       final repo = _FakeSlotRepo();
       final bookings = _FakeBookingRepo();
       when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
-      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const [
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(remainingEdits: 3, bookings: [
             Booking(
               id: 'b1',
               slotId: 's1', // matches _aSlot.id
@@ -208,7 +384,7 @@ void main() {
               slotDate: '2026-05-20',
               slotStartTime: '10:00',
             ),
-          ]);
+          ]));
 
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
@@ -229,7 +405,7 @@ void main() {
       final repo = _FakeSlotRepo();
       final bookings = _FakeBookingRepo();
       when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
-      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const [
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(remainingEdits: 3, bookings: [
             Booking(
               id: 'b-later',
               slotId: 's-later',
@@ -246,7 +422,7 @@ void main() {
               slotDate: '2026-05-18',
               slotStartTime: '14:00',
             ),
-          ]);
+          ]));
 
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
@@ -265,7 +441,7 @@ void main() {
       final repo = _FakeSlotRepo();
       final bookings = _FakeBookingRepo();
       when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
-      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(bookings: [], remainingEdits: 3));
       when(() => bookings.book(any())).thenAnswer((_) async => const Booking(
             id: 'b1',
             slotId: 's1',
@@ -289,7 +465,7 @@ void main() {
       final repo = _FakeSlotRepo();
       final bookings = _FakeBookingRepo();
       when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
-      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => []);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async => const MyBookingsView(bookings: [], remainingEdits: 3));
 
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();

@@ -13,9 +13,17 @@ class BookingFailure implements Exception {
   String toString() => 'BookingFailure: $message';
 }
 
+class MyBookingsView {
+  final List<Booking> bookings;
+  final int remainingEdits;
+  const MyBookingsView({required this.bookings, required this.remainingEdits});
+}
+
 abstract class BookingRepository {
   Future<Booking> book(String slotId);
-  Future<List<Booking>> fetchMyBookings();
+  Future<MyBookingsView> fetchMyBookings();
+  Future<void> cancel(String bookingId);
+  Future<Booking> reschedule(String bookingId, String newSlotId);
 }
 
 class HttpBookingRepository implements BookingRepository {
@@ -48,13 +56,49 @@ class HttpBookingRepository implements BookingRepository {
   }
 
   @override
-  Future<List<Booking>> fetchMyBookings() async {
+  Future<MyBookingsView> fetchMyBookings() async {
     final res = await _dio.get<Map<String, dynamic>>(
       '/api/bookings',
       options: Options(headers: {'Authorization': 'Bearer ${_jwt()}'}),
     );
     final list = (res.data!['bookings'] as List).cast<Map<String, dynamic>>();
-    return list.map(Booking.fromJson).toList();
+    return MyBookingsView(
+      bookings: list.map(Booking.fromJson).toList(),
+      remainingEdits: (res.data!['remainingEdits'] as num).toInt(),
+    );
+  }
+
+  @override
+  Future<void> cancel(String bookingId) async {
+    try {
+      await _dio.delete<void>(
+        '/api/bookings',
+        data: {'bookingId': bookingId},
+        options: Options(headers: {'Authorization': 'Bearer ${_jwt()}'}),
+      );
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map
+          ? (e.response!.data as Map)['error']?.toString()
+          : null;
+      throw BookingFailure(msg ?? e.message ?? 'cancel failed', statusCode: e.response?.statusCode);
+    }
+  }
+
+  @override
+  Future<Booking> reschedule(String bookingId, String newSlotId) async {
+    try {
+      final res = await _dio.patch<Map<String, dynamic>>(
+        '/api/bookings',
+        data: {'bookingId': bookingId, 'newSlotId': newSlotId},
+        options: Options(headers: {'Authorization': 'Bearer ${_jwt()}'}),
+      );
+      return Booking.fromJson(res.data!['booking'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map
+          ? (e.response!.data as Map)['error']?.toString()
+          : null;
+      throw BookingFailure(msg ?? e.message ?? 'reschedule failed', statusCode: e.response?.statusCode);
+    }
   }
 }
 
@@ -62,6 +106,6 @@ final bookingRepositoryProvider = Provider<BookingRepository>((ref) {
   return HttpBookingRepository(ref.watch(dioProvider), Supabase.instance.client);
 });
 
-final myBookingsProvider = FutureProvider<List<Booking>>((ref) {
+final myBookingsProvider = FutureProvider<MyBookingsView>((ref) {
   return ref.watch(bookingRepositoryProvider).fetchMyBookings();
 });

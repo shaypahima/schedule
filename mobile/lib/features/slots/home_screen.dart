@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../utils/week_dates.dart';
+import '../bookings/booking.dart';
 import '../bookings/booking_repository.dart';
 import '../profile/profile_screen.dart';
 import 'slot.dart';
@@ -70,8 +71,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final slotsAsync = ref.watch(slotsForDateProvider(_selectedDate));
-    final myBookings = ref.watch(myBookingsProvider).valueOrNull ?? [];
-    final bookedSlotIds = myBookings
+    final myBookingsView = ref.watch(myBookingsProvider).valueOrNull;
+    final bookedSlotIds = (myBookingsView?.bookings ?? [])
         .where((b) => b.isConfirmed)
         .map((b) => b.slotId)
         .toSet();
@@ -163,36 +164,220 @@ class _MyBookingsSection extends ConsumerWidget {
     final async = ref.watch(myBookingsProvider);
     return async.maybeWhen(
       orElse: () => const SizedBox.shrink(),
-      data: (bookings) {
-        final confirmed = bookings.where((b) => b.isConfirmed).toList()
+      data: (view) {
+        final confirmed = view.bookings.where((b) => b.isConfirmed).toList()
           ..sort((a, b) {
             final ad = (a.slotDate ?? '') + (a.slotStartTime ?? '');
             final bd = (b.slotDate ?? '') + (b.slotStartTime ?? '');
             return ad.compareTo(bd);
           });
-        if (confirmed.isEmpty) return const SizedBox.shrink();
         return Container(
-          key: const Key('my-bookings-section'),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           width: double.infinity,
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('האימונים שלי',
-                  style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 4),
-              for (final b in confirmed)
-                Padding(
-                  key: Key('my-booking-${b.id}'),
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text(
-                    '${b.slotDate ?? ""}  ${b.slotStartTime ?? ""}',
-                    style: Theme.of(context).textTheme.bodyMedium,
+              Text(
+                'עריכות שנותרו השבוע: ${view.remainingEdits}/3',
+                key: const Key('edit-counter-banner'),
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              if (confirmed.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  key: const Key('my-bookings-section'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('האימונים שלי',
+                          style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 4),
+                      for (final b in confirmed)
+                        _MyBookingRow(key: Key('my-booking-${b.id}'), booking: b),
+                    ],
                   ),
                 ),
+              ],
             ],
           ),
+        );
+      },
+    );
+  }
+}
+
+class _MyBookingRow extends ConsumerWidget {
+  final Booking booking;
+  const _MyBookingRow({super.key, required this.booking});
+
+  Future<void> _openCancelDialog(BuildContext context, WidgetRef ref) async {
+    final time = booking.slotStartTime ?? '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('cancel-confirm-dialog'),
+        title: Text('לבטל את האימון בשעה $time?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('לא'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('כן, בטל'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+
+    try {
+      await ref.read(bookingRepositoryProvider).cancel(booking.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('האימון בוטל')),
+      );
+      ref.invalidate(myBookingsProvider);
+      ref.invalidate(slotsForDateProvider);
+    } on BookingFailure catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${booking.slotDate ?? ""}  ${booking.slotStartTime ?? ""}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          IconButton(
+            key: Key('reschedule-booking-${booking.id}'),
+            tooltip: 'שינוי מועד',
+            icon: const Icon(Icons.edit_calendar_outlined),
+            onPressed: () => _openReschedulePicker(context, ref),
+          ),
+          IconButton(
+            key: Key('cancel-booking-${booking.id}'),
+            tooltip: 'בטל',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => _openCancelDialog(context, ref),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openReschedulePicker(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => ReschedulePicker(booking: booking),
+    );
+  }
+}
+
+class ReschedulePicker extends ConsumerWidget {
+  final Booking booking;
+  const ReschedulePicker({super.key, required this.booking});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final weekDates = currentWeekSunToFri(
+      DateTime.parse(booking.slotDate ?? formatDate(DateTime.now())),
+    );
+
+    return Container(
+      key: const Key('reschedule-picker'),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('בחר שעה חדשה',
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.6,
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final d in weekDates)
+                  _PickerDay(date: formatDate(d), currentSlotId: booking.slotId, bookingId: booking.id),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PickerDay extends ConsumerWidget {
+  final String date;
+  final String currentSlotId;
+  final String bookingId;
+  const _PickerDay({
+    required this.date,
+    required this.currentSlotId,
+    required this.bookingId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(slotsForDateProvider(date));
+    return async.maybeWhen(
+      orElse: () => const SizedBox.shrink(),
+      data: (slots) {
+        final usable = slots
+            .where((s) => !s.isFull && !s.lockedOut && s.id != currentSlotId)
+            .toList();
+        if (usable.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(date,
+                  style: Theme.of(context).textTheme.titleSmall),
+            ),
+            for (final slot in usable)
+              ListTile(
+                key: Key('picker-slot-$date-${slot.startTime}'),
+                title: Text(slot.startTime),
+                subtitle: Text('נשאר מקום ${slot.remainingCapacity}'),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  try {
+                    await ref.read(bookingRepositoryProvider).reschedule(bookingId, slot.id);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('האימון הועבר')),
+                    );
+                    ref.invalidate(myBookingsProvider);
+                    ref.invalidate(slotsForDateProvider);
+                  } on BookingFailure catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.message)),
+                    );
+                    ref.invalidate(slotsForDateProvider);
+                  }
+                },
+              ),
+          ],
         );
       },
     );
