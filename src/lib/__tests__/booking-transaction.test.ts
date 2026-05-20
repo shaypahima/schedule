@@ -169,6 +169,7 @@ describe("BookingTransaction", () => {
         isAutoBooked: true,
         status: "confirmed",
         createdAt: new Date(),
+        reminderSentAt: null,
       });
       store.updateSlot({ ...store.getSlot("slot-9")!, currentBookings: 1 });
 

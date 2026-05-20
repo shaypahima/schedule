@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Booking, Slot, EditLog } from "@/lib/types";
 import { BookingStore } from "@/lib/services/booking-service";
+import { israelSlotToUTC } from "@/lib/services/israel-time";
 
 /**
  * Supabase-backed BookingStore implementation.
@@ -232,6 +233,40 @@ export class SupabaseBookingStore implements BookingStore {
       .eq("week_start", weekStart);
   }
 
+  async getRemindersDue(
+    windowStartUtc: Date,
+    windowEndUtc: Date
+  ): Promise<Array<{ booking: Booking; slot: Slot }>> {
+    const { data } = await this.db
+      .from("bookings")
+      .select("*, slots!inner(*)")
+      .eq("status", "confirmed")
+      .is("reminder_sent_at", null);
+
+    const startMs = windowStartUtc.getTime();
+    const endMs = windowEndUtc.getTime();
+    const out: Array<{ booking: Booking; slot: Slot }> = [];
+    for (const row of data ?? []) {
+      const slotRow = (row as Record<string, unknown>).slots as Record<string, unknown>;
+      if (!slotRow) continue;
+      const slot = this.mapSlot(slotRow, 0);
+      const slotMs = israelSlotToUTC(slot.date, slot.startTime).getTime();
+      if (slotMs < startMs || slotMs >= endMs) continue;
+      const booking = this.mapBooking(row as Record<string, unknown>);
+      out.push({ booking, slot });
+    }
+    return out;
+  }
+
+  async markReminderSent(bookingId: string, sentAt: Date): Promise<void> {
+    const { error } = await this.db
+      .from("bookings")
+      .update({ reminder_sent_at: sentAt.toISOString() })
+      .eq("id", bookingId)
+      .is("reminder_sent_at", null);
+    if (error) throw new Error(error.message);
+  }
+
   // --- Mappers ---
 
   private mapSlot(row: Record<string, unknown>, currentBookings: number): Slot {
@@ -255,6 +290,9 @@ export class SupabaseBookingStore implements BookingStore {
       isAutoBooked: row.is_auto_booked as boolean,
       status: row.status as "confirmed" | "cancelled",
       createdAt: new Date(row.created_at as string),
+      reminderSentAt: row.reminder_sent_at
+        ? new Date(row.reminder_sent_at as string)
+        : null,
     };
   }
 

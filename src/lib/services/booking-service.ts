@@ -26,6 +26,16 @@ export interface BookingStore {
   getAllBookings(): Promise<Booking[]> | Booking[];
   upsertSlot(slot: Slot): Promise<void> | void;
   resetEditCount(traineeId: string, weekStart: string): Promise<void> | void;
+  /**
+   * Confirmed bookings whose slot starts within [windowStartUtc, windowEndUtc)
+   * and whose reminderSentAt is still null. Each result includes the slot row
+   * so callers can localize the time + send the push without an extra fetch.
+   */
+  getRemindersDue(
+    windowStartUtc: Date,
+    windowEndUtc: Date
+  ): Promise<Array<{ booking: Booking; slot: Slot }>> | Array<{ booking: Booking; slot: Slot }>;
+  markReminderSent(bookingId: string, sentAt: Date): Promise<void> | void;
 }
 
 const MAX_EDITS_PER_WEEK = 3;
@@ -45,7 +55,7 @@ export class BookingService {
   ) {}
 
   getRemainingEdits(traineeId: string, weekStart: string): number {
-    const log = this.store.getEditLog(traineeId, weekStart);
+    const log = this.store.getEditLog(traineeId, weekStart) as EditLog | undefined;
     return MAX_EDITS_PER_WEEK - (log?.editCount || 0);
   }
 
@@ -72,7 +82,7 @@ export class BookingService {
 
   private checkWeeklyLimit(traineeId: string, slotDate: string): void {
     const weekStart = getWeekStart(slotDate);
-    const bookings = this.store.getTraineeBookingsForWeek(traineeId, weekStart);
+    const bookings = this.store.getTraineeBookingsForWeek(traineeId, weekStart) as Booking[];
     if (bookings.length >= MAX_SESSIONS_PER_WEEK) {
       throw new BookingError("Max 2 sessions per week");
     }
@@ -90,7 +100,7 @@ export class BookingService {
     slotId: string,
     traineeName?: string
   ): Promise<Booking> {
-    let slot = this.store.getSlot(slotId);
+    let slot = this.store.getSlot(slotId) as Slot | undefined;
 
     // Auto-create slot from "new-YYYY-MM-DD-HH:mm" placeholder IDs
     if (!slot && slotId.startsWith("new-")) {
@@ -118,8 +128,7 @@ export class BookingService {
     }
 
     // Check if trainee already has a confirmed booking for this slot
-    const existing = this.store
-      .getConfirmedBookingsForSlot(slotId)
+    const existing = (this.store.getConfirmedBookingsForSlot(slotId) as Booking[])
       .find((b) => b.traineeId === traineeId);
     if (existing) throw new BookingError("Already booked");
 
@@ -144,6 +153,7 @@ export class BookingService {
       isAutoBooked: false,
       status: "confirmed",
       createdAt: new Date(),
+      reminderSentAt: null,
     };
 
     this.store.addBooking(booking);
@@ -156,7 +166,7 @@ export class BookingService {
   }
 
   async cancel(bookingId: string, traineeId: string, skipEditLimit = false): Promise<void> {
-    const booking = this.store.getBooking(bookingId);
+    const booking = this.store.getBooking(bookingId) as Booking | undefined;
     if (!booking || booking.status !== "confirmed") {
       throw new BookingError("Booking not found");
     }
@@ -164,7 +174,7 @@ export class BookingService {
       throw new BookingError("Not your booking");
     }
 
-    const slot = this.store.getSlot(booking.slotId);
+    const slot = this.store.getSlot(booking.slotId) as Slot | undefined;
     if (!slot) throw new BookingError("Slot not found");
 
     if (!skipEditLimit) {
@@ -204,11 +214,11 @@ export class BookingService {
     newSlotId: string,
     traineeName?: string
   ): Promise<Booking> {
-    const oldBooking = this.store.getBooking(bookingId);
+    const oldBooking = this.store.getBooking(bookingId) as Booking | undefined;
     if (!oldBooking || oldBooking.status !== "confirmed") {
       throw new BookingError("Booking not found");
     }
-    const oldSlot = this.store.getSlot(oldBooking.slotId);
+    const oldSlot = this.store.getSlot(oldBooking.slotId) as Slot | undefined;
     if (!oldSlot) throw new BookingError("Slot not found");
 
     // Check lockout + edit limit once for the whole reschedule (counts as 1 edit)
@@ -224,7 +234,7 @@ export class BookingService {
     // Track as single edit
     this.trackEdit(traineeId, oldSlot.date, oldBooking.isAutoBooked);
 
-    const newSlot = this.store.getSlot(newSlotId);
+    const newSlot = this.store.getSlot(newSlotId) as Slot | undefined;
     await this.notify({
       type: "reschedule",
       traineeName: traineeId,
@@ -239,7 +249,7 @@ export class BookingService {
 
   /** Admin: book trainee into slot, bypassing all limits */
   async adminBook(traineeId: string, slotId: string, traineeName?: string): Promise<Booking> {
-    let slot = this.store.getSlot(slotId);
+    let slot = this.store.getSlot(slotId) as Slot | undefined;
 
     if (!slot && slotId.startsWith("new-")) {
       const match = slotId.match(/^new-(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2})$/);
@@ -259,8 +269,7 @@ export class BookingService {
     if (!slot) throw new BookingError("Slot not found");
     if (slot.currentBookings >= slot.capacity) throw new BookingError("Slot is full");
 
-    const existing = this.store
-      .getConfirmedBookingsForSlot(slotId)
+    const existing = (this.store.getConfirmedBookingsForSlot(slotId) as Booking[])
       .find((b) => b.traineeId === traineeId);
     if (existing) throw new BookingError("Already booked");
 
@@ -280,6 +289,7 @@ export class BookingService {
       isAutoBooked: false,
       status: "confirmed",
       createdAt: new Date(),
+      reminderSentAt: null,
     };
 
     this.store.addBooking(booking);
@@ -289,10 +299,10 @@ export class BookingService {
 
   /** Admin: cancel booking, bypassing all limits */
   async adminCancel(bookingId: string): Promise<void> {
-    const booking = this.store.getBooking(bookingId);
+    const booking = this.store.getBooking(bookingId) as Booking | undefined;
     if (!booking || booking.status !== "confirmed") throw new BookingError("Booking not found");
 
-    const slot = this.store.getSlot(booking.slotId);
+    const slot = this.store.getSlot(booking.slotId) as Slot | undefined;
     if (!slot) throw new BookingError("Slot not found");
 
     if (this.calendar && booking.googleEventId) {
@@ -398,5 +408,30 @@ export class MockBookingStore implements BookingStore {
 
   resetEditCount(traineeId: string, weekStart: string): void {
     this.editLogs.delete(`${traineeId}:${weekStart}`);
+  }
+
+  getRemindersDue(
+    windowStartUtc: Date,
+    windowEndUtc: Date
+  ): Array<{ booking: Booking; slot: Slot }> {
+    const startMs = windowStartUtc.getTime();
+    const endMs = windowEndUtc.getTime();
+    const out: Array<{ booking: Booking; slot: Slot }> = [];
+    for (const b of this.bookings.values()) {
+      if (b.status !== "confirmed" || b.reminderSentAt !== null) continue;
+      const slot = this.slots.get(b.slotId);
+      if (!slot) continue;
+      const slotMs = israelSlotToUTC(slot.date, slot.startTime).getTime();
+      if (slotMs >= startMs && slotMs < endMs) {
+        out.push({ booking: { ...b }, slot: { ...slot } });
+      }
+    }
+    return out;
+  }
+
+  markReminderSent(bookingId: string, sentAt: Date): void {
+    const b = this.bookings.get(bookingId);
+    if (!b) return;
+    this.bookings.set(bookingId, { ...b, reminderSentAt: sentAt });
   }
 }

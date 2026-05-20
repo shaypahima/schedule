@@ -42,6 +42,7 @@ describe("WeeklyLimits", () => {
         isAutoBooked: false,
         status: "confirmed",
         createdAt: new Date(),
+        reminderSentAt: null,
       });
       store.updateSlot({ ...store.getSlot("slot-6")!, currentBookings: 1 });
 
@@ -58,6 +59,7 @@ describe("WeeklyLimits", () => {
           isAutoBooked: false,
           status: "confirmed",
           createdAt: new Date(),
+          reminderSentAt: null,
         });
         store.updateSlot({ ...store.getSlot(`slot-${i}`)!, currentBookings: 1 });
       }
@@ -77,6 +79,7 @@ describe("WeeklyLimits", () => {
           isAutoBooked: false,
           status: "confirmed",
           createdAt: new Date(),
+          reminderSentAt: null,
         });
       }
 
@@ -175,6 +178,7 @@ describe("WeeklyLimits", () => {
         isAutoBooked: false,
         status: "confirmed",
         createdAt: new Date(),
+        reminderSentAt: null,
       });
       store.updateSlot({ ...store.getSlot("slot-6")!, currentBookings: 1 });
       await limits.trackEdit("t1", "2026-04-06");

@@ -62,6 +62,7 @@ describe("2/week booking limit", () => {
         isAutoBooked: true,
         status: "confirmed",
         createdAt: new Date(),
+        reminderSentAt: null,
       });
       store.updateSlot({
         ...store.getSlot(`slot-${5 + i}`)!,

@@ -173,6 +173,7 @@ export function createBookingTransaction(
         isAutoBooked: opts.isAutoBooked ?? false,
         status: "confirmed",
         createdAt: new Date(),
+        reminderSentAt: null,
       };
 
       await store.addBooking(booking);
@@ -309,6 +310,7 @@ export function createBookingTransaction(
         isAutoBooked: oldBooking.isAutoBooked,
         status: "confirmed",
         createdAt: new Date(),
+        reminderSentAt: null,
       };
 
       await store.addBooking(newBooking);

@@ -52,6 +52,7 @@ export interface Booking {
   isAutoBooked: boolean;
   status: "confirmed" | "cancelled";
   createdAt: Date;
+  reminderSentAt: Date | null;
 }
 
 export interface EditLog {

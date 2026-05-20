@@ -87,6 +87,7 @@ describe("Edit limits", () => {
       isAutoBooked: true,
       status: "confirmed" as const,
       createdAt: new Date(),
+      reminderSentAt: null,
     };
     store.addBooking(autoBooking);
     store.updateSlot({ ...store.getSlot("slot-8")!, currentBookings: 1 });
