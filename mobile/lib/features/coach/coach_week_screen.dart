@@ -6,6 +6,7 @@ import '../profile/profile_screen.dart';
 import '../slots/slot.dart';
 import '../slots/slot_repository.dart';
 import 'admin_repository.dart';
+import 'coach_trainees_screen.dart';
 
 class CoachWeekScreen extends ConsumerStatefulWidget {
   final DateTime now;
@@ -43,6 +44,14 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
       appBar: AppBar(
         title: const Text('שבוע המאמן'),
         actions: [
+          IconButton(
+            key: const Key('trainees-button'),
+            tooltip: 'מתאמנים',
+            icon: const Icon(Icons.group),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CoachTraineesScreen()),
+            ),
+          ),
           IconButton(
             key: const Key('profile-button'),
             icon: const Icon(Icons.person),

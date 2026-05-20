@@ -38,11 +38,52 @@ class TraineeOption {
       TraineeOption(id: json['id'] as String, name: json['name'] as String);
 }
 
+class TraineeRecord {
+  final String id;
+  final String name;
+  final String? email;
+  final String status; // 'pending' | 'active' | 'deactivated'
+  final bool isRecurring;
+  final int? preferredDay;
+  final String? preferredTime;
+
+  const TraineeRecord({
+    required this.id,
+    required this.name,
+    required this.status,
+    required this.isRecurring,
+    this.email,
+    this.preferredDay,
+    this.preferredTime,
+  });
+
+  factory TraineeRecord.fromJson(Map<String, dynamic> json) => TraineeRecord(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        email: json['email'] as String?,
+        status: (json['status'] as String?) ??
+            ((json['isActive'] as bool? ?? true) ? 'active' : 'deactivated'),
+        isRecurring: json['isRecurring'] as bool? ?? false,
+        preferredDay: json['preferredDay'] as int?,
+        preferredTime: json['preferredTime'] as String?,
+      );
+}
+
 abstract class AdminRepository {
   Future<List<AdminBooking>> fetchBookings({String? date});
   Future<List<TraineeOption>> fetchTrainees();
+  Future<List<TraineeRecord>> listTrainees();
   Future<void> addBooking({required String traineeId, required String slotId, required String traineeName});
   Future<void> removeBooking(String bookingId);
+  Future<void> inviteTrainee({
+    required String email,
+    required String name,
+    bool isRecurring = false,
+    int? preferredDay,
+    String? preferredTime,
+  });
+  Future<void> resendInvite(String email);
+  Future<void> updateTrainee(String id, Map<String, dynamic> updates);
 }
 
 class HttpAdminRepository implements AdminRepository {
@@ -92,6 +133,55 @@ class HttpAdminRepository implements AdminRepository {
       options: _opts(),
     );
   }
+
+  @override
+  Future<List<TraineeRecord>> listTrainees() async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/api/admin/trainees',
+      options: _opts(),
+    );
+    final list = (res.data!['trainees'] as List).cast<Map<String, dynamic>>();
+    return list.map(TraineeRecord.fromJson).toList();
+  }
+
+  @override
+  Future<void> inviteTrainee({
+    required String email,
+    required String name,
+    bool isRecurring = false,
+    int? preferredDay,
+    String? preferredTime,
+  }) async {
+    await _dio.post<void>(
+      '/api/admin/trainees',
+      data: {
+        'email': email,
+        'name': name,
+        'isRecurring': isRecurring,
+        'preferredDay': preferredDay,
+        'preferredTime': preferredTime,
+      },
+      options: _opts(),
+    );
+  }
+
+  @override
+  Future<void> resendInvite(String email) async {
+    await _dio.post<void>(
+      '/api/admin/trainees',
+      data: {'email': email, 'name': '_resend', 'resend': true},
+      options: _opts(),
+    );
+  }
+
+  @override
+  Future<void> updateTrainee(String id, Map<String, dynamic> updates) async {
+    await _dio.patch<void>(
+      '/api/admin/trainees',
+      data: {'id': id, ...updates},
+      options: _opts(),
+    );
+  }
 }
 
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {
@@ -105,4 +195,8 @@ final adminBookingsForDateProvider =
 
 final adminTraineesProvider = FutureProvider<List<TraineeOption>>((ref) {
   return ref.watch(adminRepositoryProvider).fetchTrainees();
+});
+
+final traineeRecordsProvider = FutureProvider<List<TraineeRecord>>((ref) {
+  return ref.watch(adminRepositoryProvider).listTrainees();
 });

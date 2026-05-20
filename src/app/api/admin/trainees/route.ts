@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
 import { todayIL, weekStartForDate } from "@/lib/services/israel-time";
 import { requireAdminJwt } from "@/lib/services/admin-guard";
+import { inviteTraineeByEmail, resendInvite } from "@/lib/services/trainee-invite";
 
 export async function GET(request: NextRequest) {
   const { error } = await requireAdminJwt(request);
@@ -26,15 +27,20 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    trainees: trainees.map((t) => ({
-      id: t.id,
-      name: t.name,
-      phone: t.phone,
-      isRecurring: t.isRecurring,
-      preferredDay: t.preferredDay,
-      preferredTime: t.preferredTime,
-      isActive: t.isActive,
-    })),
+    trainees: trainees.map((t) => {
+      const tt = t as typeof t & { status?: string; email?: string };
+      return {
+        id: t.id,
+        name: t.name,
+        email: tt.email ?? null,
+        phone: t.phone,
+        isRecurring: t.isRecurring,
+        preferredDay: t.preferredDay,
+        preferredTime: t.preferredTime,
+        isActive: t.isActive,
+        status: tt.status ?? (t.isActive ? "active" : "deactivated"),
+      };
+    }),
   });
 }
 
@@ -42,13 +48,32 @@ export async function POST(request: NextRequest) {
   const { error } = await requireAdminJwt(request);
   if (error) return error;
 
-  const { phone, name } = await request.json();
-  if (!phone || !name) {
-    return NextResponse.json({ error: "phone and name required" }, { status: 400 });
+  const body = await request.json();
+  const { email, name, isRecurring, preferredDay, preferredTime, resend } = body as {
+    email?: string;
+    name?: string;
+    isRecurring?: boolean;
+    preferredDay?: number | null;
+    preferredTime?: string | null;
+    resend?: boolean;
+  };
+
+  if (!email || !name) {
+    return NextResponse.json({ error: "email and name required" }, { status: 400 });
   }
 
   try {
-    const profile = await getContainer().auth.inviteTrainee(phone, name);
+    if (resend) {
+      await resendInvite(email);
+      return NextResponse.json({ ok: true });
+    }
+    const profile = await inviteTraineeByEmail({
+      email,
+      name,
+      isRecurring,
+      preferredDay,
+      preferredTime,
+    });
     return NextResponse.json(profile, { status: 201 });
   } catch (err) {
     return NextResponse.json(
