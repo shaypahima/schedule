@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCalendarService } from "@/lib/services";
+import { getCalendarService, getContainer } from "@/lib/services";
 import { generateAvailableSlots } from "@/lib/services/slot-availability";
 import { israelSlotToUTC } from "@/lib/services/israel-time";
+import { getJwtSession } from "@/lib/services/jwt-session";
 
 export async function GET(request: NextRequest) {
+  const session = await getJwtSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");
 
@@ -21,9 +27,8 @@ export async function GET(request: NextRequest) {
   const calendar = getCalendarService();
   const { busy } = await calendar.getFreeBusy(dayStart, dayEnd);
 
-  // TODO: Phase 3+ will fetch existing slots/bookings from Supabase
-  // For now, pass empty existing slots (all slots have default capacity)
-  const existingSlots: [] = [];
+  const { store } = getContainer();
+  const existingSlots = await store.getAllSlotsForDate(date);
 
   const slots = generateAvailableSlots(date, busy, existingSlots);
 

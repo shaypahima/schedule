@@ -5,18 +5,17 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:velofit/features/auth/auth_repository.dart';
 import 'package:velofit/features/dev/dev_login_panel.dart';
-import 'package:velofit/features/profile/profile.dart';
-import 'package:velofit/features/profile/profile_repository.dart';
+import 'package:velofit/features/slots/slot_repository.dart';
 
 class _FakeAuth extends Mock implements AuthRepository {}
 
-class _FakeProfileRepo extends Mock implements ProfileRepository {}
+class _FakeSlotRepo extends Mock implements SlotRepository {}
 
-Widget _harness(Widget child, {AuthRepository? auth, ProfileRepository? profile}) =>
+Widget _harness(Widget child, {AuthRepository? auth, SlotRepository? slots}) =>
     ProviderScope(
       overrides: [
         if (auth != null) authRepositoryProvider.overrideWithValue(auth),
-        if (profile != null) profileRepositoryProvider.overrideWithValue(profile),
+        if (slots != null) slotRepositoryProvider.overrideWithValue(slots),
       ],
       child: MaterialApp(
         builder: (context, c) => Directionality(
@@ -49,17 +48,12 @@ void main() {
 
     testWidgets('tapping a trainee button signs in with that account', (tester) async {
       final auth = _FakeAuth();
-      final profile = _FakeProfileRepo();
+      final slots = _FakeSlotRepo();
       when(() => auth.signInWithPassword(
             email: any(named: 'email'),
             password: any(named: 'password'),
           )).thenAnswer((_) async {});
-      when(() => profile.fetchMe()).thenAnswer((_) async => const Profile(
-            id: 'u1',
-            email: 'yael.cohen@example.com',
-            name: 'יעל כהן',
-            role: 'trainee',
-          ));
+      when(() => slots.fetchSlots(any())).thenAnswer((_) async => []);
 
       const accounts = [
         DevAccount(email: 'yael.cohen@example.com', name: 'יעל כהן', role: 'trainee'),
@@ -68,7 +62,7 @@ void main() {
       await tester.pumpWidget(_harness(
         const DevLoginPanel(accounts: accounts, password: 'devpassword123'),
         auth: auth,
-        profile: profile,
+        slots: slots,
       ));
 
       await tester.tap(find.byKey(const Key('dev-login-yael.cohen@example.com')));

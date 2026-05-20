@@ -6,21 +6,23 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:velofit/features/auth/auth_repository.dart';
 import 'package:velofit/features/auth/login_screen.dart';
-import 'package:velofit/features/profile/profile.dart';
 import 'package:velofit/features/profile/profile_repository.dart';
+import 'package:velofit/features/slots/slot_repository.dart';
 
 class _FakeAuth extends Mock implements AuthRepository {}
 
-class _FakeProfileRepo extends Mock implements ProfileRepository {}
+class _FakeSlotRepo extends Mock implements SlotRepository {}
 
 Widget _harness({
   required AuthRepository auth,
   ProfileRepository? profile,
+  SlotRepository? slots,
 }) {
   return ProviderScope(
     overrides: [
       authRepositoryProvider.overrideWithValue(auth),
       if (profile != null) profileRepositoryProvider.overrideWithValue(profile),
+      if (slots != null) slotRepositoryProvider.overrideWithValue(slots),
     ],
     child: MaterialApp(
       builder: (context, child) => Directionality(
@@ -69,29 +71,24 @@ void main() {
       expect(find.text('שם משתמש או סיסמה שגויים'), findsOneWidget);
     });
 
-    testWidgets('successful login navigates to profile screen', (tester) async {
+    testWidgets('successful login navigates to home screen', (tester) async {
       final auth = _FakeAuth();
-      final profileRepo = _FakeProfileRepo();
+      final slots = _FakeSlotRepo();
       when(() => auth.signInWithPassword(
             email: any(named: 'email'),
             password: any(named: 'password'),
           )).thenAnswer((_) async {});
-      when(() => profileRepo.fetchMe()).thenAnswer((_) async => const Profile(
-            id: 'u1',
-            email: 'yael.cohen@example.com',
-            name: 'יעל כהן',
-            role: 'trainee',
-          ));
+      when(() => slots.fetchSlots(any())).thenAnswer((_) async => []);
 
-      await tester.pumpWidget(_harness(auth: auth, profile: profileRepo));
+      await tester.pumpWidget(_harness(auth: auth, slots: slots));
 
       await tester.enterText(find.byKey(const Key('email-field')), 'yael.cohen@example.com');
       await tester.enterText(find.byKey(const Key('password-field')), 'devpassword123');
       await tester.tap(find.byKey(const Key('submit-button')));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('profile-name')), findsOneWidget);
-      expect(find.text('יעל כהן'), findsOneWidget);
+      // HomeScreen's profile icon button is present
+      expect(find.byKey(const Key('profile-button')), findsOneWidget);
       verify(() => auth.signInWithPassword(
             email: 'yael.cohen@example.com',
             password: 'devpassword123',
