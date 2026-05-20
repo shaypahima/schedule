@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../utils/week_dates.dart';
+import '../bookings/booking_repository.dart';
 import '../profile/profile_screen.dart';
 import 'slot.dart';
 import 'slot_repository.dart';
@@ -28,9 +29,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   String get _selectedDate => formatDate(_weekDates[_selectedIndex]);
 
+  Future<void> _openBookingDialog(Slot slot) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('booking-confirm-dialog'),
+        title: Text('לקבוע אימון בשעה ${slot.startTime}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('ביטול'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('אישור'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    try {
+      await ref.read(bookingRepositoryProvider).book(slot.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('האימון נקבע')),
+      );
+      ref.invalidate(slotsForDateProvider(_selectedDate));
+      ref.invalidate(myBookingsProvider);
+    } on BookingFailure catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+      ref.invalidate(slotsForDateProvider(_selectedDate));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final slotsAsync = ref.watch(slotsForDateProvider(_selectedDate));
+    final myBookings = ref.watch(myBookingsProvider).valueOrNull ?? [];
+    final bookedSlotIds = myBookings
+        .where((b) => b.isConfirmed)
+        .map((b) => b.slotId)
+        .toSet();
     return Scaffold(
       appBar: AppBar(
         title: const Text('המאמן שלי'),
@@ -46,6 +90,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: Column(
         children: [
+          const _MyBookingsSection(),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
             child: Row(
@@ -91,13 +136,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   key: const Key('slots-list'),
                   itemCount: slots.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, i) => _SlotTile(slot: slots[i]),
+                  itemBuilder: (_, i) {
+                    final slot = slots[i];
+                    final booked = bookedSlotIds.contains(slot.id);
+                    return _SlotTile(
+                      slot: slot,
+                      booked: booked,
+                      onTap: booked ? null : () => _openBookingDialog(slot),
+                    );
+                  },
                 );
               },
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MyBookingsSection extends ConsumerWidget {
+  const _MyBookingsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(myBookingsProvider);
+    return async.maybeWhen(
+      orElse: () => const SizedBox.shrink(),
+      data: (bookings) {
+        final confirmed = bookings.where((b) => b.isConfirmed).toList()
+          ..sort((a, b) {
+            final ad = (a.slotDate ?? '') + (a.slotStartTime ?? '');
+            final bd = (b.slotDate ?? '') + (b.slotStartTime ?? '');
+            return ad.compareTo(bd);
+          });
+        if (confirmed.isEmpty) return const SizedBox.shrink();
+        return Container(
+          key: const Key('my-bookings-section'),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          width: double.infinity,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('האימונים שלי',
+                  style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 4),
+              for (final b in confirmed)
+                Padding(
+                  key: Key('my-booking-${b.id}'),
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(
+                    '${b.slotDate ?? ""}  ${b.slotStartTime ?? ""}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -144,18 +241,24 @@ class _DayChip extends StatelessWidget {
 
 class _SlotTile extends StatelessWidget {
   final Slot slot;
-  const _SlotTile({required this.slot});
+  final bool booked;
+  final VoidCallback? onTap;
+  const _SlotTile({required this.slot, this.booked = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final label = slot.isFull
-        ? 'מלא'
-        : 'נשאר מקום ${slot.remainingCapacity}';
+    final label = booked
+        ? 'מוזמן'
+        : slot.isFull
+            ? 'מלא'
+            : 'נשאר מקום ${slot.remainingCapacity}';
+    final available = !booked && !slot.isFull && !slot.lockedOut;
     return ListTile(
       key: Key('slot-${slot.startTime}'),
       title: Text(slot.startTime),
       subtitle: Text(label),
-      enabled: !slot.isFull && !slot.lockedOut,
+      enabled: available,
+      onTap: available ? onTap : null,
     );
   }
 }

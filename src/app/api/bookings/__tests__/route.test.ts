@@ -1,30 +1,41 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-// Mock session — must be before route import
-const mockSession = vi.fn();
-vi.mock("@/lib/services/session", () => ({
-  getSession: () => mockSession(),
+const mockJwtSession = vi.fn();
+const mockFindProfile = vi.fn();
+
+vi.mock("@/lib/services/jwt-session", () => ({
+  getJwtSession: (req: NextRequest) => mockJwtSession(req),
 }));
 
-// Force mock services — must use process.env directly before imports
+vi.mock("@/lib/services/profile-repo", () => ({
+  findProfile: (id: string) => mockFindProfile(id),
+  createProfile: vi.fn(),
+}));
+
 process.env.MOCK_SERVICES = "true";
 
 import { POST, GET, DELETE, PATCH } from "../route";
 import { getContainer, resetContainer } from "@/lib/services";
 
-const traineeSession = {
+const traineeProfile = {
   id: "t1",
+  email: "t1@example.com",
   name: "Alice",
-  role: "trainee",
-  phone: "050-1234567",
+  role: "trainee" as const,
 };
 
 function makeRequest(body: Record<string, unknown>, method = "POST") {
   return new NextRequest("http://localhost/api/bookings", {
     method,
     body: JSON.stringify(body),
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", authorization: "Bearer jwt" },
+  });
+}
+
+function makeGetRequest() {
+  return new NextRequest("http://localhost/api/bookings", {
+    headers: { authorization: "Bearer jwt" },
   });
 }
 
@@ -32,7 +43,6 @@ describe("POST /api/bookings", () => {
   beforeEach(() => {
     vi.setSystemTime(new Date("2026-04-04T06:00:00Z"));
     resetContainer();
-    // Seed a slot for the coming week
     const { store } = getContainer();
     store.upsertSlot({
       id: "slot-6",
@@ -46,19 +56,26 @@ describe("POST /api/bookings", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    mockSession.mockReset();
+    mockJwtSession.mockReset();
+    mockFindProfile.mockReset();
   });
 
-  it("returns 401 when not authenticated", async () => {
-    mockSession.mockResolvedValue(null);
+  it("returns 401 when no JWT", async () => {
+    mockJwtSession.mockResolvedValue(null);
     const res = await POST(makeRequest({ slotId: "slot-6" }));
     expect(res.status).toBe(401);
-    const body = await res.json();
-    expect(body.error).toBe("Not authenticated");
+  });
+
+  it("returns 401 when profile is missing", async () => {
+    mockJwtSession.mockResolvedValue({ userId: "ghost", email: "ghost@example.com" });
+    mockFindProfile.mockResolvedValue(null);
+    const res = await POST(makeRequest({ slotId: "slot-6" }));
+    expect(res.status).toBe(401);
   });
 
   it("books a slot and returns 201", async () => {
-    mockSession.mockResolvedValue(traineeSession);
+    mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
+    mockFindProfile.mockResolvedValue(traineeProfile);
     const res = await POST(makeRequest({ slotId: "slot-6" }));
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -68,7 +85,8 @@ describe("POST /api/bookings", () => {
   });
 
   it("returns 409 when slot is full", async () => {
-    mockSession.mockResolvedValue(traineeSession);
+    mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
+    mockFindProfile.mockResolvedValue(traineeProfile);
     const { store } = getContainer();
     store.upsertSlot({
       id: "slot-6",
@@ -85,14 +103,13 @@ describe("POST /api/bookings", () => {
   });
 
   it("auto-creates slot from new-* placeholder ID", async () => {
-    mockSession.mockResolvedValue(traineeSession);
+    mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
+    mockFindProfile.mockResolvedValue(traineeProfile);
     const res = await POST(makeRequest({ slotId: "new-2026-04-08-14:00" }));
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.booking.slotId).toBe("new-2026-04-08-14:00");
-    // Slot should now exist in store
     const { store } = getContainer();
-    const slot = store.getSlot("new-2026-04-08-14:00");
+    const slot = await store.getSlot(body.booking.slotId);
     expect(slot).toBeDefined();
     expect(slot!.date).toBe("2026-04-08");
     expect(slot!.startTime).toBe("14:00");
@@ -107,12 +124,20 @@ describe("GET /api/bookings", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    mockSession.mockReset();
+    mockJwtSession.mockReset();
+    mockFindProfile.mockReset();
+  });
+
+  it("returns 401 when no JWT", async () => {
+    mockJwtSession.mockResolvedValue(null);
+    const res = await GET(makeGetRequest());
+    expect(res.status).toBe(401);
   });
 
   it("returns trainee bookings and remaining edits", async () => {
-    mockSession.mockResolvedValue(traineeSession);
-    const res = await GET();
+    mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
+    mockFindProfile.mockResolvedValue(traineeProfile);
+    const res = await GET(makeGetRequest());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("bookings");
@@ -138,30 +163,28 @@ describe("DELETE /api/bookings", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    mockSession.mockReset();
+    mockJwtSession.mockReset();
+    mockFindProfile.mockReset();
   });
 
   it("cancels a booking and returns 200", async () => {
-    mockSession.mockResolvedValue(traineeSession);
+    mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
+    mockFindProfile.mockResolvedValue(traineeProfile);
 
-    // Book first
     const bookRes = await POST(makeRequest({ slotId: "slot-6" }));
     const { booking } = await bookRes.json();
 
-    // Cancel
-    const res = await DELETE(
-      makeRequest({ bookingId: booking.id }, "DELETE")
-    );
+    const res = await DELETE(makeRequest({ bookingId: booking.id }, "DELETE"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
   });
 
   it("returns 409 when edit limit reached", async () => {
-    mockSession.mockResolvedValue(traineeSession);
+    mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
+    mockFindProfile.mockResolvedValue(traineeProfile);
 
     const { store } = getContainer();
-    // Add more slots for cancelling
     for (let i = 7; i <= 10; i++) {
       store.upsertSlot({
         id: `slot-${i}`,
@@ -173,14 +196,12 @@ describe("DELETE /api/bookings", () => {
       });
     }
 
-    // Book + cancel 3 times to exhaust edits
     for (let i = 6; i <= 8; i++) {
       const br = await POST(makeRequest({ slotId: `slot-${i}` }));
       const { booking } = await br.json();
       await DELETE(makeRequest({ bookingId: booking.id }, "DELETE"));
     }
 
-    // 4th book + cancel should fail
     const br4 = await POST(makeRequest({ slotId: "slot-9" }));
     const { booking: b4 } = await br4.json();
     const res = await DELETE(makeRequest({ bookingId: b4.id }, "DELETE"));
@@ -215,11 +236,13 @@ describe("PATCH /api/bookings", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    mockSession.mockReset();
+    mockJwtSession.mockReset();
+    mockFindProfile.mockReset();
   });
 
   it("reschedules booking and returns 200", async () => {
-    mockSession.mockResolvedValue(traineeSession);
+    mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
+    mockFindProfile.mockResolvedValue(traineeProfile);
 
     const bookRes = await POST(makeRequest({ slotId: "slot-6" }));
     const { booking } = await bookRes.json();
@@ -234,7 +257,8 @@ describe("PATCH /api/bookings", () => {
   });
 
   it("returns 409 when new slot is full, old booking unchanged", async () => {
-    mockSession.mockResolvedValue(traineeSession);
+    mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
+    mockFindProfile.mockResolvedValue(traineeProfile);
 
     const { store } = getContainer();
     store.upsertSlot({
@@ -254,7 +278,6 @@ describe("PATCH /api/bookings", () => {
     );
     expect(res.status).toBe(409);
 
-    // Old booking still confirmed
     const old = store.getBooking(booking.id);
     expect(old!.status).toBe("confirmed");
   });
