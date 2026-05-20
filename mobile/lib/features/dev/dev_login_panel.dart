@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/env.dart';
 import '../auth/auth_repository.dart';
-import '../slots/home_screen.dart';
+import '../auth/role_router.dart';
 
 class DevAccount {
   final String email;
@@ -80,7 +80,7 @@ class DevLoginPanel extends ConsumerWidget {
                       );
                   if (!context.mounted) return;
                   Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => HomeScreen()),
+                    MaterialPageRoute(builder: (_) => const RoleRouter()),
                   );
                 },
                 child: Text('${acc.name} — ${acc.role == 'admin' ? 'מאמן' : 'מתאמן'}'),

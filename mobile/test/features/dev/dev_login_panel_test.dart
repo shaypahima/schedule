@@ -5,17 +5,33 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:velofit/features/auth/auth_repository.dart';
 import 'package:velofit/features/dev/dev_login_panel.dart';
+import 'package:velofit/features/profile/profile.dart';
+import 'package:velofit/features/profile/profile_repository.dart';
 import 'package:velofit/features/slots/slot_repository.dart';
 
 class _FakeAuth extends Mock implements AuthRepository {}
 
 class _FakeSlotRepo extends Mock implements SlotRepository {}
 
-Widget _harness(Widget child, {AuthRepository? auth, SlotRepository? slots}) =>
-    ProviderScope(
+class _FakeProfileRepo extends Mock implements ProfileRepository {}
+
+Widget _harness(
+  Widget child, {
+  AuthRepository? auth,
+  SlotRepository? slots,
+  ProfileRepository? profile,
+}) {
+  final profileRepo = profile ?? _FakeProfileRepo();
+  if (profile == null) {
+    when(() => (profileRepo as _FakeProfileRepo).fetchMe()).thenAnswer(
+      (_) async => const Profile(id: 'u1', email: 'u1@example.com', name: 'U', role: 'trainee'),
+    );
+  }
+  return ProviderScope(
       overrides: [
         if (auth != null) authRepositoryProvider.overrideWithValue(auth),
         if (slots != null) slotRepositoryProvider.overrideWithValue(slots),
+        profileRepositoryProvider.overrideWithValue(profileRepo),
       ],
       child: MaterialApp(
         builder: (context, c) => Directionality(
@@ -25,6 +41,7 @@ Widget _harness(Widget child, {AuthRepository? auth, SlotRepository? slots}) =>
         home: Scaffold(body: child),
       ),
     );
+}
 
 void main() {
   group('DevLoginPanel', () {

@@ -1,12 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/route-guard";
 import { getContainer } from "@/lib/services";
+import { todayIL, weekStartForDate } from "@/lib/services/israel-time";
+import { requireAdminJwt } from "@/lib/services/admin-guard";
 
-export async function GET() {
-  const { error } = await requireAdmin();
+export async function GET(request: NextRequest) {
+  const { error } = await requireAdminJwt(request);
   if (error) return error;
 
-  const trainees = await getContainer().auth.getTrainees();
+  const { auth, store } = getContainer();
+  const trainees = await auth.getTrainees();
+  const filter = new URL(request.url).searchParams.get("filter");
+
+  if (filter === "unbooked") {
+    const today = todayIL();
+    const weekStart = weekStartForDate(today);
+    const active = trainees.filter((t) => t.isActive);
+    const unbooked = [];
+    for (const t of active) {
+      const weekBookings = await store.getTraineeBookingsForWeek(t.id, weekStart);
+      if (weekBookings.length === 0) {
+        unbooked.push({ id: t.id, name: t.name, phone: t.phone });
+      }
+    }
+    return NextResponse.json({ trainees: unbooked });
+  }
+
   return NextResponse.json({
     trainees: trainees.map((t) => ({
       id: t.id,
@@ -21,7 +39,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdminJwt(request);
   if (error) return error;
 
   const { phone, name } = await request.json();
@@ -41,7 +59,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdminJwt(request);
   if (error) return error;
 
   const { id, ...updates } = await request.json();
@@ -50,12 +68,44 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const profile = await getContainer().auth.updateTrainee(id, updates);
-    return NextResponse.json(profile);
+    const { auth, store, tx } = getContainer();
+    const profile = await auth.updateTrainee(id, updates);
+
+    if (updates.isActive === false) {
+      const allBookings = await store.getAllBookings();
+      const active = allBookings.filter(
+        (b) => b.traineeId === id && b.status === "confirmed"
+      );
+      for (const b of active) {
+        await tx.cancel(b.id, id, { bypass: true });
+      }
+    }
+
+    return NextResponse.json({ ...profile, cancelledBookings: updates.isActive === false ? undefined : 0 });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed" },
       { status: 404 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const { error } = await requireAdminJwt(request);
+  if (error) return error;
+
+  const { id } = await request.json();
+  if (!id) {
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  }
+
+  try {
+    await getContainer().auth.deleteTrainee(id);
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed" },
+      { status: 409 }
     );
   }
 }

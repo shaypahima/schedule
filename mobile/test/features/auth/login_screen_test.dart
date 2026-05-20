@@ -6,10 +6,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:velofit/features/auth/auth_repository.dart';
 import 'package:velofit/features/auth/login_screen.dart';
+import 'package:velofit/features/profile/profile.dart';
 import 'package:velofit/features/profile/profile_repository.dart';
 import 'package:velofit/features/slots/slot_repository.dart';
 
 class _FakeAuth extends Mock implements AuthRepository {}
+
+class _FakeProfileRepo extends Mock implements ProfileRepository {}
 
 class _FakeSlotRepo extends Mock implements SlotRepository {}
 
@@ -91,13 +94,20 @@ void main() {
     testWidgets('successful login navigates to home screen', (tester) async {
       final auth = _FakeAuth();
       final slots = _FakeSlotRepo();
+      final profile = _FakeProfileRepo();
       when(() => auth.signInWithPassword(
             email: any(named: 'email'),
             password: any(named: 'password'),
           )).thenAnswer((_) async {});
       when(() => slots.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => profile.fetchMe()).thenAnswer((_) async => const Profile(
+            id: 'u1',
+            email: 'yael.cohen@example.com',
+            name: 'יעל כהן',
+            role: 'trainee',
+          ));
 
-      await tester.pumpWidget(_harness(auth: auth, slots: slots));
+      await tester.pumpWidget(_harness(auth: auth, slots: slots, profile: profile));
 
       await tester.enterText(find.byKey(const Key('email-field')), 'yael.cohen@example.com');
       await tester.enterText(find.byKey(const Key('password-field')), 'devpassword123');

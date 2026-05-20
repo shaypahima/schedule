@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/route-guard";
 import { getContainer } from "@/lib/services";
+import { requireAdminJwt } from "@/lib/services/admin-guard";
 
 /** Admin: add trainee to slot */
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdminJwt(request);
   if (error) return error;
 
   const { traineeId, slotId, traineeName } = await request.json();
@@ -13,19 +13,14 @@ export async function POST(request: NextRequest) {
   }
 
   const { tx } = getContainer();
-  const result = await tx.book(traineeId, slotId, {
-    bypass: true,
-    traineeName,
-  });
-  if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 409 });
-  }
+  const result = await tx.book(traineeId, slotId, { bypass: true, traineeName });
+  if (!result.ok) return NextResponse.json({ error: result.message }, { status: 409 });
   return NextResponse.json({ booking: result.booking }, { status: 201 });
 }
 
 /** Admin: remove trainee from slot */
 export async function DELETE(request: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await requireAdminJwt(request);
   if (error) return error;
 
   const { bookingId } = await request.json();
@@ -35,19 +30,42 @@ export async function DELETE(request: NextRequest) {
 
   const { tx } = getContainer();
   const result = await tx.cancel(bookingId, "", { bypass: true });
-  if (!result.ok) {
-    return NextResponse.json({ error: result.message }, { status: 409 });
-  }
+  if (!result.ok) return NextResponse.json({ error: result.message }, { status: 409 });
   return NextResponse.json({ success: true });
 }
 
-/** Admin: get all bookings */
-export async function GET() {
-  const { error } = await requireAdmin();
+/** Admin: get bookings (optionally filtered by date) */
+export async function GET(request: NextRequest) {
+  const { error } = await requireAdminJwt(request);
   if (error) return error;
 
-  const { store } = getContainer();
-  const allBookings = await store.getAllBookings();
-  const bookings = allBookings.filter((b) => b.status === "confirmed");
-  return NextResponse.json({ bookings });
+  const { store, auth } = getContainer();
+  const date = new URL(request.url).searchParams.get("date");
+
+  let bookings;
+  if (date) {
+    const slots = await store.getAllSlotsForDate(date);
+    const slotIds = new Set(slots.map((s) => s.id));
+    const all = await store.getAllBookings();
+    bookings = all.filter((b) => b.status === "confirmed" && slotIds.has(b.slotId));
+  } else {
+    const all = await store.getAllBookings();
+    bookings = all.filter((b) => b.status === "confirmed");
+  }
+
+  const trainees = await auth.getTrainees();
+  const nameMap = new Map(trainees.map((t) => [t.id, t.name]));
+
+  const enriched = [];
+  for (const b of bookings) {
+    const slot = await store.getSlot(b.slotId);
+    enriched.push({
+      ...b,
+      traineeName: nameMap.get(b.traineeId) ?? null,
+      slotDate: slot?.date ?? null,
+      startTime: slot?.startTime ?? null,
+    });
+  }
+
+  return NextResponse.json({ bookings: enriched });
 }
