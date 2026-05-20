@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Velofit (dev)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=SUPABASE_URL=https://skgccdncqrxmbjwjelhi.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=sb_publishable_uBElZznHG4Zz3zVzB-jF2A_pK6M62Iq",
+        "--dart-define=API_BASE_URL=http://10.0.2.2:3000",
+        "--dart-define=DEV_MODE=true",
+        "--dart-define=DEV_PASSWORD=devpassword123",
+        "--dart-define=DEV_TRAINEE_EMAILS=yael.cohen@example.com,itai.levi@example.com,noa.mizrahi@example.com,tomer.avraham@example.com,maya.friedman@example.com,eitan.peretz@example.com,shira.shapira@example.com,roi.bar@example.com",
+        "--dart-define=DEV_TRAINEE_NAMES=יעל כהן,איתי לוי,נועה מזרחי,תומר אברהם,מאיה פרידמן,איתן פרץ,שירה שפירא,רועי בר",
+        "--dart-define=DEV_COACH_EMAIL=dev.coach@example.com",
+        "--dart-define=DEV_COACH_NAME=דני אמסלם"
+      ]
+    },
+    {
+      "name": "Velofit (prod-like, no dev panel)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=SUPABASE_URL=https://skgccdncqrxmbjwjelhi.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=sb_publishable_uBElZznHG4Zz3zVzB-jF2A_pK6M62Iq",
+        "--dart-define=API_BASE_URL=http://10.0.2.2:3000"
+      ]
+    }
+  ]
+}
