@@ -40,6 +40,23 @@ void main() {
   });
 
   group('LoginScreen', () {
+    testWidgets('shows "Sign in with Google" button', (tester) async {
+      await tester.pumpWidget(_harness(auth: _FakeAuth()));
+      expect(find.byKey(const Key('google-signin-button')), findsOneWidget);
+      expect(find.text('המשך עם Google'), findsOneWidget);
+    });
+
+    testWidgets('Google button tap calls signInWithGoogle', (tester) async {
+      final auth = _FakeAuth();
+      when(() => auth.signInWithGoogle()).thenAnswer((_) async {});
+
+      await tester.pumpWidget(_harness(auth: auth));
+      await tester.tap(find.byKey(const Key('google-signin-button')));
+      await tester.pumpAndSettle();
+
+      verify(() => auth.signInWithGoogle()).called(1);
+    });
+
     testWidgets('renders Hebrew email + password fields + submit button under RTL',
         (tester) async {
       await tester.pumpWidget(_harness(auth: _FakeAuth()));

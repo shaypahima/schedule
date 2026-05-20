@@ -84,6 +84,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 textAlign: TextAlign.center,
               ),
             ],
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              key: const Key('google-signin-button'),
+              icon: const Icon(Icons.g_mobiledata, size: 28),
+              label: const Text('המשך עם Google'),
+              onPressed: () async {
+                try {
+                  await ref.read(authRepositoryProvider).signInWithGoogle();
+                } on AuthFailure catch (e) {
+                  if (!mounted) return;
+                  setState(() => _error = e.message);
+                }
+              },
+            ),
             devLoginPanelFromEnv(),
           ],
         ),

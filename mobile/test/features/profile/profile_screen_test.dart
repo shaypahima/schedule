@@ -3,14 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:velofit/features/auth/auth_repository.dart';
 import 'package:velofit/features/profile/profile.dart';
 import 'package:velofit/features/profile/profile_repository.dart';
 import 'package:velofit/features/profile/profile_screen.dart';
 
 class _FakeProfileRepo extends Mock implements ProfileRepository {}
 
-Widget _harness(ProfileRepository repo) => ProviderScope(
-      overrides: [profileRepositoryProvider.overrideWithValue(repo)],
+class _FakeAuth extends Mock implements AuthRepository {}
+
+Widget _harness(ProfileRepository repo, {AuthRepository? auth}) => ProviderScope(
+      overrides: [
+        profileRepositoryProvider.overrideWithValue(repo),
+        if (auth != null) authRepositoryProvider.overrideWithValue(auth),
+      ],
       child: MaterialApp(
         builder: (context, child) => Directionality(
           textDirection: TextDirection.rtl,
@@ -63,6 +69,26 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('profile-error')), findsOneWidget);
+    });
+
+    testWidgets('sign-out button calls AuthRepository.signOut', (tester) async {
+      final repo = _FakeProfileRepo();
+      final auth = _FakeAuth();
+      when(() => repo.fetchMe()).thenAnswer((_) async => const Profile(
+            id: 'u1',
+            email: 'yael.cohen@example.com',
+            name: 'יעל כהן',
+            role: 'trainee',
+          ));
+      when(() => auth.signOut()).thenAnswer((_) async {});
+
+      await tester.pumpWidget(_harness(repo, auth: auth));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('sign-out-button')));
+      await tester.pumpAndSettle();
+
+      verify(() => auth.signOut()).called(1);
     });
   });
 }

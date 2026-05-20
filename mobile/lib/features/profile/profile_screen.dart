@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/auth_repository.dart';
+import '../auth/login_screen.dart';
 import '../coach/coach_settings_screen.dart';
 import 'profile_repository.dart';
 
@@ -22,7 +24,24 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('הפרופיל שלי')),
+      appBar: AppBar(
+        title: const Text('הפרופיל שלי'),
+        actions: [
+          IconButton(
+            key: const Key('sign-out-button'),
+            tooltip: 'התנתק',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await ref.read(authRepositoryProvider).signOut();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (_) => false,
+              );
+            },
+          ),
+        ],
+      ),
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(

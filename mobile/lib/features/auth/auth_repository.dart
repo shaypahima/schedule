@@ -10,6 +10,7 @@ class AuthFailure implements Exception {
 
 abstract class AuthRepository {
   Future<void> signInWithPassword({required String email, required String password});
+  Future<void> signInWithGoogle();
   Future<void> signOut();
   String? get currentUserId;
   Stream<AuthState> authStateChanges();
@@ -23,6 +24,18 @@ class SupabaseAuthRepository implements AuthRepository {
   Future<void> signInWithPassword({required String email, required String password}) async {
     try {
       await _client.auth.signInWithPassword(email: email, password: password);
+    } on AuthException catch (e) {
+      throw AuthFailure(e.message);
+    }
+  }
+
+  @override
+  Future<void> signInWithGoogle() async {
+    try {
+      await _client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'com.shaypahima.velofit://login-callback',
+      );
     } on AuthException catch (e) {
       throw AuthFailure(e.message);
     }
