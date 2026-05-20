@@ -12,7 +12,25 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated migration bundles
+    "scripts/.bootstrap-*.sql",
+    // Flutter project — has its own linter
+    "mobile/**",
   ]),
+  {
+    rules: {
+      // Allow underscore-prefixed args/vars to be unused. Interface-method
+      // implementations often need to accept args they don't use.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

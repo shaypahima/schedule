@@ -133,7 +133,8 @@ describe("DELETE /api/admin/bookings", () => {
     expect(body.success).toBe(true);
 
     const { store } = getContainer();
-    expect(store.getBooking(booking.id)!.status).toBe("cancelled");
+    const stored = await store.getBooking(booking.id);
+    expect(stored!.status).toBe("cancelled");
   });
 });
 

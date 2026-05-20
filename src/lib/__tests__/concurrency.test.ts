@@ -47,7 +47,7 @@ describe("Concurrency - optimistic locking", () => {
   });
 
   it("no partial booking state on conflict", async () => {
-    const results = await Promise.allSettled([
+    await Promise.allSettled([
       service.book("t1", "slot-last"),
       service.book("t2", "slot-last"),
     ]);

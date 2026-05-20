@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   MockBookingStore,
   BookingService,
-  BookingError,
   getWeekStart,
 } from "@/lib/services/booking-service";
 

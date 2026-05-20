@@ -1,5 +1,5 @@
 import { Booking, Slot } from "@/lib/types";
-import { BookingStore, BookingError } from "./booking-service";
+import { BookingStore } from "./booking-service";
 import { GoogleCalendarService } from "./google-calendar";
 import { NotificationService, NotificationPayload } from "./notification";
 import { WeeklyLimits } from "./weekly-limits";
@@ -102,7 +102,7 @@ export function createBookingTransaction(
         const match = slotId.match(/^new-(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2})$/);
         if (match) {
           slot = {
-            id: slotId,
+            id: crypto.randomUUID(),
             date: match[1],
             startTime: match[2],
             capacity: 2,
@@ -114,6 +114,9 @@ export function createBookingTransaction(
       }
 
       if (!slot) return { ok: false, error: "NOT_FOUND", message: "Slot not found" } as const;
+
+      // Use the resolved slot ID (may differ from input for auto-created slots)
+      const resolvedSlotId = slot.id;
 
       if (!opts.bypass) {
         const lockout = checkLockout(slot);
@@ -130,7 +133,7 @@ export function createBookingTransaction(
         return { ok: false, error: "SLOT_FULL", message: "Slot is full" };
       }
 
-      const existingBookings = await store.getConfirmedBookingsForSlot(slotId);
+      const existingBookings = await store.getConfirmedBookingsForSlot(resolvedSlotId);
       const existing = existingBookings.find((b) => b.traineeId === traineeId);
       if (existing) {
         return { ok: false, error: "ALREADY_BOOKED", message: "Already booked" };
@@ -152,7 +155,7 @@ export function createBookingTransaction(
         googleEventId = await createCalendarEvent(slot, opts.traineeName);
       } catch {
         // Rollback slot capacity
-        const fresh = await store.getSlot(slotId);
+        const fresh = await store.getSlot(resolvedSlotId);
         if (fresh) {
           await store.updateSlot({
             ...fresh,
@@ -163,8 +166,8 @@ export function createBookingTransaction(
       }
 
       const booking: Booking = {
-        id: `booking-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        slotId,
+        id: crypto.randomUUID(),
+        slotId: resolvedSlotId,
         traineeId,
         googleEventId,
         isAutoBooked: opts.isAutoBooked ?? false,
@@ -299,7 +302,7 @@ export function createBookingTransaction(
       }
 
       const newBooking: Booking = {
-        id: `booking-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        id: crypto.randomUUID(),
         slotId: newSlotId,
         traineeId,
         googleEventId: newGoogleEventId,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateAvailableSlots, AvailableSlot } from "@/lib/services/slot-availability";
+import { generateAvailableSlots } from "@/lib/services/slot-availability";
 import { TimePeriod, Slot } from "@/lib/types";
 
 // Helper: create a date in Asia/Jerusalem context (using ISO strings for clarity)
@@ -97,7 +97,7 @@ describe("generateAvailableSlots", () => {
       expect(slot10!.currentBookings).toBe(1);
     });
 
-    it("excludes slots that are at full capacity", () => {
+    it("includes fully booked slots with remainingCapacity 0", () => {
       const existingSlots: Slot[] = [
         {
           id: "slot-1",
@@ -110,7 +110,9 @@ describe("generateAvailableSlots", () => {
       ];
       const slots = generateAvailableSlots(DATE, [], existingSlots);
       const slot10 = slots.find((s) => s.startTime === "10:00");
-      expect(slot10).toBeUndefined();
+      expect(slot10).toBeDefined();
+      expect(slot10!.remainingCapacity).toBe(0);
+      expect(slot10!.currentBookings).toBe(2);
     });
 
     it("respects capacity override of 3", () => {
@@ -133,7 +135,7 @@ describe("generateAvailableSlots", () => {
   });
 
   describe("combined busy + bookings", () => {
-    it("excludes busy slots AND full-capacity slots", () => {
+    it("excludes busy slots but includes full-capacity slots", () => {
       const busy: TimePeriod[] = [
         { start: d(DATE, "09:00"), end: d(DATE, "10:00") },
       ];
@@ -150,9 +152,11 @@ describe("generateAvailableSlots", () => {
       const slots = generateAvailableSlots(DATE, busy, existingSlots);
       const times = slots.map((s) => s.startTime);
       expect(times).not.toContain("09:00"); // busy
-      expect(times).not.toContain("14:00"); // full
+      expect(times).toContain("14:00"); // full but visible
       expect(times).toContain("08:00");
       expect(times).toContain("15:00");
+      const slot14 = slots.find((s) => s.startTime === "14:00");
+      expect(slot14!.remainingCapacity).toBe(0);
     });
   });
 

@@ -317,7 +317,7 @@ describe("PATCH /api/bookings", () => {
     );
     expect(res.status).toBe(409);
 
-    const old = store.getBooking(booking.id);
+    const old = await store.getBooking(booking.id);
     expect(old!.status).toBe("confirmed");
   });
 });

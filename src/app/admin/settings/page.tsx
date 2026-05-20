@@ -7,10 +7,21 @@ interface GoogleStatus {
   mock: boolean;
 }
 
+function initialMessage(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("connected") === "true") {
+    return "Google Calendar connected successfully!";
+  }
+  const err = params.get("error");
+  if (err) return `Connection failed: ${err}`;
+  return "";
+}
+
 export default function AdminSettingsPage() {
   const [status, setStatus] = useState<GoogleStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [message] = useState(initialMessage);
 
   useEffect(() => {
     // Check auth
@@ -28,14 +39,6 @@ export default function AdminSettingsPage() {
         if (data) setStatus(data);
       })
       .finally(() => setLoading(false));
-
-    // Check URL params for OAuth callback result
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("connected") === "true") {
-      setMessage("Google Calendar connected successfully!");
-    } else if (params.get("error")) {
-      setMessage(`Connection failed: ${params.get("error")}`);
-    }
   }, []);
 
   if (loading) {
