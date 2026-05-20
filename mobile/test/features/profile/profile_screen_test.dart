@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:velofit/features/auth/auth_repository.dart';
-import 'package:velofit/features/coach/calendar_repository.dart';
+import 'package:velofit/features/coach/calendar_repository.dart' show CalendarRepository, CalendarStatus, calendarRepositoryProvider;
 import 'package:velofit/features/profile/profile.dart';
 import 'package:velofit/features/profile/profile_repository.dart';
 import 'package:velofit/features/profile/profile_screen.dart';
@@ -30,7 +30,9 @@ Widget _harness(
 }) {
   final calRepo = calendar ?? _FakeCalendarRepo();
   if (calendar == null) {
-    when(() => (calRepo as _FakeCalendarRepo).isConnected()).thenAnswer((_) async => false);
+    when(() => (calRepo as _FakeCalendarRepo).status()).thenAnswer(
+      (_) async => const CalendarStatus(connected: false, mock: false),
+    );
   }
   return ProviderScope(
     overrides: [
@@ -104,7 +106,9 @@ void main() {
             role: 'admin',
           ));
       final cal = _FakeCalendarRepo();
-      when(() => cal.isConnected()).thenAnswer((_) async => false);
+      when(() => cal.status()).thenAnswer(
+        (_) async => const CalendarStatus(connected: false, mock: false),
+      );
 
       await tester.pumpWidget(_harness(repo, calendar: cal));
       await tester.pumpAndSettle();
@@ -123,7 +127,9 @@ void main() {
             role: 'admin',
           ));
       final cal = _FakeCalendarRepo();
-      when(() => cal.isConnected()).thenAnswer((_) async => true);
+      when(() => cal.status()).thenAnswer(
+        (_) async => const CalendarStatus(connected: true, mock: false),
+      );
 
       await tester.pumpWidget(_harness(repo, calendar: cal));
       await tester.pumpAndSettle();
@@ -158,7 +164,9 @@ void main() {
             name: 'Coach',
             role: 'admin',
           ));
-      when(() => cal.isConnected()).thenAnswer((_) async => false);
+      when(() => cal.status()).thenAnswer(
+        (_) async => const CalendarStatus(connected: false, mock: false),
+      );
       when(() => cal.getAuthUrl()).thenAnswer((_) async => 'https://accounts.google.com/o/oauth2/v2/auth?xxx');
 
       await tester.pumpWidget(_harness(repo, calendar: cal, urlOpener: opener));

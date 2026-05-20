@@ -81,8 +81,28 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Consumer(
                   builder: (context, ref, _) {
-                    final connected = ref.watch(calendarConnectedProvider).valueOrNull;
-                    if (connected == true) {
+                    final status = ref.watch(calendarStatusProvider).valueOrNull;
+                    if (status == null) {
+                      return const SizedBox(
+                        height: 24,
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      );
+                    }
+                    if (status.mock) {
+                      return Container(
+                        key: const Key('calendar-mock'),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          '🛠 יומן Google במצב סימולציה (פיתוח)',
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+                    }
+                    if (status.connected) {
                       return const Text(
                         '✓ יומן Google מחובר',
                         key: Key('calendar-connected'),
@@ -93,8 +113,15 @@ class ProfileScreen extends ConsumerWidget {
                       icon: const Icon(Icons.calendar_today),
                       label: const Text('חבר יומן Google'),
                       onPressed: () async {
-                        final url = await ref.read(calendarRepositoryProvider).getAuthUrl();
-                        await ref.read(urlOpenerProvider).open(Uri.parse(url));
+                        try {
+                          final url = await ref.read(calendarRepositoryProvider).getAuthUrl();
+                          await ref.read(urlOpenerProvider).open(Uri.parse(url));
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('שגיאה: $e')),
+                          );
+                        }
                       },
                     );
                   },

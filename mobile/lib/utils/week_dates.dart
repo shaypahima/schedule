@@ -14,3 +14,29 @@ String formatDate(DateTime d) =>
     '${d.year.toString().padLeft(4, "0")}-${d.month.toString().padLeft(2, "0")}-${d.day.toString().padLeft(2, "0")}';
 
 const hebrewDayShort = ['א', 'ב', 'ג', 'ד', 'ה', 'ו'];
+
+/// Full Hebrew day-of-week names (Sun-Sat).
+const hebrewDayLong = [
+  'ראשון',
+  'שני',
+  'שלישי',
+  'רביעי',
+  'חמישי',
+  'שישי',
+  'שבת',
+];
+
+/// "יום רביעי • 20.5" style header label for [d].
+String hebrewDayHeader(DateTime d) {
+  final dow = hebrewDayLong[d.weekday % 7];
+  return 'יום $dow • ${d.day}.${d.month}';
+}
+
+/// Hour-of-day greeting in Hebrew.
+String hebrewGreeting([DateTime? now]) {
+  final h = (now ?? DateTime.now()).hour;
+  if (h < 12) return 'בוקר טוב';
+  if (h < 17) return 'צהריים טובים';
+  if (h < 21) return 'ערב טוב';
+  return 'לילה טוב';
+}

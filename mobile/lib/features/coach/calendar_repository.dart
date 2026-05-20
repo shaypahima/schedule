@@ -4,8 +4,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../profile/profile_repository.dart';
 
+class CalendarStatus {
+  final bool connected;
+  final bool mock;
+  const CalendarStatus({required this.connected, required this.mock});
+}
+
 abstract class CalendarRepository {
-  Future<bool> isConnected();
+  Future<CalendarStatus> status();
   Future<String> getAuthUrl();
 }
 
@@ -21,12 +27,15 @@ class HttpCalendarRepository implements CalendarRepository {
   }
 
   @override
-  Future<bool> isConnected() async {
+  Future<CalendarStatus> status() async {
     final res = await _dio.get<Map<String, dynamic>>(
       '/api/coach-calendar/status',
       options: Options(headers: {'Authorization': 'Bearer ${_jwt()}'}),
     );
-    return (res.data!['connected'] as bool?) ?? false;
+    return CalendarStatus(
+      connected: (res.data!['connected'] as bool?) ?? false,
+      mock: (res.data!['mock'] as bool?) ?? false,
+    );
   }
 
   @override
@@ -43,6 +52,6 @@ final calendarRepositoryProvider = Provider<CalendarRepository>((ref) {
   return HttpCalendarRepository(ref.watch(dioProvider), Supabase.instance.client);
 });
 
-final calendarConnectedProvider = FutureProvider<bool>((ref) {
-  return ref.watch(calendarRepositoryProvider).isConnected();
+final calendarStatusProvider = FutureProvider<CalendarStatus>((ref) {
+  return ref.watch(calendarRepositoryProvider).status();
 });

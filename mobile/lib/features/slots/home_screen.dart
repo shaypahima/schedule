@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../theme.dart';
 import '../../utils/week_dates.dart';
 import '../bookings/booking.dart';
 import '../bookings/booking_repository.dart';
@@ -77,6 +78,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .where((b) => b.isConfirmed)
         .map((b) => b.slotId)
         .toSet();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('המאמן שלי'),
@@ -92,67 +94,267 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: Column(
         children: [
-          const _MyBookingsSection(),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                for (var i = 0; i < 6; i++)
-                  _DayChip(
-                    key: Key('day-chip-$i'),
-                    label: hebrewDayShort[i],
-                    date: _weekDates[i],
-                    selected: i == _selectedIndex,
-                    onTap: () => setState(() => _selectedIndex = i),
-                  ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
           Expanded(
-            child: slotsAsync.when(
-              loading: () => const Center(
-                key: Key('slots-loading'),
-                child: CircularProgressIndicator(),
-              ),
-              error: (err, _) => Center(
-                key: const Key('slots-error'),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'שגיאה בטעינת השעות',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyLarge,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                _WelcomeHero(now: widget.now),
+                const _UpcomingSessionsCard(),
+                const _MyBookingsSection(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                  child: Text('שעות פנויות',
+                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                _DayPickerRow(
+                  weekDates: _weekDates,
+                  selectedIndex: _selectedIndex,
+                  todayWeekday: widget.now.weekday % 7,
+                  onSelect: (i) => setState(() => _selectedIndex = i),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: slotsAsync.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 48),
+                      child: Center(
+                        key: Key('slots-loading'),
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                    error: (err, _) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 48),
+                      child: Center(
+                        key: const Key('slots-error'),
+                        child: Text('שגיאה בטעינת השעות',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyLarge),
+                      ),
+                    ),
+                    data: (slots) {
+                      if (slots.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 48),
+                          child: Center(
+                            key: Key('slots-empty'),
+                            child: Text('אין שעות פנויות'),
+                          ),
+                        );
+                      }
+                      return Column(
+                        key: const Key('slots-list'),
+                        children: [
+                          for (final slot in slots)
+                            _SlotTile(
+                              slot: slot,
+                              booked: bookedSlotIds.contains(slot.id),
+                              onTap: bookedSlotIds.contains(slot.id)
+                                  ? null
+                                  : () => _openBookingDialog(slot),
+                            ),
+                          const SizedBox(height: 24),
+                        ],
+                      );
+                    },
                   ),
                 ),
-              ),
-              data: (slots) {
-                if (slots.isEmpty) {
-                  return const Center(
-                    key: Key('slots-empty'),
-                    child: Text('אין שעות פנויות'),
-                  );
-                }
-                return ListView.separated(
-                  key: const Key('slots-list'),
-                  itemCount: slots.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final slot = slots[i];
-                    final booked = bookedSlotIds.contains(slot.id);
-                    return _SlotTile(
-                      slot: slot,
-                      booked: booked,
-                      onTap: booked ? null : () => _openBookingDialog(slot),
-                    );
-                  },
-                );
-              },
+              ],
+            ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _WelcomeHero extends ConsumerWidget {
+  final DateTime now;
+  const _WelcomeHero({required this.now});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final view = ref.watch(myBookingsProvider).valueOrNull;
+    final confirmed =
+        (view?.bookings ?? []).where((b) => b.isConfirmed).toList();
+    final next = _nextSession(confirmed, now);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [BrandColors.teal, BrandColors.orange],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          stops: [0.2, 1.0],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            hebrewGreeting(now),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            hebrewDayHeader(now),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
+                ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _StatBadge(
+                value: '${confirmed.length}',
+                label: 'אימונים השבוע',
+              ),
+              const SizedBox(width: 10),
+              _StatBadge(
+                value: '${view?.remainingEdits ?? 3}/3',
+                label: 'עריכות שנותרו',
+              ),
+              const SizedBox(width: 10),
+              _StatBadge(
+                value: next ?? '—',
+                label: 'האימון הבא',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _nextSession(List<Booking> bookings, DateTime now) {
+    final upcoming = bookings
+        .where((b) => b.slotDate != null && b.slotStartTime != null)
+        .map((b) {
+      final d = DateTime.parse('${b.slotDate}T${b.slotStartTime}:00');
+      return MapEntry(b, d);
+    }).where((e) => e.value.isAfter(now)).toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    if (upcoming.isEmpty) return null;
+    final diff = upcoming.first.value.difference(now);
+    if (diff.inHours < 24) return 'בעוד ${diff.inHours}ש׳';
+    if (diff.inDays < 7) return 'בעוד ${diff.inDays} ימים';
+    return '${upcoming.first.value.day}.${upcoming.first.value.month}';
+  }
+}
+
+class _StatBadge extends StatelessWidget {
+  final String value;
+  final String label;
+  const _StatBadge({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    )),
+            Text(label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.85),
+                    )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UpcomingSessionsCard extends ConsumerWidget {
+  const _UpcomingSessionsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(myBookingsProvider);
+    return async.maybeWhen(
+      orElse: () => const SizedBox.shrink(),
+      data: (view) {
+        final upcoming = view.bookings
+            .where((b) => b.isConfirmed)
+            .toList()
+          ..sort((a, b) {
+            final ad = (a.slotDate ?? '') + (a.slotStartTime ?? '');
+            final bd = (b.slotDate ?? '') + (b.slotStartTime ?? '');
+            return ad.compareTo(bd);
+          });
+        if (upcoming.isEmpty) return const SizedBox.shrink();
+        final next3 = upcoming.take(3).toList();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.event_available,
+                          size: 18, color: Theme.of(context).colorScheme.primary),
+                      const SizedBox(width: 6),
+                      Text('האימונים הקרובים',
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  for (final b in next3)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '${b.slotDate ?? ""}  •  ${b.slotStartTime ?? ""}',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          if (b.isLocked) ...[
+                            const SizedBox(width: 8),
+                            Icon(Icons.lock_outline,
+                                size: 14,
+                                color:
+                                    Theme.of(context).colorScheme.onSurfaceVariant),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -172,35 +374,42 @@ class _MyBookingsSection extends ConsumerWidget {
             final bd = (b.slotDate ?? '') + (b.slotStartTime ?? '');
             return ad.compareTo(bd);
           });
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          width: double.infinity,
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'עריכות שנותרו השבוע: ${view.remainingEdits}/3',
-                key: const Key('edit-counter-banner'),
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-              if (confirmed.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Container(
-                  key: const Key('my-bookings-section'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('האימונים שלי',
-                          style: Theme.of(context).textTheme.titleSmall),
-                      const SizedBox(height: 4),
-                      for (final b in confirmed)
-                        _MyBookingRow(key: Key('my-booking-${b.id}'), booking: b),
-                    ],
+        if (confirmed.isEmpty && view.remainingEdits == 3) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'עריכות שנותרו השבוע: ${view.remainingEdits}/3',
+                    key: const Key('edit-counter-banner'),
+                    style: Theme.of(context).textTheme.labelMedium,
                   ),
-                ),
-              ],
-            ],
+                  if (confirmed.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      key: const Key('my-bookings-section'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('האימונים שלי',
+                              style: Theme.of(context).textTheme.titleSmall),
+                          const SizedBox(height: 4),
+                          for (final b in confirmed)
+                            _MyBookingRow(
+                                key: Key('my-booking-${b.id}'), booking: b),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         );
       },
@@ -250,6 +459,14 @@ class _MyBookingRow extends ConsumerWidget {
     }
   }
 
+  Future<void> _openReschedulePicker(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => ReschedulePicker(booking: booking),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
@@ -269,7 +486,7 @@ class _MyBookingRow extends ConsumerWidget {
               IconButton(
                 key: Key('reschedule-booking-${booking.id}'),
                 tooltip: 'שינוי מועד',
-                icon: const Icon(Icons.edit_calendar_outlined),
+                icon: const Icon(Icons.edit_calendar_outlined, size: 20),
                 onPressed: booking.isLocked
                     ? null
                     : () => _openReschedulePicker(context, ref),
@@ -277,7 +494,7 @@ class _MyBookingRow extends ConsumerWidget {
               IconButton(
                 key: Key('cancel-booking-${booking.id}'),
                 tooltip: 'בטל',
-                icon: const Icon(Icons.delete_outline),
+                icon: const Icon(Icons.delete_outline, size: 20),
                 onPressed: booking.isLocked
                     ? null
                     : () => _openCancelDialog(context, ref),
@@ -288,14 +505,6 @@ class _MyBookingRow extends ConsumerWidget {
             ContactCoachCard(lockedSlotStartTime: booking.slotStartTime),
         ],
       ),
-    );
-  }
-
-  Future<void> _openReschedulePicker(BuildContext context, WidgetRef ref) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => ReschedulePicker(booking: booking),
     );
   }
 }
@@ -317,8 +526,7 @@ class ReschedulePicker extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('בחר שעה חדשה',
-              style: Theme.of(context).textTheme.titleLarge),
+          Text('בחר שעה חדשה', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           ConstrainedBox(
             constraints: BoxConstraints(
@@ -328,7 +536,10 @@ class ReschedulePicker extends ConsumerWidget {
               shrinkWrap: true,
               children: [
                 for (final d in weekDates)
-                  _PickerDay(date: formatDate(d), currentSlotId: booking.slotId, bookingId: booking.id),
+                  _PickerDay(
+                      date: formatDate(d),
+                      currentSlotId: booking.slotId,
+                      bookingId: booking.id),
               ],
             ),
           ),
@@ -363,8 +574,7 @@ class _PickerDay extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(date,
-                  style: Theme.of(context).textTheme.titleSmall),
+              child: Text(date, style: Theme.of(context).textTheme.titleSmall),
             ),
             for (final slot in usable)
               ListTile(
@@ -374,7 +584,9 @@ class _PickerDay extends ConsumerWidget {
                 onTap: () async {
                   Navigator.of(context).pop();
                   try {
-                    await ref.read(bookingRepositoryProvider).reschedule(bookingId, slot.id);
+                    await ref
+                        .read(bookingRepositoryProvider)
+                        .reschedule(bookingId, slot.id);
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('האימון הועבר')),
@@ -397,39 +609,101 @@ class _PickerDay extends ConsumerWidget {
   }
 }
 
+class _DayPickerRow extends StatelessWidget {
+  final List<DateTime> weekDates;
+  final int selectedIndex;
+  final int todayWeekday; // 0..6 (Sun..Sat)
+  final void Function(int) onSelect;
+  const _DayPickerRow({
+    required this.weekDates,
+    required this.selectedIndex,
+    required this.todayWeekday,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          for (var i = 0; i < 6; i++)
+            _DayChip(
+              key: Key('day-chip-$i'),
+              label: hebrewDayShort[i],
+              date: weekDates[i],
+              selected: i == selectedIndex,
+              isToday: i == todayWeekday,
+              onTap: () => onSelect(i),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DayChip extends StatelessWidget {
   final String label;
   final DateTime date;
   final bool selected;
+  final bool isToday;
   final VoidCallback onTap;
   const _DayChip({
     super.key,
     required this.label,
     required this.date,
     required this.selected,
+    required this.isToday,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final scheme = Theme.of(context).colorScheme;
+    final bg = selected ? scheme.primary : Colors.transparent;
+    final fg = selected ? scheme.onPrimary : scheme.onSurface;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
         decoration: BoxDecoration(
-          color: selected ? cs.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? scheme.primary : BrandColors.line,
+            width: 1,
+          ),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: Theme.of(context).textTheme.titleLarge),
+            Text(label,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: fg,
+                      fontWeight: FontWeight.w700,
+                    )),
             const SizedBox(height: 2),
             Text(
               '${date.day}/${date.month}',
-              style: Theme.of(context).textTheme.labelSmall,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: fg.withValues(alpha: 0.85),
+                  ),
             ),
+            if (isToday) ...[
+              const SizedBox(height: 4),
+              Container(
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: selected ? scheme.onPrimary : BrandColors.orange,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -445,18 +719,60 @@ class _SlotTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final available = !booked && !slot.isFull && !slot.lockedOut;
     final label = booked
         ? 'מוזמן'
         : slot.isFull
             ? 'מלא'
             : 'נשאר מקום ${slot.remainingCapacity}';
-    final available = !booked && !slot.isFull && !slot.lockedOut;
-    return ListTile(
+    final accentColor = booked
+        ? scheme.primary
+        : slot.isFull
+            ? scheme.outline
+            : scheme.secondary;
+
+    return Card(
       key: Key('slot-${slot.startTime}'),
-      title: Text(slot.startTime),
-      subtitle: Text(label),
-      enabled: available,
-      onTap: available ? onTap : null,
+      child: InkWell(
+        onTap: available ? onTap : null,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(slot.startTime,
+                        style: Theme.of(context).textTheme.titleLarge),
+                    Text(label,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            )),
+                  ],
+                ),
+              ),
+              if (available)
+                Icon(Icons.chevron_left, color: scheme.primary)
+              else if (booked)
+                Icon(Icons.check_circle, color: scheme.primary, size: 22)
+              else
+                Icon(Icons.lock_outline, color: scheme.outline, size: 20),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

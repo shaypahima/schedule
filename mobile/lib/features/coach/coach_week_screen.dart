@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../theme.dart';
 import '../../utils/week_dates.dart';
 import '../profile/profile_screen.dart';
 import '../slots/slot.dart';
@@ -42,7 +43,19 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('שבוע המאמן'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('שבוע המאמן'),
+            Text(
+              hebrewDayHeader(widget.now),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             key: const Key('trainees-button'),
@@ -63,6 +76,7 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
       ),
       body: Column(
         children: [
+          _CoachDashboard(now: widget.now, selectedDate: _selectedDate),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
@@ -144,6 +158,93 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CoachDashboard extends ConsumerWidget {
+  final DateTime now;
+  final String selectedDate;
+  const _CoachDashboard({required this.now, required this.selectedDate});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bookings = ref.watch(adminBookingsForDateProvider(selectedDate)).valueOrNull ?? [];
+    final trainees = ref.watch(traineeRecordsProvider).valueOrNull ?? [];
+    final pendingCount = trainees.where((t) => t.status == 'pending').length;
+    final activeCount = trainees.where((t) => t.status == 'active').length;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [BrandColors.tealDark, BrandColors.teal],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            hebrewDayHeader(now),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _DashStat(value: '${bookings.length}', label: 'אימונים היום'),
+              const SizedBox(width: 10),
+              _DashStat(value: '$activeCount', label: 'מתאמנים פעילים'),
+              const SizedBox(width: 10),
+              _DashStat(
+                value: '$pendingCount',
+                label: 'הזמנות בהמתנה',
+                highlight: pendingCount > 0,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashStat extends StatelessWidget {
+  final String value;
+  final String label;
+  final bool highlight;
+  const _DashStat({required this.value, required this.label, this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: highlight
+              ? BrandColors.orange.withValues(alpha: 0.85)
+              : Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    )),
+            Text(label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                    )),
+          ],
+        ),
       ),
     );
   }
