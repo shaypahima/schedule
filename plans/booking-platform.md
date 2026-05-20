@@ -1,6 +1,6 @@
 # Plan: Self-Service Trainee Booking Platform
 
-> Source PRD: GitHub Issue #1 (shaypahima/schedule)
+> Source PRD: GitHub Issue #1 (shaypahima/velofit)
 
 ## Architectural decisions
 

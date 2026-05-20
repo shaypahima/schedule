@@ -14,7 +14,7 @@ Durable decisions that apply across all phases. See `docs/adr/0001-0003` for the
 - **Database**: Supabase Postgres. Existing schema retained; auth-related migrations described below.
 - **Calendar**: Google Calendar API v3 (server-side OAuth, unchanged). **Distinct from Google Sign-In** (ADR-0002).
 - **Push**: Firebase Cloud Messaging (FCM)
-- **Repo**: single repo at `github.com/shaypahima/schedule`. Flutter at `mobile/` (sibling to existing `src/`, `supabase/`, etc.).
+- **Repo**: single repo at `github.com/shaypahima/velofit`. Flutter at `mobile/` (sibling to existing `src/`, `supabase/`, etc.).
 
 ### Routes (REST API, mostly retained)
 | Route | Status | Purpose |

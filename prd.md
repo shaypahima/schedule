@@ -79,9 +79,9 @@ The app reads the coach's Google Calendar for availability, writes confirmed boo
 - **Timezone:** Asia/Jerusalem (server-side authority; mobile displays in device locale)
 
 ### Repository layout (single git repo)
-Existing repo `github.com/shaypahima/schedule` is reused as a monorepo. Flutter is added as a sibling directory at the repo root. **No file moves for the existing Next.js code** — zero disruption to 13 phases of git history.
+Existing repo `github.com/shaypahima/velofit` is reused as a monorepo. Flutter is added as a sibling directory at the repo root. **No file moves for the existing Next.js code** — zero disruption to 13 phases of git history.
 ```
-schedule/                     (git root — github.com/shaypahima/schedule)
+velofit/                      (git root — github.com/shaypahima/velofit)
   ├── src/                    Next.js — API only at MVP
   ├── supabase/               migrations
   ├── scripts/                seed, bootstrap-admin, migrate
