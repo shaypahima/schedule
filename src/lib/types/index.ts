@@ -24,7 +24,6 @@ export type UserRole = "admin" | "trainee";
 
 export interface Profile {
   id: string;
-  phone: string;
   name: string;
   role: UserRole;
   isRecurring: boolean;

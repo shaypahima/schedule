@@ -1,12 +1,6 @@
-import { Profile, UserRole } from "@/lib/types";
+import { Profile } from "@/lib/types";
 
 export interface AuthService {
-  /** Send OTP to phone number */
-  sendOtp(phone: string): Promise<void>;
-
-  /** Verify OTP and return user profile */
-  verifyOtp(phone: string, code: string): Promise<Profile>;
-
   /** Get current user profile (null if not logged in) */
   getCurrentUser(): Promise<Profile | null>;
 
@@ -16,8 +10,8 @@ export interface AuthService {
   /** List all trainees */
   getTrainees(): Promise<Profile[]>;
 
-  /** Invite new trainee by phone */
-  inviteTrainee(phone: string, name: string): Promise<Profile>;
+  /** Delete a deactivated trainee entirely */
+  deleteTrainee(id: string): Promise<void>;
 
   /** Update trainee recurring settings */
   updateTrainee(id: string, updates: {
@@ -27,11 +21,4 @@ export interface AuthService {
     isActive?: boolean;
     name?: string;
   }): Promise<Profile>;
-}
-
-export interface MockUser {
-  id: string;
-  phone: string;
-  name: string;
-  role: UserRole;
 }

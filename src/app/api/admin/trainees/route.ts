@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     for (const t of active) {
       const weekBookings = await store.getTraineeBookingsForWeek(t.id, weekStart);
       if (weekBookings.length === 0) {
-        unbooked.push({ id: t.id, name: t.name, phone: t.phone });
+        unbooked.push({ id: t.id, name: t.name });
       }
     }
     return NextResponse.json({ trainees: unbooked });
@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
         id: t.id,
         name: t.name,
         email: tt.email ?? null,
-        phone: t.phone,
         isRecurring: t.isRecurring,
         preferredDay: t.preferredDay,
         preferredTime: t.preferredTime,

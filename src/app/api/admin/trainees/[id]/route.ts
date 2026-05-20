@@ -52,7 +52,6 @@ export async function GET(
     trainee: {
       id: trainee.id,
       name: trainee.name,
-      phone: trainee.phone,
       isRecurring: trainee.isRecurring,
       preferredDay: trainee.preferredDay,
       preferredTime: trainee.preferredTime,

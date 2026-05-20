@@ -3,14 +3,12 @@ import { MockGoogleCalendarService } from "./mock-google-calendar";
 import { RealGoogleCalendarService } from "./real-google-calendar";
 import { InMemoryTokenStore, TokenStore } from "./token-store";
 import { AuthService } from "./auth";
-import { MockAuthService } from "./mock-auth";
 import { BookingStore, MockBookingStore } from "./booking-service";
 import { NotificationService, MockNotificationService } from "./notification";
 import { createBookingTransaction, BookingTransaction } from "./booking-transaction";
 import { createWeeklyLimits, WeeklyLimits } from "./weekly-limits";
 import { SupabaseBookingStore } from "@/lib/supabase/booking-store";
-import { SupabaseAuthService } from "@/lib/supabase/auth-service";
-import { SupabaseDevAuthService } from "@/lib/supabase/dev-auth-service";
+import { SupabaseAuthService, MockAuthService } from "@/lib/supabase/auth-service";
 import { getSupabaseClient, getSupabaseAdminClient } from "@/lib/supabase/client";
 
 /** Fully mocked (in-memory, no DB) — for tests */
@@ -20,10 +18,6 @@ function isFullMock() {
 
 function isMockCalendar() {
   return isFullMock() || process.env.MOCK_CALENDAR === "true";
-}
-
-function isMockAuth() {
-  return isFullMock() || process.env.MOCK_AUTH === "true";
 }
 
 let calendarService: GoogleCalendarService;
@@ -62,13 +56,8 @@ export function getRealCalendarService(): RealGoogleCalendarService | null {
 export function getAuthService(): AuthService {
   if (!authService) {
     if (isFullMock()) {
-      // Tests: fully in-memory
       authService = new MockAuthService();
-    } else if (isMockAuth()) {
-      // Dev: real DB profiles, bypass OTP
-      authService = new SupabaseDevAuthService(getSupabaseClient());
     } else {
-      // Production: real Supabase Auth with OTP (anon for sign-in, admin for invite)
       authService = new SupabaseAuthService(getSupabaseClient(), getSupabaseAdminClient());
     }
   }
