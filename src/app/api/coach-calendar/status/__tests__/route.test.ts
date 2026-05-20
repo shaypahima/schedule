@@ -56,7 +56,7 @@ describe("GET /api/coach-calendar/status", () => {
       id: "c1",
       email: "c1@example.com",
       name: "Coach",
-      role: "admin",
+      role: "coach",
     });
     mockIsConnected.mockResolvedValue(true);
     const res = await GET(makeRequest("Bearer jwt"));
@@ -70,7 +70,7 @@ describe("GET /api/coach-calendar/status", () => {
       id: "c1",
       email: "c1@example.com",
       name: "Coach",
-      role: "admin",
+      role: "coach",
     });
     mockIsConnected.mockResolvedValue(false);
     const res = await GET(makeRequest("Bearer jwt"));

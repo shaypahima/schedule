@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest) {
 
   const profile = await findProfile(session.userId);
   if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (profile.role !== "admin") {
+  if (profile.role !== "coach") {
     return NextResponse.json({ error: "Coach only" }, { status: 403 });
   }
 

@@ -49,7 +49,7 @@ void main() {
       const accounts = [
         DevAccount(email: 'yael.cohen@example.com', name: 'יעל כהן', role: 'trainee'),
         DevAccount(email: 'itai.levi@example.com', name: 'איתי לוי', role: 'trainee'),
-        DevAccount(email: 'dev.coach@example.com', name: 'דני אמסלם', role: 'admin'),
+        DevAccount(email: 'dev.coach@example.com', name: 'דני אמסלם', role: 'coach'),
       ];
       await tester.pumpWidget(_harness(
         const DevLoginPanel(accounts: accounts, password: 'devpassword123'),

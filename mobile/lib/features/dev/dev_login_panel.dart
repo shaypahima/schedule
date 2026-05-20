@@ -32,7 +32,7 @@ List<DevAccount> devAccountsFromEnv() {
     accounts.add(DevAccount(
       email: Env.devCoachEmail,
       name: Env.devCoachName.isEmpty ? 'Coach' : Env.devCoachName,
-      role: 'admin',
+      role: 'coach',
     ));
   }
   return accounts;
@@ -83,7 +83,7 @@ class DevLoginPanel extends ConsumerWidget {
                     MaterialPageRoute(builder: (_) => const RoleRouter()),
                   );
                 },
-                child: Text('${acc.name} — ${acc.role == 'admin' ? 'מאמן' : 'מתאמן'}'),
+                child: Text('${acc.name} — ${acc.role == 'coach' ? 'מאמן' : 'מתאמן'}'),
               ),
             ),
         ],

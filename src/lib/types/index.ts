@@ -20,7 +20,7 @@ export interface CreateEventParams {
   end: Date;
 }
 
-export type UserRole = "admin" | "trainee";
+export type UserRole = "coach" | "trainee";
 
 export interface Profile {
   id: string;

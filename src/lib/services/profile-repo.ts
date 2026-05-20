@@ -4,7 +4,7 @@ export type Profile = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "trainee";
+  role: "coach" | "trainee";
 };
 
 function admin() {
@@ -29,7 +29,7 @@ export async function createProfile(row: {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "trainee";
+  role: "coach" | "trainee";
 }): Promise<Profile> {
   const { data, error } = await admin()
     .from("profiles")

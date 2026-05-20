@@ -10,7 +10,7 @@ import 'profile_repository.dart';
 
 String roleLabel(String role) {
   switch (role) {
-    case 'admin':
+    case 'coach':
       return 'מאמן';
     case 'trainee':
       return 'מתאמן';
@@ -68,7 +68,7 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(profile.email,
                   style: Theme.of(context).textTheme.bodyMedium),
-              if (profile.role == 'admin') ...[
+              if (profile.role == 'coach') ...[
                 const SizedBox(height: 24),
                 FilledButton.tonalIcon(
                   key: const Key('coach-settings-link'),

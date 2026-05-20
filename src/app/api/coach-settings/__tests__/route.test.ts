@@ -63,7 +63,7 @@ describe("PATCH /api/coach-settings", () => {
       id: "c1",
       email: "coach@example.com",
       name: "Coach",
-      role: "admin",
+      role: "coach",
     });
     const res = await PATCH(makeRequest({ contactPhone: "0501234567" }, "Bearer jwt"));
     expect(res.status).toBe(400);
@@ -75,7 +75,7 @@ describe("PATCH /api/coach-settings", () => {
       id: "c1",
       email: "coach@example.com",
       name: "Coach",
-      role: "admin",
+      role: "coach",
     });
     mockUpdateContactPhone.mockResolvedValue(undefined);
 

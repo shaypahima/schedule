@@ -56,7 +56,7 @@ describe("GET /api/coach-calendar/url", () => {
       id: "c1",
       email: "c1@example.com",
       name: "Coach",
-      role: "admin",
+      role: "coach",
     });
     mockGetAuthUrl.mockReturnValue("https://accounts.google.com/o/oauth2/v2/auth?xxx");
     const res = await GET(makeRequest("Bearer jwt"));

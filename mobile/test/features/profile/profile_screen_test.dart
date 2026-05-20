@@ -70,13 +70,13 @@ void main() {
       expect(find.text('yael.cohen@example.com'), findsOneWidget);
     });
 
-    testWidgets('shows coach role label for admin', (tester) async {
+    testWidgets('shows coach role label for coach', (tester) async {
       final repo = _FakeProfileRepo();
       when(() => repo.fetchMe()).thenAnswer((_) async => const Profile(
             id: 'c1',
             email: 'dev.coach@example.com',
             name: 'דני אמסלם',
-            role: 'admin',
+            role: 'coach',
           ));
 
       await tester.pumpWidget(_harness(repo));
@@ -103,7 +103,7 @@ void main() {
             id: 'c1',
             email: 'coach@example.com',
             name: 'Coach',
-            role: 'admin',
+            role: 'coach',
           ));
       final cal = _FakeCalendarRepo();
       when(() => cal.status()).thenAnswer(
@@ -124,7 +124,7 @@ void main() {
             id: 'c1',
             email: 'coach@example.com',
             name: 'Coach',
-            role: 'admin',
+            role: 'coach',
           ));
       final cal = _FakeCalendarRepo();
       when(() => cal.status()).thenAnswer(
@@ -162,7 +162,7 @@ void main() {
             id: 'c1',
             email: 'coach@example.com',
             name: 'Coach',
-            role: 'admin',
+            role: 'coach',
           ));
       when(() => cal.status()).thenAnswer(
         (_) async => const CalendarStatus(connected: false, mock: false),

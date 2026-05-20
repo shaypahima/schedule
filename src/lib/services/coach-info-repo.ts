@@ -18,7 +18,7 @@ export async function getCoachInfo(): Promise<CoachInfo | null> {
   const { data: coach } = await db
     .from("profiles")
     .select("id, name")
-    .eq("role", "admin")
+    .eq("role", "coach")
     .limit(1)
     .maybeSingle();
   if (!coach) return null;

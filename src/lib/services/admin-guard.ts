@@ -20,7 +20,7 @@ export async function requireAdminJwt(req: NextRequest): Promise<Ok | Fail> {
       error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
     };
   }
-  if (profile.role !== "admin") {
+  if (profile.role !== "coach") {
     return {
       profile: null,
       error: NextResponse.json({ error: "Coach only" }, { status: 403 }),

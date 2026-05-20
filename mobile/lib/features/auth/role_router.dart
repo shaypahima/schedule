@@ -17,7 +17,7 @@ class RoleRouter extends ConsumerWidget {
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (err, _) => Scaffold(body: Center(child: Text('שגיאה: $err'))),
       data: (profile) =>
-          profile.role == 'admin' ? CoachWeekScreen() : HomeScreen(),
+          profile.role == 'coach' ? CoachWeekScreen() : HomeScreen(),
     );
   }
 }

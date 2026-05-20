@@ -11,7 +11,7 @@ function coachEmails(): string[] {
 }
 
 function roleFor(email: string, fallback: Profile["role"]): Profile["role"] {
-  return coachEmails().includes(email) ? "admin" : fallback;
+  return coachEmails().includes(email) ? "coach" : fallback;
 }
 
 /** Promote status='pending' → 'active' on first authenticated call. */

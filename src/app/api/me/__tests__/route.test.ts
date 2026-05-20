@@ -87,7 +87,7 @@ describe("GET /api/me", () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.role).toBe("admin");
+    expect(body.role).toBe("coach");
   });
 
   it("auto-provisions trainee profile on first login", async () => {
@@ -127,7 +127,7 @@ describe("GET /api/me", () => {
       id: "new-coach",
       email: "coach@velofit.app",
       name: "coach",
-      role: "admin",
+      role: "coach",
     });
 
     const res = await GET(makeRequest("Bearer jwt"));
@@ -137,9 +137,9 @@ describe("GET /api/me", () => {
       id: "new-coach",
       email: "coach@velofit.app",
       name: "coach",
-      role: "admin",
+      role: "coach",
     });
     const body = await res.json();
-    expect(body.role).toBe("admin");
+    expect(body.role).toBe("coach");
   });
 });

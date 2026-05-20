@@ -22,7 +22,7 @@ const adminProfile = {
   id: "coach-1",
   email: "coach@example.com",
   name: "Coach",
-  role: "admin" as const,
+  role: "coach" as const,
 };
 
 const traineeProfile = {
