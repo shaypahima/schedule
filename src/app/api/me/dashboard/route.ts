@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
   let nextSessionAt: string | null = null;
   let nextSessionMs = Infinity;
 
+  // Collect past sessions (confirmed + no_show) for streak calculation.
+  const pastForStreak: { ms: number; status: "confirmed" | "no_show" }[] = [];
+
   for (const b of all) {
     const slot = await store.getSlot(b.slotId);
     if (!slot) continue;
@@ -37,6 +40,17 @@ export async function GET(request: NextRequest) {
       nextSessionMs = ms;
       nextSessionAt = new Date(ms).toISOString();
     }
+    if (ms < now && (b.status === "confirmed" || b.status === "no_show")) {
+      pastForStreak.push({ ms, status: b.status });
+    }
+  }
+
+  // Streak: walk past sessions newest → oldest, count confirmed until a no_show breaks the chain.
+  pastForStreak.sort((a, b) => b.ms - a.ms);
+  let currentStreak = 0;
+  for (const p of pastForStreak) {
+    if (p.status === "confirmed") currentStreak++;
+    else break;
   }
 
   const totalPast = pastConfirmed + noShows;
@@ -47,13 +61,19 @@ export async function GET(request: NextRequest) {
   const weekStart = weekStartForDate(todayStr);
   const remainingEdits = await bookings.getRemainingEdits(userId, weekStart);
 
+  const memberSinceDays = Math.floor(
+    (now - new Date(r.trainee.createdAt).getTime()) / (24 * 60 * 60 * 1000),
+  );
+
   return NextResponse.json({
     sessionsThisMonth,
     pastConfirmed,
     noShows,
     attendanceRate,
+    currentStreak,
     nextSessionAt,
     recentVisibleNote: recentVisibleNotes[0] ?? null,
     remainingEdits,
+    memberSinceDays,
   });
 }

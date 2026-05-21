@@ -134,6 +134,70 @@ describe("GET /api/me/dashboard", () => {
     expect(body.recentVisibleNote.body).toBe("Great work!");
   });
 
+  it("currentStreak counts consecutive past confirmed sessions (no_show breaks it)", async () => {
+    const { store, bookings } = getContainer();
+    // Three past sessions, in chronological order: confirmed → confirmed → no_show
+    // The streak should be the trailing run = 0 (broken by no_show).
+    for (const [id, date] of [
+      ["s1", "2026-04-01"],
+      ["s2", "2026-04-03"],
+      ["s3", "2026-04-05"],
+    ] as const) {
+      store.upsertSlot({
+        id,
+        date,
+        startTime: "10:00",
+        capacity: 2,
+        lockoutOverride: false,
+        currentBookings: 0,
+      });
+    }
+    const b1 = await bookings.book("t1", "s1", { bypass: true });
+    const b2 = await bookings.book("t1", "s2", { bypass: true });
+    const b3 = await bookings.book("t1", "s3", { bypass: true });
+    if (!b1.ok || !b2.ok || !b3.ok) throw new Error("setup failed");
+    await bookings.markNoShow(b3.booking.id);
+
+    const res = await GET(req());
+    const body = await res.json();
+    expect(body.currentStreak).toBe(0);
+  });
+
+  it("currentStreak counts an uninterrupted trailing run of confirmed sessions", async () => {
+    const { store, bookings } = getContainer();
+    for (const [id, date] of [
+      ["s1", "2026-04-01"],
+      ["s2", "2026-04-03"],
+      ["s3", "2026-04-05"],
+    ] as const) {
+      store.upsertSlot({
+        id,
+        date,
+        startTime: "10:00",
+        capacity: 2,
+        lockoutOverride: false,
+        currentBookings: 0,
+      });
+    }
+    const b1 = await bookings.book("t1", "s1", { bypass: true });
+    await bookings.book("t1", "s2", { bypass: true });
+    await bookings.book("t1", "s3", { bypass: true });
+    if (!b1.ok) throw new Error("setup failed");
+    // Older session = no_show, but the two newer are confirmed → streak = 2.
+    await bookings.markNoShow(b1.booking.id);
+
+    const res = await GET(req());
+    const body = await res.json();
+    expect(body.currentStreak).toBe(2);
+  });
+
+  it("memberSinceDays uses profile.createdAt rounded to whole days", async () => {
+    // createdAt = 2026-01-01, now = 2026-04-08 → 97 days.
+    const res = await GET(req());
+    const body = await res.json();
+    expect(body.memberSinceDays).toBe(97);
+  });
+
   it("returns 403 for non-active trainee", async () => {
     mockLoadProfile.mockResolvedValue({ ...trainee, status: "pending" });
     const res = await GET(req());
