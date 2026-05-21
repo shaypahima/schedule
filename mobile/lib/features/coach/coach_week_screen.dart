@@ -8,6 +8,7 @@ import '../slots/slot.dart';
 import '../slots/slot_repository.dart';
 import 'admin_repository.dart';
 import 'approvals_repository.dart';
+import 'coach_dashboard_repository.dart';
 import 'coach_trainees_screen.dart';
 import 'pending_approvals_screen.dart';
 
@@ -176,8 +177,11 @@ class _CoachDashboard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bookings = ref.watch(adminBookingsForDateProvider(selectedDate)).valueOrNull ?? [];
     final trainees = ref.watch(traineeRecordsProvider).valueOrNull ?? [];
+    final dashboard = ref.watch(coachDashboardProvider).valueOrNull;
     final pendingCount = trainees.where((t) => t.status == 'pending').length;
     final activeCount = trainees.where((t) => t.status == 'active').length;
+    final changeRequestsCount = dashboard?.pendingChangeRequests ?? 0;
+    final noShowsThisWeek = dashboard?.noShowsThisWeek ?? 0;
 
     return Container(
       width: double.infinity,
@@ -207,9 +211,28 @@ class _CoachDashboard extends ConsumerWidget {
               const SizedBox(width: 10),
               _DashStat(
                 value: '$pendingCount',
-                label: 'אישורים בהמתנה',
+                label: 'אישורים',
                 highlight: pendingCount > 0,
               ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _DashStat(
+                key: const Key('change-requests-stat'),
+                value: '$changeRequestsCount',
+                label: 'בקשות שינוי',
+                highlight: changeRequestsCount > 0,
+              ),
+              const SizedBox(width: 10),
+              _DashStat(
+                key: const Key('no-shows-stat'),
+                value: '$noShowsThisWeek',
+                label: 'אי-הגעה השבוע',
+              ),
+              const SizedBox(width: 10),
+              const _DashSpacer(),
             ],
           ),
         ],
@@ -218,11 +241,17 @@ class _CoachDashboard extends ConsumerWidget {
   }
 }
 
+class _DashSpacer extends StatelessWidget {
+  const _DashSpacer();
+  @override
+  Widget build(BuildContext context) => const Expanded(child: SizedBox.shrink());
+}
+
 class _DashStat extends StatelessWidget {
   final String value;
   final String label;
   final bool highlight;
-  const _DashStat({required this.value, required this.label, this.highlight = false});
+  const _DashStat({super.key, required this.value, required this.label, this.highlight = false});
 
   @override
   Widget build(BuildContext context) {
