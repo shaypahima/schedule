@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
   const userId = r.trainee.userId;
   const now = Date.now();
 
-  const all = await store.getTraineeBookings(userId);
+  // Include cancelled + no_show — getTraineeBookings filters to confirmed only.
+  const all = (await store.getAllBookings()).filter((b) => b.traineeId === userId);
 
   // Sessions this month
   const todayStr = todayIL();
