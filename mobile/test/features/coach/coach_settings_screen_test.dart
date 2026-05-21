@@ -9,6 +9,8 @@ import 'package:velofit/features/coach/coach_settings_screen.dart';
 
 class _FakeCoachInfoRepo extends Mock implements CoachInfoRepository {}
 
+class _FakePatch extends Fake implements CoachInfoPatch {}
+
 Widget _harness({required CoachInfoRepository repo}) => ProviderScope(
       overrides: [coachInfoRepositoryProvider.overrideWithValue(repo)],
       child: MaterialApp(
@@ -20,38 +22,91 @@ Widget _harness({required CoachInfoRepository repo}) => ProviderScope(
       ),
     );
 
+Future<void> _scrollToSave(WidgetTester tester) async {
+  await tester.dragUntilVisible(
+    find.byKey(const Key('contact-phone-save')),
+    find.byType(ListView),
+    const Offset(0, -50),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  setUpAll(() {
+    registerFallbackValue(_FakePatch());
+  });
+
   group('CoachSettingsScreen', () {
-    testWidgets('prefills with current contact_phone', (tester) async {
+    testWidgets('prefills with current contact_phone + bio + specialty + years',
+        (tester) async {
       final repo = _FakeCoachInfoRepo();
       when(() => repo.fetch()).thenAnswer((_) async => const CoachInfo(
             name: 'דני',
             contactPhone: '+972501234567',
+            bio: 'מאמן מנוסה',
+            specialty: 'כוח',
+            yearsExperience: 8,
           ));
 
       await tester.pumpWidget(_harness(repo: repo));
       await tester.pumpAndSettle();
 
-      expect(
-        tester.widget<TextField>(find.byKey(const Key('contact-phone-field'))).controller!.text,
-        '+972501234567',
-      );
+      String text(String key) =>
+          tester.widget<TextField>(find.byKey(Key(key))).controller!.text;
+
+      expect(text('contact-phone-field'), '+972501234567');
+      expect(text('coach-bio-field'), 'מאמן מנוסה');
+      expect(text('coach-specialty-field'), 'כוח');
+      expect(text('coach-years-field'), '8');
     });
 
-    testWidgets('save → updateContactPhone fired with input', (tester) async {
+    testWidgets('save → repo.update fired with patch', (tester) async {
       final repo = _FakeCoachInfoRepo();
-      when(() => repo.fetch()).thenAnswer((_) async => const CoachInfo(name: 'דני', contactPhone: null));
-      when(() => repo.updateContactPhone(any())).thenAnswer((_) async {});
+      CoachInfoPatch? captured;
+      when(() => repo.fetch()).thenAnswer(
+        (_) async => const CoachInfo(name: 'דני', contactPhone: null),
+      );
+      when(() => repo.update(any())).thenAnswer((inv) async {
+        captured = inv.positionalArguments.first as CoachInfoPatch;
+      });
 
       await tester.pumpWidget(_harness(repo: repo));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byKey(const Key('contact-phone-field')), '+972509998888');
+      await tester.enterText(find.byKey(const Key('coach-specialty-field')), 'שיקום');
+      await tester.enterText(find.byKey(const Key('coach-years-field')), '5');
+      await tester.enterText(find.byKey(const Key('coach-bio-field')), 'אוהב לעזור');
+      await _scrollToSave(tester);
       await tester.tap(find.byKey(const Key('contact-phone-save')));
       await tester.pumpAndSettle();
 
-      verify(() => repo.updateContactPhone('+972509998888')).called(1);
+      expect(captured, isNotNull);
+      expect(captured!.contactPhone, '+972509998888');
+      expect(captured!.specialty, 'שיקום');
+      expect(captured!.yearsExperience, 5);
+      expect(captured!.bio, 'אוהב לעזור');
       expect(find.text('נשמר'), findsOneWidget);
+    });
+
+    testWidgets('invalid years shows inline error and does not call repo',
+        (tester) async {
+      final repo = _FakeCoachInfoRepo();
+      when(() => repo.fetch()).thenAnswer(
+        (_) async => const CoachInfo(name: 'דני', contactPhone: null),
+      );
+      when(() => repo.update(any())).thenAnswer((_) async {});
+
+      await tester.pumpWidget(_harness(repo: repo));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('coach-years-field')), '999');
+      await _scrollToSave(tester);
+      await tester.tap(find.byKey(const Key('contact-phone-save')));
+      await tester.pumpAndSettle();
+
+      verifyNever(() => repo.update(any()));
+      expect(find.text('מספר לא תקין (0-80)'), findsOneWidget);
     });
   });
 }

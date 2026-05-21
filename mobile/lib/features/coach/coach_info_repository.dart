@@ -7,6 +7,7 @@ import 'coach_info.dart';
 abstract class CoachInfoRepository {
   Future<CoachInfo?> fetch();
   Future<void> updateContactPhone(String e164);
+  Future<void> update(CoachInfoPatch patch);
 }
 
 class HttpCoachInfoRepository implements CoachInfoRepository {
@@ -17,6 +18,11 @@ class HttpCoachInfoRepository implements CoachInfoRepository {
   @override
   Future<void> updateContactPhone(String e164) async {
     await _http.patch<void>('/api/coach-settings', data: {'contactPhone': e164});
+  }
+
+  @override
+  Future<void> update(CoachInfoPatch patch) async {
+    await _http.patch<void>('/api/coach-settings', data: patch.toJson());
   }
 
   @override

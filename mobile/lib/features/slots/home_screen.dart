@@ -6,6 +6,7 @@ import '../../utils/week_dates.dart';
 import '../bookings/booking.dart';
 import '../bookings/booking_repository.dart';
 import '../bookings/cancel_request_sheet.dart';
+import '../coach/coach_about_card.dart';
 import '../coach/contact_coach_card.dart';
 import '../dashboard/dashboard_repository.dart';
 import '../history/history_screen.dart';
@@ -114,6 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                 _WelcomeHero(now: widget.now),
+                const CoachAboutCard(),
                 const _CoachNoteCard(),
                 const _UpcomingSessionsCard(),
                 const _MyBookingsSection(),
