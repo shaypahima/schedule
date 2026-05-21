@@ -161,7 +161,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('slots-empty')), findsOneWidget);
-      expect(find.text('אין שעות פנויות'), findsOneWidget);
+      expect(find.text('אין מועדים פנויים בתאריך זה'), findsOneWidget);
     });
 
     testWidgets('shows spinner while loading', (tester) async {
@@ -186,7 +186,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('slots-error')), findsOneWidget);
-      expect(find.text('שגיאה בטעינת השעות'), findsOneWidget);
+      expect(find.text('שגיאה בטעינת המועדים'), findsOneWidget);
     });
 
     testWidgets('whatsapp tap opens wa.me URL with Hebrew prefilled message',
@@ -461,7 +461,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('reschedule-picker')), findsOneWidget);
-      expect(find.text('בחר שעה חדשה'), findsOneWidget);
+      expect(find.text('בחר מועד חדש'), findsOneWidget);
     });
 
     testWidgets('confirm cancel fires cancel() and shows success snackbar',
@@ -536,7 +536,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('edit-counter-banner')), findsOneWidget);
-      expect(find.text('עריכות שנותרו השבוע: 2/3'), findsOneWidget);
+      expect(find.text('נשארו לך 2 שינויים השבוע'), findsOneWidget);
     });
 
     testWidgets('booking failure surfaces server error message in snackbar',
@@ -689,7 +689,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('booking-confirm-dialog')), findsOneWidget);
-      expect(find.text('לקבוע אימון בשעה 10:00?'), findsOneWidget);
+      expect(find.text('לקבוע אימון לשעה 10:00?'), findsOneWidget);
       expect(find.text('אישור'), findsOneWidget);
       expect(find.text('ביטול'), findsOneWidget);
     });

@@ -7,7 +7,9 @@ import '../profile/profile_screen.dart';
 import '../slots/slot.dart';
 import '../slots/slot_repository.dart';
 import 'admin_repository.dart';
+import 'approvals_repository.dart';
 import 'coach_trainees_screen.dart';
+import 'pending_approvals_screen.dart';
 
 class CoachWeekScreen extends ConsumerStatefulWidget {
   final DateTime now;
@@ -47,7 +49,7 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('שבוע המאמן'),
+            const Text('השבוע שלי'),
             Text(
               hebrewDayHeader(widget.now),
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -57,9 +59,10 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
           ],
         ),
         actions: [
+          _PendingApprovalsButton(),
           IconButton(
             key: const Key('trainees-button'),
-            tooltip: 'מתאמנים',
+            tooltip: 'המתאמנים שלי',
             icon: const Icon(Icons.group),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const CoachTraineesScreen()),
@@ -67,6 +70,7 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
           ),
           IconButton(
             key: const Key('profile-button'),
+            tooltip: 'הפרופיל שלי',
             icon: const Icon(Icons.person),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ProfileScreen()),
@@ -203,7 +207,7 @@ class _CoachDashboard extends ConsumerWidget {
               const SizedBox(width: 10),
               _DashStat(
                 value: '$pendingCount',
-                label: 'הזמנות בהמתנה',
+                label: 'אישורים בהמתנה',
                 highlight: pendingCount > 0,
               ),
             ],
@@ -492,6 +496,50 @@ class _TraineePickerSheetState extends ConsumerState<_TraineePickerSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+
+class _PendingApprovalsButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(pendingApprovalsProvider);
+    final count = async.valueOrNull?.length ?? 0;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        IconButton(
+          key: const Key("pending-approvals-button"),
+          tooltip: "בקשות הצטרפות",
+          icon: const Icon(Icons.how_to_reg),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PendingApprovalsScreen()),
+          ),
+        ),
+        if (count > 0)
+          Positioned(
+            top: 6,
+            left: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: BrandColors.orange,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              child: Text(
+                "$count",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

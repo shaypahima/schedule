@@ -6,6 +6,7 @@ import '../../utils/week_dates.dart';
 import '../bookings/booking.dart';
 import '../bookings/booking_repository.dart';
 import '../coach/contact_coach_card.dart';
+import '../dashboard/dashboard_repository.dart';
 import '../profile/profile_screen.dart';
 import 'slot.dart';
 import 'slot_repository.dart';
@@ -37,7 +38,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         key: const Key('booking-confirm-dialog'),
-        title: Text('לקבוע אימון בשעה ${slot.startTime}?'),
+        title: Text('לקבוע אימון לשעה ${slot.startTime}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -101,11 +102,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                 _WelcomeHero(now: widget.now),
+                const _CoachNoteCard(),
                 const _UpcomingSessionsCard(),
                 const _MyBookingsSection(),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                  child: Text('שעות פנויות',
+                  child: Text('מועדים פנויים',
                       style: Theme.of(context).textTheme.titleMedium),
                 ),
                 _DayPickerRow(
@@ -129,7 +131,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 48),
                       child: Center(
                         key: const Key('slots-error'),
-                        child: Text('שגיאה בטעינת השעות',
+                        child: Text('שגיאה בטעינת המועדים',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.bodyLarge),
                       ),
@@ -140,7 +142,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           padding: EdgeInsets.symmetric(vertical: 48),
                           child: Center(
                             key: Key('slots-empty'),
-                            child: Text('אין שעות פנויות'),
+                            child: Text('אין מועדים פנויים בתאריך זה'),
                           ),
                         );
                       }
@@ -220,7 +222,7 @@ class _WelcomeHero extends ConsumerWidget {
               const SizedBox(width: 10),
               _StatBadge(
                 value: '${view?.remainingEdits ?? 3}/3',
-                label: 'עריכות שנותרו',
+                label: 'שינויים שנותרו',
               ),
               const SizedBox(width: 10),
               _StatBadge(
@@ -280,6 +282,50 @@ class _StatBadge extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CoachNoteCard extends ConsumerWidget {
+  const _CoachNoteCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(traineeDashboardProvider);
+    return async.maybeWhen(
+      orElse: () => const SizedBox.shrink(),
+      data: (d) {
+        final note = d.recentVisibleNote;
+        if (note == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+          child: Card(
+            color: Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.chat_bubble_outline,
+                          size: 16, color: Theme.of(context).colorScheme.primary),
+                      const SizedBox(width: 6),
+                      Text('מהמאמן',
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              )),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(note.body, style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -386,7 +432,7 @@ class _MyBookingsSection extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'עריכות שנותרו השבוע: ${view.remainingEdits}/3',
+                    'נשארו לך ${view.remainingEdits} שינויים השבוע',
                     key: const Key('edit-counter-banner'),
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
@@ -526,7 +572,7 @@ class ReschedulePicker extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('בחר שעה חדשה', style: Theme.of(context).textTheme.titleLarge),
+          Text('בחר מועד חדש', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           ConstrainedBox(
             constraints: BoxConstraints(
