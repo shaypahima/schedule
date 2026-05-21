@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getJwtSession } from "@/lib/services/jwt-session";
-import { findProfile, createProfile, Profile } from "@/lib/services/profile-repo";
+import { loadProfile, createProfile } from "@/lib/auth/profile-repo";
 
 function coachEmails(): string[] {
   return (process.env.COACH_EMAIL ?? "")
@@ -10,11 +10,11 @@ function coachEmails(): string[] {
     .filter(Boolean);
 }
 
-function roleFor(email: string, fallback: Profile["role"]): Profile["role"] {
-  return coachEmails().includes(email) ? "coach" : fallback;
+function isCoachEmail(email: string): boolean {
+  return coachEmails().includes(email);
 }
 
-/** Promote status='pending' → 'active' on first authenticated call. */
+/** Promote status='pending' → 'active' for invitees on first authenticated call. */
 async function promoteIfPending(id: string): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -31,23 +31,23 @@ async function promoteIfPending(id: string): Promise<void> {
 
 export async function GET(req: NextRequest) {
   const session = await getJwtSession(req);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) {
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  }
 
-  let profile = await findProfile(session.userId);
+  let profile = await loadProfile(session.userId);
   if (!profile) {
     profile = await createProfile({
-      id: session.userId,
+      userId: session.userId,
       email: session.email,
       name: session.email.split("@")[0],
-      role: roleFor(session.email, "trainee"),
+      role: isCoachEmail(session.email) ? "coach" : "trainee",
     });
   } else {
-    // Existing profile — promote pending invitee to active on this first call.
     await promoteIfPending(session.userId);
   }
 
-  return NextResponse.json({
-    ...profile,
-    role: roleFor(session.email, profile.role),
-  });
+  // COACH_EMAIL env always wins over DB role (handles late role promotion)
+  const role = isCoachEmail(profile.email) ? "coach" : profile.role;
+  return NextResponse.json({ ...profile, role });
 }

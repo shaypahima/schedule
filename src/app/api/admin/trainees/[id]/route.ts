@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
 import { todayIL, weekStartForDate } from "@/lib/services/israel-time";
-import { requireAdminJwt } from "@/lib/services/admin-guard";
+import { requireCoach } from "@/lib/auth/require";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAdminJwt(request);
-  if (error) return error;
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const { id } = await params;
   const { auth, store, limits } = getContainer();

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
-import { requireAdminJwt } from "@/lib/services/admin-guard";
+import { requireCoach } from "@/lib/auth/require";
 
 /** Admin: update slot capacity or lockout override */
 export async function PATCH(request: NextRequest) {
-  const { error } = await requireAdminJwt(request);
-  if (error) return error;
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const { slotId, date, startTime, capacity, lockoutOverride } = await request.json();
   const { store } = getContainer();

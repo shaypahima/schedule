@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockJwtSession = vi.fn();
-const mockFindProfile = vi.fn();
+const mockLoadProfile = vi.fn();
 
 vi.mock("@/lib/services/jwt-session", () => ({
   getJwtSession: (req: NextRequest) => mockJwtSession(req),
 }));
 
-vi.mock("@/lib/services/profile-repo", () => ({
-  findProfile: (id: string) => mockFindProfile(id),
+vi.mock("@/lib/auth/profile-repo", () => ({
+  loadProfile: (id: string) => mockLoadProfile(id),
   createProfile: vi.fn(),
 }));
 
@@ -34,12 +34,12 @@ const traineeProfile = {
 
 function asAdmin() {
   mockJwtSession.mockResolvedValue({ userId: "coach-1", email: "coach@example.com" });
-  mockFindProfile.mockResolvedValue(adminProfile);
+  mockLoadProfile.mockResolvedValue(adminProfile);
 }
 
 function asTrainee() {
   mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-  mockFindProfile.mockResolvedValue(traineeProfile);
+  mockLoadProfile.mockResolvedValue(traineeProfile);
 }
 
 function makeRequest(body: Record<string, unknown>, method = "POST") {
@@ -68,7 +68,7 @@ describe("POST /api/admin/bookings", () => {
   afterEach(() => {
     vi.useRealTimers();
     mockJwtSession.mockReset();
-    mockFindProfile.mockReset();
+    mockLoadProfile.mockReset();
   });
 
   it("returns 403 for non-admin", async () => {
@@ -116,7 +116,7 @@ describe("DELETE /api/admin/bookings", () => {
   afterEach(() => {
     vi.useRealTimers();
     mockJwtSession.mockReset();
-    mockFindProfile.mockReset();
+    mockLoadProfile.mockReset();
   });
 
   it("admin cancels a booking", async () => {
@@ -156,7 +156,7 @@ describe("GET /api/admin/bookings", () => {
   afterEach(() => {
     vi.useRealTimers();
     mockJwtSession.mockReset();
-    mockFindProfile.mockReset();
+    mockLoadProfile.mockReset();
   });
 
   it("returns all confirmed bookings", async () => {

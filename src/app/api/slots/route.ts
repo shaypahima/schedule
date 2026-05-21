@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCalendarService, getContainer } from "@/lib/services";
 import { generateAvailableSlots } from "@/lib/services/slot-availability";
 import { israelSlotToUTC } from "@/lib/services/israel-time";
-import { getJwtSession } from "@/lib/services/jwt-session";
+import { requireActiveTrainee } from "@/lib/auth/require";
 
 export async function GET(request: NextRequest) {
-  const session = await getJwtSession(request);
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const r = await requireActiveTrainee(request);
+  if ("error" in r) return r.error;
 
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");
@@ -20,7 +18,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Build day boundaries in Israel timezone (DST-aware)
   const dayStart = israelSlotToUTC(date, "00:00");
   const dayEnd = israelSlotToUTC(date, "23:59");
 

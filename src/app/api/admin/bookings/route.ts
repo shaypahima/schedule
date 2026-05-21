@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
-import { requireAdminJwt } from "@/lib/services/admin-guard";
+import { requireCoach } from "@/lib/auth/require";
 
 /** Admin: add trainee to slot */
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdminJwt(request);
-  if (error) return error;
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const { traineeId, slotId, traineeName } = await request.json();
   if (!traineeId || !slotId) {
@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
 
 /** Admin: remove trainee from slot */
 export async function DELETE(request: NextRequest) {
-  const { error } = await requireAdminJwt(request);
-  if (error) return error;
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const { bookingId } = await request.json();
   if (!bookingId) {
@@ -36,8 +36,8 @@ export async function DELETE(request: NextRequest) {
 
 /** Admin: get bookings (optionally filtered by date) */
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdminJwt(request);
-  if (error) return error;
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const { store, auth } = getContainer();
   const date = new URL(request.url).searchParams.get("date");

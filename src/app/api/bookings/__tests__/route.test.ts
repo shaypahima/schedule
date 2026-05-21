@@ -2,27 +2,31 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockJwtSession = vi.fn();
-const mockFindProfile = vi.fn();
+const mockLoadProfile = vi.fn();
 
 vi.mock("@/lib/services/jwt-session", () => ({
   getJwtSession: (req: NextRequest) => mockJwtSession(req),
 }));
 
-vi.mock("@/lib/services/profile-repo", () => ({
-  findProfile: (id: string) => mockFindProfile(id),
-  createProfile: vi.fn(),
+vi.mock("@/lib/auth/profile-repo", () => ({
+  loadProfile: (id: string) => mockLoadProfile(id),
 }));
 
 process.env.MOCK_SERVICES = "true";
 
 import { POST, GET, DELETE, PATCH } from "../route";
 import { getContainer, resetContainer } from "@/lib/services";
+import type { Profile } from "@/lib/auth/require";
 
-const traineeProfile = {
-  id: "t1",
+const traineeProfile: Profile = {
+  userId: "t1",
   email: "t1@example.com",
+  phone: null,
   name: "Alice",
-  role: "trainee" as const,
+  role: "trainee",
+  status: "active",
+  hasIntro: false,
+  createdAt: "2026-01-01T00:00:00Z",
 };
 
 function makeRequest(body: Record<string, unknown>, method = "POST") {
@@ -57,7 +61,7 @@ describe("POST /api/bookings", () => {
   afterEach(() => {
     vi.useRealTimers();
     mockJwtSession.mockReset();
-    mockFindProfile.mockReset();
+    mockLoadProfile.mockReset();
   });
 
   it("returns 401 when no JWT", async () => {
@@ -68,14 +72,14 @@ describe("POST /api/bookings", () => {
 
   it("returns 401 when profile is missing", async () => {
     mockJwtSession.mockResolvedValue({ userId: "ghost", email: "ghost@example.com" });
-    mockFindProfile.mockResolvedValue(null);
+    mockLoadProfile.mockResolvedValue(null);
     const res = await POST(makeRequest({ slotId: "slot-6" }));
     expect(res.status).toBe(401);
   });
 
   it("books a slot and returns 201", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue(traineeProfile);
+    mockLoadProfile.mockResolvedValue(traineeProfile);
     const res = await POST(makeRequest({ slotId: "slot-6" }));
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -86,7 +90,7 @@ describe("POST /api/bookings", () => {
 
   it("returns 409 when slot is full", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue(traineeProfile);
+    mockLoadProfile.mockResolvedValue(traineeProfile);
     const { store } = getContainer();
     store.upsertSlot({
       id: "slot-6",
@@ -104,7 +108,7 @@ describe("POST /api/bookings", () => {
 
   it("auto-creates slot from new-* placeholder ID", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue(traineeProfile);
+    mockLoadProfile.mockResolvedValue(traineeProfile);
     const res = await POST(makeRequest({ slotId: "new-2026-04-08-14:00" }));
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -125,7 +129,7 @@ describe("GET /api/bookings", () => {
   afterEach(() => {
     vi.useRealTimers();
     mockJwtSession.mockReset();
-    mockFindProfile.mockReset();
+    mockLoadProfile.mockReset();
   });
 
   it("returns 401 when no JWT", async () => {
@@ -136,7 +140,7 @@ describe("GET /api/bookings", () => {
 
   it("returns trainee bookings and remaining edits", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue(traineeProfile);
+    mockLoadProfile.mockResolvedValue(traineeProfile);
     const res = await GET(makeGetRequest());
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -147,7 +151,7 @@ describe("GET /api/bookings", () => {
 
   it("each booking has an isLocked flag (lockout = within 7h)", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue(traineeProfile);
+    mockLoadProfile.mockResolvedValue(traineeProfile);
 
     // Book at a time well before the slots so book() doesn't lockout-reject.
     vi.setSystemTime(new Date("2026-04-05T06:00:00Z"));
@@ -203,12 +207,12 @@ describe("DELETE /api/bookings", () => {
   afterEach(() => {
     vi.useRealTimers();
     mockJwtSession.mockReset();
-    mockFindProfile.mockReset();
+    mockLoadProfile.mockReset();
   });
 
   it("cancels a booking and returns 200", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue(traineeProfile);
+    mockLoadProfile.mockResolvedValue(traineeProfile);
 
     const bookRes = await POST(makeRequest({ slotId: "slot-6" }));
     const { booking } = await bookRes.json();
@@ -221,7 +225,7 @@ describe("DELETE /api/bookings", () => {
 
   it("returns 409 when edit limit reached", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue(traineeProfile);
+    mockLoadProfile.mockResolvedValue(traineeProfile);
 
     const { store } = getContainer();
     for (let i = 7; i <= 10; i++) {
@@ -276,12 +280,12 @@ describe("PATCH /api/bookings", () => {
   afterEach(() => {
     vi.useRealTimers();
     mockJwtSession.mockReset();
-    mockFindProfile.mockReset();
+    mockLoadProfile.mockReset();
   });
 
   it("reschedules booking and returns 200", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue(traineeProfile);
+    mockLoadProfile.mockResolvedValue(traineeProfile);
 
     const bookRes = await POST(makeRequest({ slotId: "slot-6" }));
     const { booking } = await bookRes.json();
@@ -297,7 +301,7 @@ describe("PATCH /api/bookings", () => {
 
   it("returns 409 when new slot is full, old booking unchanged", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue(traineeProfile);
+    mockLoadProfile.mockResolvedValue(traineeProfile);
 
     const { store } = getContainer();
     store.upsertSlot({

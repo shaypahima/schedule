@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
 import { todayIL, weekStartForDate } from "@/lib/services/israel-time";
-import { requireAdminJwt } from "@/lib/services/admin-guard";
+import { requireCoach } from "@/lib/auth/require";
 import { inviteTraineeByEmail, resendInvite } from "@/lib/services/trainee-invite";
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdminJwt(request);
-  if (error) return error;
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const { auth, store } = getContainer();
   const trainees = await auth.getTrainees();
@@ -44,8 +44,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdminJwt(request);
-  if (error) return error;
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const body = await request.json();
   const { email, name, isRecurring, preferredDay, preferredTime, resend } = body as {
@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const { error } = await requireAdminJwt(request);
-  if (error) return error;
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const { id, ...updates } = await request.json();
   if (!id) {
@@ -115,8 +115,8 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { error } = await requireAdminJwt(request);
-  if (error) return error;
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const { id } = await request.json();
   if (!id) {

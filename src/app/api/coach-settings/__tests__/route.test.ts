@@ -2,15 +2,15 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockJwtSession = vi.fn();
-const mockFindProfile = vi.fn();
+const mockLoadProfile = vi.fn();
 const mockUpdateContactPhone = vi.fn();
 
 vi.mock("@/lib/services/jwt-session", () => ({
   getJwtSession: (req: NextRequest) => mockJwtSession(req),
 }));
 
-vi.mock("@/lib/services/profile-repo", () => ({
-  findProfile: (id: string) => mockFindProfile(id),
+vi.mock("@/lib/auth/profile-repo", () => ({
+  loadProfile: (id: string) => mockLoadProfile(id),
 }));
 
 vi.mock("@/lib/services/coach-info-repo", () => ({
@@ -34,7 +34,7 @@ function makeRequest(body: Record<string, unknown>, authHeader?: string) {
 describe("PATCH /api/coach-settings", () => {
   afterEach(() => {
     mockJwtSession.mockReset();
-    mockFindProfile.mockReset();
+    mockLoadProfile.mockReset();
     mockUpdateContactPhone.mockReset();
   });
 
@@ -46,11 +46,15 @@ describe("PATCH /api/coach-settings", () => {
 
   it("returns 403 for trainee", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue({
-      id: "t1",
+    mockLoadProfile.mockResolvedValue({
+      userId: "t1",
       email: "t1@example.com",
+      phone: null,
       name: "Alice",
       role: "trainee",
+      status: "active",
+      hasIntro: false,
+      createdAt: "2026-01-01T00:00:00Z",
     });
     const res = await PATCH(makeRequest({ contactPhone: "+972501234567" }, "Bearer jwt"));
     expect(res.status).toBe(403);
@@ -59,11 +63,15 @@ describe("PATCH /api/coach-settings", () => {
 
   it("returns 400 for non-E.164 phone", async () => {
     mockJwtSession.mockResolvedValue({ userId: "c1", email: "coach@example.com" });
-    mockFindProfile.mockResolvedValue({
-      id: "c1",
+    mockLoadProfile.mockResolvedValue({
+      userId: "c1",
       email: "coach@example.com",
+      phone: null,
       name: "Coach",
       role: "coach",
+      status: "active",
+      hasIntro: false,
+      createdAt: "2026-01-01T00:00:00Z",
     });
     const res = await PATCH(makeRequest({ contactPhone: "0501234567" }, "Bearer jwt"));
     expect(res.status).toBe(400);
@@ -71,11 +79,15 @@ describe("PATCH /api/coach-settings", () => {
 
   it("updates contact_phone for coach", async () => {
     mockJwtSession.mockResolvedValue({ userId: "c1", email: "coach@example.com" });
-    mockFindProfile.mockResolvedValue({
-      id: "c1",
+    mockLoadProfile.mockResolvedValue({
+      userId: "c1",
       email: "coach@example.com",
+      phone: null,
       name: "Coach",
       role: "coach",
+      status: "active",
+      hasIntro: false,
+      createdAt: "2026-01-01T00:00:00Z",
     });
     mockUpdateContactPhone.mockResolvedValue(undefined);
 

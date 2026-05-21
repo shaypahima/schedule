@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJwtSession } from "@/lib/services/jwt-session";
-import { findProfile } from "@/lib/services/profile-repo";
+import { requireCoach } from "@/lib/auth/require";
 import { updateCoachContactPhone } from "@/lib/services/coach-info-repo";
 
 const E164 = /^\+\d{8,15}$/;
 
 export async function PATCH(request: NextRequest) {
-  const session = await getJwtSession(request);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const profile = await findProfile(session.userId);
-  if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (profile.role !== "coach") {
-    return NextResponse.json({ error: "Coach only" }, { status: 403 });
-  }
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const { contactPhone } = (await request.json()) as { contactPhone?: string };
   if (typeof contactPhone !== "string" || !E164.test(contactPhone)) {
@@ -23,6 +16,6 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  await updateCoachContactPhone(profile.id, contactPhone);
+  await updateCoachContactPhone(r.coach.userId, contactPhone);
   return NextResponse.json({ ok: true });
 }

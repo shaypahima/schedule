@@ -2,15 +2,15 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockJwtSession = vi.fn();
-const mockFindProfile = vi.fn();
+const mockLoadProfile = vi.fn();
 const mockIsConnected = vi.fn();
 
 vi.mock("@/lib/services/jwt-session", () => ({
   getJwtSession: (req: NextRequest) => mockJwtSession(req),
 }));
 
-vi.mock("@/lib/services/profile-repo", () => ({
-  findProfile: (id: string) => mockFindProfile(id),
+vi.mock("@/lib/auth/profile-repo", () => ({
+  loadProfile: (id: string) => mockLoadProfile(id),
 }));
 
 vi.mock("@/lib/services", () => ({
@@ -28,7 +28,7 @@ function makeRequest(authHeader?: string) {
 describe("GET /api/coach-calendar/status", () => {
   afterEach(() => {
     mockJwtSession.mockReset();
-    mockFindProfile.mockReset();
+    mockLoadProfile.mockReset();
     mockIsConnected.mockReset();
   });
 
@@ -40,7 +40,7 @@ describe("GET /api/coach-calendar/status", () => {
 
   it("returns 403 for trainee", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockFindProfile.mockResolvedValue({
+    mockLoadProfile.mockResolvedValue({
       id: "t1",
       email: "t1@example.com",
       name: "Alice",
@@ -52,7 +52,7 @@ describe("GET /api/coach-calendar/status", () => {
 
   it("returns {connected:true} for connected coach", async () => {
     mockJwtSession.mockResolvedValue({ userId: "c1", email: "c1@example.com" });
-    mockFindProfile.mockResolvedValue({
+    mockLoadProfile.mockResolvedValue({
       id: "c1",
       email: "c1@example.com",
       name: "Coach",
@@ -66,7 +66,7 @@ describe("GET /api/coach-calendar/status", () => {
 
   it("returns {connected:false} when not connected", async () => {
     mockJwtSession.mockResolvedValue({ userId: "c1", email: "c1@example.com" });
-    mockFindProfile.mockResolvedValue({
+    mockLoadProfile.mockResolvedValue({
       id: "c1",
       email: "c1@example.com",
       name: "Coach",

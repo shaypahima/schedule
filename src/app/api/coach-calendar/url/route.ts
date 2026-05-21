@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJwtSession } from "@/lib/services/jwt-session";
-import { findProfile } from "@/lib/services/profile-repo";
+import { requireCoach } from "@/lib/auth/require";
 import { getRealCalendarService } from "@/lib/services";
 
 export async function GET(request: NextRequest) {
-  const session = await getJwtSession(request);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const profile = await findProfile(session.userId);
-  if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (profile.role !== "coach") {
-    return NextResponse.json({ error: "Coach only" }, { status: 403 });
-  }
+  const r = await requireCoach(request);
+  if ("error" in r) return r.error;
 
   const calendar = getRealCalendarService();
   if (!calendar) {

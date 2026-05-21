@@ -2,14 +2,30 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockJwtSession = vi.fn();
+const mockLoadProfile = vi.fn();
 vi.mock("@/lib/services/jwt-session", () => ({
   getJwtSession: (req: NextRequest) => mockJwtSession(req),
+}));
+vi.mock("@/lib/auth/profile-repo", () => ({
+  loadProfile: (id: string) => mockLoadProfile(id),
 }));
 
 process.env.MOCK_SERVICES = "true";
 
 import { GET } from "../route";
 import { getContainer, resetContainer } from "@/lib/services";
+import type { Profile } from "@/lib/auth/profile-repo";
+
+const activeTrainee: Profile = {
+  userId: "u1",
+  email: "u1@example.com",
+  phone: null,
+  name: "Trainee",
+  role: "trainee",
+  status: "active",
+  hasIntro: false,
+  createdAt: "2026-01-01T00:00:00Z",
+};
 
 function makeRequest(date?: string, authHeader?: string) {
   const url = `http://localhost/api/slots${date ? `?date=${date}` : ""}`;
@@ -26,6 +42,7 @@ describe("GET /api/slots", () => {
 
   afterEach(() => {
     mockJwtSession.mockReset();
+    mockLoadProfile.mockReset();
     vi.useRealTimers();
   });
 
@@ -37,12 +54,14 @@ describe("GET /api/slots", () => {
 
   it("returns 400 when date param is missing or malformed", async () => {
     mockJwtSession.mockResolvedValue({ userId: "u1", email: "u1@example.com" });
+    mockLoadProfile.mockResolvedValue(activeTrainee);
     expect((await GET(makeRequest(undefined, "Bearer jwt"))).status).toBe(400);
     expect((await GET(makeRequest("bad-date", "Bearer jwt"))).status).toBe(400);
   });
 
   it("returns slots for the given date when JWT is valid", async () => {
     mockJwtSession.mockResolvedValue({ userId: "u1", email: "u1@example.com" });
+    mockLoadProfile.mockResolvedValue(activeTrainee);
 
     const { store } = getContainer();
     store.upsertSlot({
