@@ -8,6 +8,7 @@ import '../bookings/booking_repository.dart';
 import '../bookings/cancel_request_sheet.dart';
 import '../coach/contact_coach_card.dart';
 import '../dashboard/dashboard_repository.dart';
+import '../history/history_screen.dart';
 import '../profile/profile_repository.dart';
 import '../profile/profile_screen.dart';
 import 'slot.dart';
@@ -371,11 +372,9 @@ class _QuickActions extends ConsumerWidget {
         _QuickActionChip(
           icon: Icons.history,
           label: 'היסטוריה',
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('היסטוריה תופיע בקרוב')),
-            );
-          },
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const HistoryScreen()),
+          ),
         ),
         const SizedBox(width: 10),
         _QuickActionChip(
