@@ -218,6 +218,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('contact-coach-whatsapp')));
       await tester.tap(find.byKey(const Key('contact-coach-whatsapp')));
       await tester.pumpAndSettle();
 
@@ -259,6 +260,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('contact-coach-call')));
       await tester.tap(find.byKey(const Key('contact-coach-call')));
       await tester.pumpAndSettle();
 

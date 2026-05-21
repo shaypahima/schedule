@@ -199,6 +199,10 @@ class _WelcomeHero extends ConsumerWidget {
     final attendancePct = dashboard != null
         ? '${(dashboard.attendanceRate * 100).round()}%'
         : '—';
+    final streak = dashboard != null && dashboard.currentStreak > 0
+        ? '🔥 ${dashboard.currentStreak}'
+        : '—';
+    final monthsSince = dashboard?.memberSinceMonths ?? 0;
 
     return Container(
       width: double.infinity,
@@ -228,6 +232,18 @@ class _WelcomeHero extends ConsumerWidget {
                   color: Colors.white,
                 ),
           ),
+          if (monthsSince > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              monthsSince == 1
+                  ? 'חבר/ה כבר חודש'
+                  : 'חבר/ה כבר $monthsSince חודשים',
+              key: const Key('member-since'),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [
@@ -242,11 +258,15 @@ class _WelcomeHero extends ConsumerWidget {
               ),
               const SizedBox(width: 10),
               _StatBadge(
-                value: next ?? '—',
-                label: 'האימון הבא',
+                value: streak,
+                label: 'רצף',
               ),
             ],
           ),
+          if (next != null) ...[
+            const SizedBox(height: 10),
+            _NextSessionPill(label: next),
+          ],
           const SizedBox(height: 16),
           _QuickActions(),
         ],
@@ -267,6 +287,37 @@ class _WelcomeHero extends ConsumerWidget {
     if (diff.inHours < 24) return 'בעוד ${diff.inHours}ש׳';
     if (diff.inDays < 7) return 'בעוד ${diff.inDays} ימים';
     return '${upcoming.first.value.day}.${upcoming.first.value.month}';
+  }
+}
+
+class _NextSessionPill extends StatelessWidget {
+  final String label;
+  const _NextSessionPill({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.calendar_today, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            'האימון הבא: $label',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
