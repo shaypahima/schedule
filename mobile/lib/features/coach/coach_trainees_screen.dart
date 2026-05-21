@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'admin_repository.dart';
+import 'notes_sheet.dart';
 
 String statusLabel(String status) {
   switch (status) {
@@ -130,6 +131,19 @@ class _TraineeRow extends ConsumerWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(statusLabel(trainee.status)),
+          ),
+          IconButton(
+            key: Key('notes-${trainee.id}'),
+            tooltip: 'הערות',
+            icon: const Icon(Icons.sticky_note_2_outlined),
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              builder: (_) => NotesSheet(
+                traineeId: trainee.id,
+                traineeName: trainee.name,
+              ),
+            ),
           ),
           if (trainee.status == 'pending')
             IconButton(

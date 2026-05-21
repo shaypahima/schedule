@@ -294,6 +294,44 @@ class _CoachSlotTile extends ConsumerWidget {
     }
   }
 
+  bool _slotIsPast() {
+    try {
+      final dt = DateTime.parse('${slot.date}T${slot.startTime}:00');
+      return dt.isBefore(DateTime.now());
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _markNoShow(BuildContext context, WidgetRef ref, AdminBooking booking) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('no-show-confirm-dialog'),
+        title: Text('לסמן את ${booking.traineeName ?? "המתאמן"} כלא הופיע?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('לא')),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('סמן כלא הופיע'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref.read(adminRepositoryProvider).markNoShow(booking.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('סומן כלא הופיע')),
+      );
+      ref.invalidate(adminBookingsForDateProvider);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('שגיאה: $e')));
+    }
+  }
+
   Future<void> _confirmRemove(BuildContext context, WidgetRef ref, AdminBooking booking) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -357,6 +395,13 @@ class _CoachSlotTile extends ConsumerWidget {
                     child: Text(b.traineeName ?? b.traineeId,
                         key: Key('booking-name-${b.id}')),
                   ),
+                  if (_slotIsPast())
+                    IconButton(
+                      key: Key('no-show-${b.id}'),
+                      tooltip: 'סמן כלא הופיע',
+                      icon: const Icon(Icons.person_off_outlined),
+                      onPressed: () => _markNoShow(context, ref, b),
+                    ),
                   IconButton(
                     key: Key('remove-booking-${b.id}'),
                     icon: const Icon(Icons.remove_circle_outline),

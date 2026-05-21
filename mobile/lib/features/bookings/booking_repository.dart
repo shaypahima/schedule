@@ -22,6 +22,16 @@ abstract class BookingRepository {
   Future<MyBookingsView> fetchMyBookings();
   Future<void> cancel(String bookingId);
   Future<Booking> reschedule(String bookingId, String newSlotId);
+
+  /// Phase 15 — inside-24h cancel request (coach approves). Returns the request id.
+  Future<String> requestCancel(String bookingId, {required String reason});
+
+  /// Phase 15 — inside-24h reschedule request (coach approves).
+  Future<String> requestReschedule(
+    String bookingId, {
+    required String newSlotId,
+    required String reason,
+  });
 }
 
 class HttpBookingRepository implements BookingRepository {
@@ -77,6 +87,36 @@ class HttpBookingRepository implements BookingRepository {
       return Booking.fromJson(json['booking'] as Map<String, dynamic>);
     } on ApiException catch (e) {
       throw _bookingFailure(e, 'reschedule failed');
+    }
+  }
+
+  @override
+  Future<String> requestCancel(String bookingId, {required String reason}) async {
+    try {
+      final json = await _http.post<Map<String, dynamic>>(
+        '/api/bookings/$bookingId/request-cancel',
+        data: {'reason': reason},
+      );
+      return (json['request'] as Map<String, dynamic>)['id'] as String;
+    } on ApiException catch (e) {
+      throw _bookingFailure(e, 'cancel request failed');
+    }
+  }
+
+  @override
+  Future<String> requestReschedule(
+    String bookingId, {
+    required String newSlotId,
+    required String reason,
+  }) async {
+    try {
+      final json = await _http.post<Map<String, dynamic>>(
+        '/api/bookings/$bookingId/request-reschedule',
+        data: {'newSlotId': newSlotId, 'reason': reason},
+      );
+      return (json['request'] as Map<String, dynamic>)['id'] as String;
+    } on ApiException catch (e) {
+      throw _bookingFailure(e, 'reschedule request failed');
     }
   }
 }

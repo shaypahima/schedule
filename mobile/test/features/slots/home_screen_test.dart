@@ -330,7 +330,8 @@ void main() {
       expect(find.byKey(const Key('contact-coach-call')), findsOneWidget);
     });
 
-    testWidgets('locked booking disables cancel + reschedule buttons',
+    testWidgets(
+        'locked booking: cancel button opens request sheet, reschedule is still disabled',
         (tester) async {
       final repo = _FakeSlotRepo();
       final bookings = _FakeBookingRepo();
@@ -353,13 +354,16 @@ void main() {
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
 
+      // Cancel button is enabled (opens the cancel-request sheet per Phase 15).
       final cancelBtn = tester.widget<IconButton>(
         find.byKey(const Key('cancel-booking-b-locked')),
       );
+      expect(cancelBtn.onPressed, isNotNull);
+
+      // Reschedule still disabled while locked.
       final rescheduleBtn = tester.widget<IconButton>(
         find.byKey(const Key('reschedule-booking-b-locked')),
       );
-      expect(cancelBtn.onPressed, isNull);
       expect(rescheduleBtn.onPressed, isNull);
     });
 

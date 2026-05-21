@@ -5,6 +5,7 @@ import '../../theme.dart';
 import '../../utils/week_dates.dart';
 import '../bookings/booking.dart';
 import '../bookings/booking_repository.dart';
+import '../bookings/cancel_request_sheet.dart';
 import '../coach/contact_coach_card.dart';
 import '../dashboard/dashboard_repository.dart';
 import '../profile/profile_screen.dart';
@@ -513,6 +514,14 @@ class _MyBookingRow extends ConsumerWidget {
     );
   }
 
+  Future<void> _openCancelRequestSheet(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => CancelRequestSheet(booking: booking),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
@@ -539,11 +548,16 @@ class _MyBookingRow extends ConsumerWidget {
               ),
               IconButton(
                 key: Key('cancel-booking-${booking.id}'),
-                tooltip: 'בטל',
-                icon: const Icon(Icons.delete_outline, size: 20),
-                onPressed: booking.isLocked
-                    ? null
-                    : () => _openCancelDialog(context, ref),
+                tooltip: booking.isLocked ? 'בקש ביטול מהמאמן' : 'בטל',
+                icon: Icon(
+                  booking.isLocked
+                      ? Icons.outgoing_mail
+                      : Icons.delete_outline,
+                  size: 20,
+                ),
+                onPressed: () => booking.isLocked
+                    ? _openCancelRequestSheet(context, ref)
+                    : _openCancelDialog(context, ref),
               ),
             ],
           ),

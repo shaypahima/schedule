@@ -73,6 +73,8 @@ abstract class AdminRepository {
   Future<List<TraineeRecord>> listTrainees();
   Future<void> addBooking({required String traineeId, required String slotId, required String traineeName});
   Future<void> removeBooking(String bookingId);
+  /// Phase 16: mark a past confirmed booking as no_show.
+  Future<void> markNoShow(String bookingId);
   Future<void> inviteTrainee({
     required String email,
     required String name,
@@ -127,6 +129,11 @@ class HttpAdminRepository implements AdminRepository {
       '/api/admin/bookings',
       data: {'bookingId': bookingId},
     );
+  }
+
+  @override
+  Future<void> markNoShow(String bookingId) async {
+    await _http.post<void>('/api/admin/bookings/$bookingId/no-show');
   }
 
   @override
