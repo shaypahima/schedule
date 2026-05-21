@@ -63,11 +63,22 @@ export type DashboardView = {
 
 export type TraineesFilter = "all" | "pending" | "active" | "unbooked-this-week";
 
+export type PendingApprovalView = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  introText: string | null;
+  introSubmittedAt: string | null;
+};
+
 export interface CoachReadModel {
   getCoachDashboard(): Promise<DashboardView>;
   getTraineesList(filter?: TraineesFilter): Promise<TraineeSummary[]>;
   getTraineeDetail(traineeId: string): Promise<TraineeDetailView | null>;
   getDayBookings(date: string): Promise<RosterEntry[]>;
+  /** Phase 14: list trainees in `pending` who have submitted their intro. */
+  getPendingApprovals(): Promise<PendingApprovalView[]>;
   /** Phase 15 wires this once booking_change_request lands. Returns [] today. */
   getPendingChangeRequests(): Promise<ChangeRequestEntry[]>;
 }

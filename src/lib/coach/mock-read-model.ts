@@ -6,10 +6,12 @@ import {
   TraineeSummary,
   ChangeRequestEntry,
   TraineesFilter,
+  PendingApprovalView,
 } from "./read-model";
 import { BookingStore } from "@/lib/services/booking-store";
 import { AuthService } from "@/lib/services/auth";
 import { Bookings } from "@/lib/services/bookings";
+import { loadProfile } from "@/lib/auth/profile-repo";
 import { Profile } from "@/lib/types";
 import { todayIL, weekStartForDate, israelSlotToUTC } from "@/lib/services/israel-time";
 
@@ -218,6 +220,27 @@ export function makeCoachReadModel(
           byId
         );
         if (entry) out.push(entry);
+      }
+      return out;
+    },
+
+    async getPendingApprovals(): Promise<PendingApprovalView[]> {
+      const { trainees } = await traineesByStatus();
+      const out: PendingApprovalView[] = [];
+      for (const t of trainees) {
+        const tt = t as Profile & { status?: string; email?: string };
+        if (tt.status !== "pending") continue;
+        // Hydrate via loadProfile to read trainee_profile fields too.
+        const full = await loadProfile(t.id);
+        if (!full || !full.hasIntro) continue; // only those who completed intro
+        out.push({
+          id: full.userId,
+          name: full.name,
+          email: full.email,
+          phone: full.phone,
+          introText: null, // mock impl doesn't read intro_text directly; supabase impl would
+          introSubmittedAt: null,
+        });
       }
       return out;
     },

@@ -24,10 +24,12 @@ function admin() {
 }
 
 /**
- * Create a pending trainee:
+ * Create an *active* trainee (the invitation IS the approval — ADR-0004):
  * 1. Supabase Admin API sends an invite email (creates auth.users row).
- * 2. Insert/upsert profiles row with status='pending'.
- * 3. On first /api/me call, server promotes status to 'active'.
+ * 2. Upsert profiles row with status='active'. No coach approval step needed.
+ *
+ * Self-signups (Google OAuth without an invite) land in status='pending' and
+ * must go through the intro form + coach approval — see /api/me + /api/me/intro.
  */
 export async function inviteTraineeByEmail(input: InviteInput): Promise<InvitedProfile> {
   const db = admin();
@@ -38,7 +40,7 @@ export async function inviteTraineeByEmail(input: InviteInput): Promise<InvitedP
     throw new Error(`Invite failed: ${inviteErr?.message ?? "unknown"}`);
   }
 
-  // 2. Upsert pending profile keyed to the new auth.users.id
+  // 2. Upsert active profile keyed to the new auth.users.id
   const { data: profile, error: upsertErr } = await db
     .from("profiles")
     .upsert(
@@ -47,7 +49,7 @@ export async function inviteTraineeByEmail(input: InviteInput): Promise<InvitedP
         email: input.email,
         name: input.name,
         role: "trainee",
-        status: "pending",
+        status: "active",
         is_active: true,
         is_recurring: input.isRecurring ?? false,
         preferred_day: input.preferredDay ?? null,
