@@ -1,8 +1,6 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../profile/profile_repository.dart';
+import '../../utils/authed_http_client.dart';
 
 class CalendarStatus {
   final bool connected;
@@ -16,40 +14,27 @@ abstract class CalendarRepository {
 }
 
 class HttpCalendarRepository implements CalendarRepository {
-  final Dio _dio;
-  final SupabaseClient _supabase;
-  HttpCalendarRepository(this._dio, this._supabase);
-
-  String _jwt() {
-    final t = _supabase.auth.currentSession?.accessToken;
-    if (t == null) throw StateError('Not authenticated');
-    return t;
-  }
+  final AuthedHttpClient _http;
+  HttpCalendarRepository(this._http);
 
   @override
   Future<CalendarStatus> status() async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/api/coach-calendar/status',
-      options: Options(headers: {'Authorization': 'Bearer ${_jwt()}'}),
-    );
+    final json = await _http.get<Map<String, dynamic>>('/api/coach-calendar/status');
     return CalendarStatus(
-      connected: (res.data!['connected'] as bool?) ?? false,
-      mock: (res.data!['mock'] as bool?) ?? false,
+      connected: (json['connected'] as bool?) ?? false,
+      mock: (json['mock'] as bool?) ?? false,
     );
   }
 
   @override
   Future<String> getAuthUrl() async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/api/coach-calendar/url',
-      options: Options(headers: {'Authorization': 'Bearer ${_jwt()}'}),
-    );
-    return res.data!['authUrl'] as String;
+    final json = await _http.get<Map<String, dynamic>>('/api/coach-calendar/url');
+    return json['authUrl'] as String;
   }
 }
 
 final calendarRepositoryProvider = Provider<CalendarRepository>((ref) {
-  return HttpCalendarRepository(ref.watch(dioProvider), Supabase.instance.client);
+  return HttpCalendarRepository(ref.watch(authedHttpProvider));
 });
 
 final calendarStatusProvider = FutureProvider<CalendarStatus>((ref) {

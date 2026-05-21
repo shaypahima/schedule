@@ -1,8 +1,6 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../profile/profile_repository.dart';
+import '../../utils/authed_http_client.dart';
 import 'slot.dart';
 
 abstract class SlotRepository {
@@ -10,27 +8,23 @@ abstract class SlotRepository {
 }
 
 class HttpSlotRepository implements SlotRepository {
-  final Dio _dio;
-  final SupabaseClient _supabase;
+  final AuthedHttpClient _http;
 
-  HttpSlotRepository(this._dio, this._supabase);
+  HttpSlotRepository(this._http);
 
   @override
   Future<List<Slot>> fetchSlots(String date) async {
-    final jwt = _supabase.auth.currentSession?.accessToken;
-    if (jwt == null) throw StateError('Not authenticated');
-    final res = await _dio.get<Map<String, dynamic>>(
+    final json = await _http.get<Map<String, dynamic>>(
       '/api/slots',
       queryParameters: {'date': date},
-      options: Options(headers: {'Authorization': 'Bearer $jwt'}),
     );
-    final list = (res.data!['slots'] as List).cast<Map<String, dynamic>>();
+    final list = (json['slots'] as List).cast<Map<String, dynamic>>();
     return list.map(Slot.fromJson).toList();
   }
 }
 
 final slotRepositoryProvider = Provider<SlotRepository>((ref) {
-  return HttpSlotRepository(ref.watch(dioProvider), Supabase.instance.client);
+  return HttpSlotRepository(ref.watch(authedHttpProvider));
 });
 
 final slotsForDateProvider =

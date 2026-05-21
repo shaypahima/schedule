@@ -1,8 +1,6 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../profile/profile_repository.dart';
+import '../../utils/authed_http_client.dart';
 
 class AdminBooking {
   final String id;
@@ -42,7 +40,7 @@ class TraineeRecord {
   final String id;
   final String name;
   final String? email;
-  final String status; // 'pending' | 'active' | 'deactivated'
+  final String status; // 'pending' | 'active' | 'deactivated' | 'rejected'
   final bool isRecurring;
   final int? preferredDay;
   final String? preferredTime;
@@ -95,60 +93,46 @@ abstract class AdminRepository {
 }
 
 class HttpAdminRepository implements AdminRepository {
-  final Dio _dio;
-  final SupabaseClient _supabase;
-  HttpAdminRepository(this._dio, this._supabase);
-
-  Options _opts() => Options(headers: {
-        'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ""}',
-      });
+  final AuthedHttpClient _http;
+  HttpAdminRepository(this._http);
 
   @override
   Future<List<AdminBooking>> fetchBookings({String? date}) async {
-    final res = await _dio.get<Map<String, dynamic>>(
+    final json = await _http.get<Map<String, dynamic>>(
       '/api/admin/bookings',
       queryParameters: date != null ? {'date': date} : null,
-      options: _opts(),
     );
-    final list = (res.data!['bookings'] as List).cast<Map<String, dynamic>>();
+    final list = (json['bookings'] as List).cast<Map<String, dynamic>>();
     return list.map(AdminBooking.fromJson).toList();
   }
 
   @override
   Future<List<TraineeOption>> fetchTrainees() async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/api/admin/trainees',
-      options: _opts(),
-    );
-    final list = (res.data!['trainees'] as List).cast<Map<String, dynamic>>();
+    final json = await _http.get<Map<String, dynamic>>('/api/admin/trainees');
+    final list = (json['trainees'] as List).cast<Map<String, dynamic>>();
     return list.map(TraineeOption.fromJson).toList();
   }
 
   @override
   Future<void> addBooking({required String traineeId, required String slotId, required String traineeName}) async {
-    await _dio.post<void>(
+    await _http.post<void>(
       '/api/admin/bookings',
       data: {'traineeId': traineeId, 'slotId': slotId, 'traineeName': traineeName},
-      options: _opts(),
     );
   }
 
   @override
   Future<void> removeBooking(String bookingId) async {
-    await _dio.delete<void>(
+    await _http.delete<void>(
       '/api/admin/bookings',
       data: {'bookingId': bookingId},
-      options: _opts(),
     );
   }
 
   @override
   Future<List<TraineeRecord>> listTrainees() async {
-    final res = await _dio.get<Map<String, dynamic>>(
-      '/api/admin/trainees',
-      options: _opts(),
-    );
-    final list = (res.data!['trainees'] as List).cast<Map<String, dynamic>>();
+    final json = await _http.get<Map<String, dynamic>>('/api/admin/trainees');
+    final list = (json['trainees'] as List).cast<Map<String, dynamic>>();
     return list.map(TraineeRecord.fromJson).toList();
   }
 
@@ -160,7 +144,7 @@ class HttpAdminRepository implements AdminRepository {
     int? preferredDay,
     String? preferredTime,
   }) async {
-    await _dio.post<void>(
+    await _http.post<void>(
       '/api/admin/trainees',
       data: {
         'email': email,
@@ -169,25 +153,22 @@ class HttpAdminRepository implements AdminRepository {
         'preferredDay': preferredDay,
         'preferredTime': preferredTime,
       },
-      options: _opts(),
     );
   }
 
   @override
   Future<void> resendInvite(String email) async {
-    await _dio.post<void>(
+    await _http.post<void>(
       '/api/admin/trainees',
       data: {'email': email, 'name': '_resend', 'resend': true},
-      options: _opts(),
     );
   }
 
   @override
   Future<void> updateTrainee(String id, Map<String, dynamic> updates) async {
-    await _dio.patch<void>(
+    await _http.patch<void>(
       '/api/admin/trainees',
       data: {'id': id, ...updates},
-      options: _opts(),
     );
   }
 
@@ -199,31 +180,23 @@ class HttpAdminRepository implements AdminRepository {
     int? capacity,
     bool? lockoutOverride,
   }) async {
-    await _dio.patch<void>(
-      '/api/admin/slots',
-      data: {
-        ?slotId == null ? null : 'slotId': slotId,
-        ?date == null ? null : 'date': date,
-        ?startTime == null ? null : 'startTime': startTime,
-        ?capacity == null ? null : 'capacity': capacity,
-        ?lockoutOverride == null ? null : 'lockoutOverride': lockoutOverride,
-      },
-      options: _opts(),
-    );
+    final body = <String, dynamic>{};
+    if (slotId != null) body['slotId'] = slotId;
+    if (date != null) body['date'] = date;
+    if (startTime != null) body['startTime'] = startTime;
+    if (capacity != null) body['capacity'] = capacity;
+    if (lockoutOverride != null) body['lockoutOverride'] = lockoutOverride;
+    await _http.patch<void>('/api/admin/slots', data: body);
   }
 
   @override
   Future<void> resetEdits(String traineeId) async {
-    await _dio.post<void>(
-      '/api/admin/edits',
-      data: {'traineeId': traineeId},
-      options: _opts(),
-    );
+    await _http.post<void>('/api/admin/edits', data: {'traineeId': traineeId});
   }
 }
 
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {
-  return HttpAdminRepository(ref.watch(dioProvider), Supabase.instance.client);
+  return HttpAdminRepository(ref.watch(authedHttpProvider));
 });
 
 final adminBookingsForDateProvider =
