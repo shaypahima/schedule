@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 
 const mockJwtSession = vi.fn();
 const mockLoadProfile = vi.fn();
-const mockUpdateContactPhone = vi.fn();
+const mockUpdateCoachInfo = vi.fn();
 
 vi.mock("@/lib/services/jwt-session", () => ({
   getJwtSession: (req: NextRequest) => mockJwtSession(req),
@@ -15,8 +15,8 @@ vi.mock("@/lib/auth/profile-repo", () => ({
 
 vi.mock("@/lib/services/coach-info-repo", () => ({
   getCoachInfo: vi.fn(),
-  updateCoachContactPhone: (coachId: string, phone: string) =>
-    mockUpdateContactPhone(coachId, phone),
+  updateCoachInfo: (coachId: string, patch: unknown) =>
+    mockUpdateCoachInfo(coachId, patch),
 }));
 
 import { PATCH } from "../route";
@@ -35,7 +35,7 @@ describe("PATCH /api/coach-settings", () => {
   afterEach(() => {
     mockJwtSession.mockReset();
     mockLoadProfile.mockReset();
-    mockUpdateContactPhone.mockReset();
+    mockUpdateCoachInfo.mockReset();
   });
 
   it("returns 401 without JWT", async () => {
@@ -58,7 +58,7 @@ describe("PATCH /api/coach-settings", () => {
     });
     const res = await PATCH(makeRequest({ contactPhone: "+972501234567" }, "Bearer jwt"));
     expect(res.status).toBe(403);
-    expect(mockUpdateContactPhone).not.toHaveBeenCalled();
+    expect(mockUpdateCoachInfo).not.toHaveBeenCalled();
   });
 
   it("returns 400 for non-E.164 phone", async () => {
@@ -89,10 +89,46 @@ describe("PATCH /api/coach-settings", () => {
       hasIntro: false,
       createdAt: "2026-01-01T00:00:00Z",
     });
-    mockUpdateContactPhone.mockResolvedValue(undefined);
+    mockUpdateCoachInfo.mockResolvedValue(undefined);
 
     const res = await PATCH(makeRequest({ contactPhone: "+972501234567" }, "Bearer jwt"));
     expect(res.status).toBe(200);
-    expect(mockUpdateContactPhone).toHaveBeenCalledWith("c1", "+972501234567");
+    expect(mockUpdateCoachInfo).toHaveBeenCalledWith("c1", { contactPhone: "+972501234567" });
+  });
+
+  it("updates bio + specialty + yearsExperience", async () => {
+    mockJwtSession.mockResolvedValue({ userId: "c1", email: "coach@example.com" });
+    mockLoadProfile.mockResolvedValue({
+      userId: "c1",
+      email: "coach@example.com",
+      phone: null,
+      name: "Coach",
+      role: "coach",
+      status: "active",
+      hasIntro: false,
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+    mockUpdateCoachInfo.mockResolvedValue(undefined);
+
+    const body = { bio: "מאמן כושר", specialty: "כוח", yearsExperience: 8 };
+    const res = await PATCH(makeRequest(body, "Bearer jwt"));
+    expect(res.status).toBe(200);
+    expect(mockUpdateCoachInfo).toHaveBeenCalledWith("c1", body);
+  });
+
+  it("rejects out-of-range yearsExperience", async () => {
+    mockJwtSession.mockResolvedValue({ userId: "c1", email: "coach@example.com" });
+    mockLoadProfile.mockResolvedValue({
+      userId: "c1",
+      email: "coach@example.com",
+      phone: null,
+      name: "Coach",
+      role: "coach",
+      status: "active",
+      hasIntro: false,
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+    const res = await PATCH(makeRequest({ yearsExperience: 999 }, "Bearer jwt"));
+    expect(res.status).toBe(400);
   });
 });
