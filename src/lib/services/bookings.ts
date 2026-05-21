@@ -1,4 +1,4 @@
-import { Booking, Slot } from "@/lib/types";
+import { Booking, Slot, ChangeRequest } from "@/lib/types";
 import { BookingStore, BookingError } from "./booking-store";
 import { GoogleCalendarService } from "./google-calendar";
 import { NotificationService, NotificationPayload } from "./notification";
@@ -25,10 +25,22 @@ export type BookingError_Code =
   | "WEEKLY_LIMIT"
   | "CONFLICT"
   | "CALENDAR_FAILURE"
+  | "ALREADY_REQUESTED"
+  | "REQUEST_NOT_PENDING"
+  | "REASON_REQUIRED"
   | "NOT_IMPLEMENTED";
 
 export type BookingResult =
   | { ok: true; booking: Booking }
+  | { ok: false; error: BookingError_Code; message: string };
+
+/** Result of decideRequest — what the coach approved/rejected. */
+export type DecisionResult =
+  | { ok: true; request: ChangeRequest; effectedBooking?: Booking }
+  | { ok: false; error: BookingError_Code; message: string };
+
+export type RequestResult =
+  | { ok: true; request: ChangeRequest }
   | { ok: false; error: BookingError_Code; message: string };
 
 export interface BookingOpts {
@@ -47,14 +59,27 @@ export interface Bookings {
     opts?: { traineeName?: string }
   ): Promise<BookingResult>;
 
-  // --- Stubs ---
-  // Phase 15 wires these once booking_change_request table lands.
+  /** Phase 15: trainee submits a cancel/reschedule request when inside 24h. */
+  requestCancel(
+    bookingId: string,
+    traineeId: string,
+    reason: string
+  ): Promise<RequestResult>;
+  requestReschedule(
+    bookingId: string,
+    traineeId: string,
+    newSlotId: string,
+    reason: string
+  ): Promise<RequestResult>;
+  /** Phase 15: coach approves/rejects a pending request. */
   decideRequest(
     requestId: string,
+    decidedBy: string,
     decision: "approve" | "reject",
     note?: string
-  ): Promise<BookingResult>;
-  // Phase 16 wires this once no_show status enum value lands.
+  ): Promise<DecisionResult>;
+
+  /** Phase 16 wires this once no_show status enum value lands. */
   markNoShow(bookingId: string): Promise<BookingResult>;
 
   // --- Limits (collapsed from WeeklyLimits) ---
@@ -356,8 +381,127 @@ export function makeBookings(
       return { ok: true, booking: newBooking };
     },
 
-    async decideRequest() {
-      return { ok: false, error: "NOT_IMPLEMENTED", message: "Phase 15 wires booking_change_request" };
+    async requestCancel(bookingId, traineeId, reason) {
+      if (!reason || reason.trim().length === 0) {
+        return { ok: false, error: "REASON_REQUIRED", message: "reason is required" };
+      }
+      const booking = await store.getBooking(bookingId);
+      if (!booking || booking.status !== "confirmed") {
+        return { ok: false, error: "NOT_FOUND", message: "Booking not found" };
+      }
+      if (booking.traineeId !== traineeId) {
+        return { ok: false, error: "NOT_FOUND", message: "Not your booking" };
+      }
+      const existing = await store.getPendingRequestForBooking(bookingId);
+      if (existing) {
+        return { ok: false, error: "ALREADY_REQUESTED", message: "Request already pending for this booking" };
+      }
+      try {
+        const request = await store.createChangeRequest({
+          bookingId,
+          requestedNewSlotId: null,
+          reason: reason.trim(),
+        });
+        return { ok: true, request };
+      } catch (e) {
+        return { ok: false, error: "CONFLICT", message: (e as Error).message };
+      }
+    },
+
+    async requestReschedule(bookingId, traineeId, newSlotId, reason) {
+      if (!reason || reason.trim().length === 0) {
+        return { ok: false, error: "REASON_REQUIRED", message: "reason is required" };
+      }
+      const booking = await store.getBooking(bookingId);
+      if (!booking || booking.status !== "confirmed") {
+        return { ok: false, error: "NOT_FOUND", message: "Booking not found" };
+      }
+      if (booking.traineeId !== traineeId) {
+        return { ok: false, error: "NOT_FOUND", message: "Not your booking" };
+      }
+      const newSlot = await store.getSlot(newSlotId);
+      if (!newSlot) {
+        return { ok: false, error: "NOT_FOUND", message: "New slot not found" };
+      }
+      const existing = await store.getPendingRequestForBooking(bookingId);
+      if (existing) {
+        return { ok: false, error: "ALREADY_REQUESTED", message: "Request already pending for this booking" };
+      }
+      try {
+        const request = await store.createChangeRequest({
+          bookingId,
+          requestedNewSlotId: newSlotId,
+          reason: reason.trim(),
+        });
+        return { ok: true, request };
+      } catch (e) {
+        return { ok: false, error: "CONFLICT", message: (e as Error).message };
+      }
+    },
+
+    async decideRequest(requestId, decidedBy, decision, note) {
+      const request = await store.getChangeRequest(requestId);
+      if (!request) return { ok: false, error: "NOT_FOUND", message: "Request not found" };
+      if (request.status !== "pending") {
+        return { ok: false, error: "REQUEST_NOT_PENDING", message: `status is ${request.status}` };
+      }
+
+      const booking = await store.getBooking(request.bookingId);
+      if (!booking) return { ok: false, error: "NOT_FOUND", message: "Booking not found" };
+
+      const decidedAt = new Date();
+      const statusValue: "approved" | "rejected" =
+        decision === "approve" ? "approved" : "rejected";
+
+      // Reject path: stamp the request, leave the booking alone.
+      if (decision === "reject") {
+        await store.updateChangeRequest(requestId, {
+          status: statusValue,
+          decisionNote: note ?? null,
+          decidedAt,
+          decidedBy,
+        });
+        const updated = await store.getChangeRequest(requestId);
+        return { ok: true, request: updated! };
+      }
+
+      // Approve path: cancel the old booking. If reschedule, book the new slot too.
+      const oldSlot = await store.getSlot(booking.slotId);
+      if (!oldSlot) return { ok: false, error: "NOT_FOUND", message: "Slot not found" };
+
+      await deleteCalendarEvent(booking.googleEventId);
+      await store.updateBooking({ ...booking, status: "cancelled" });
+      await store.updateSlot({
+        ...oldSlot,
+        currentBookings: Math.max(0, oldSlot.currentBookings - 1),
+      });
+
+      let effectedBooking: Booking | undefined;
+      if (request.requestedNewSlotId) {
+        // Reschedule — book the new slot under the coach's authority (bypass limits).
+        const r = await this.book(booking.traineeId, request.requestedNewSlotId, {
+          bypass: true,
+          isAutoBooked: booking.isAutoBooked,
+        });
+        if (r.ok) effectedBooking = r.booking;
+      }
+
+      await store.updateChangeRequest(requestId, {
+        status: statusValue,
+        decisionNote: note ?? null,
+        decidedAt,
+        decidedBy,
+      });
+
+      await notify({
+        type: "cancel",
+        traineeName: booking.traineeId,
+        slotDate: oldSlot.date,
+        slotTime: oldSlot.startTime,
+      });
+
+      const updated = await store.getChangeRequest(requestId);
+      return { ok: true, request: updated!, effectedBooking };
     },
 
     async markNoShow() {

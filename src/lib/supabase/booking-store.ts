@@ -1,5 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Booking, Slot, EditLog } from "@/lib/types";
+import { Booking, Slot, EditLog, ChangeRequest } from "@/lib/types";
 import { BookingStore } from "@/lib/services/booking-store";
 import { israelSlotToUTC } from "@/lib/services/israel-time";
 
@@ -288,7 +288,7 @@ export class SupabaseBookingStore implements BookingStore {
       traineeId: row.trainee_id as string,
       googleEventId: (row.google_event_id as string) ?? null,
       isAutoBooked: row.is_auto_booked as boolean,
-      status: row.status as "confirmed" | "cancelled",
+      status: row.status as Booking["status"],
       createdAt: new Date(row.created_at as string),
       reminderSentAt: row.reminder_sent_at
         ? new Date(row.reminder_sent_at as string)
@@ -302,6 +302,91 @@ export class SupabaseBookingStore implements BookingStore {
       traineeId: row.trainee_id as string,
       weekStart: String(row.week_start).slice(0, 10),
       editCount: row.edit_count as number,
+    };
+  }
+
+  // --- Phase 15: cancel-request methods ---
+
+  async createChangeRequest(input: {
+    bookingId: string;
+    requestedNewSlotId: string | null;
+    reason: string;
+  }): Promise<ChangeRequest> {
+    const { data, error } = await this.db
+      .from("booking_change_request")
+      .insert({
+        booking_id: input.bookingId,
+        requested_new_slot_id: input.requestedNewSlotId,
+        reason: input.reason,
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return this.mapChangeRequest(data);
+  }
+
+  async getChangeRequest(id: string): Promise<ChangeRequest | undefined> {
+    const { data } = await this.db
+      .from("booking_change_request")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    return data ? this.mapChangeRequest(data) : undefined;
+  }
+
+  async getPendingRequestForBooking(bookingId: string): Promise<ChangeRequest | undefined> {
+    const { data } = await this.db
+      .from("booking_change_request")
+      .select("*")
+      .eq("booking_id", bookingId)
+      .eq("status", "pending")
+      .maybeSingle();
+    return data ? this.mapChangeRequest(data) : undefined;
+  }
+
+  async listPendingRequests(): Promise<ChangeRequest[]> {
+    const { data } = await this.db
+      .from("booking_change_request")
+      .select("*")
+      .eq("status", "pending")
+      .order("requested_at", { ascending: true });
+    return (data ?? []).map((r: Record<string, unknown>) => this.mapChangeRequest(r));
+  }
+
+  async updateChangeRequest(
+    id: string,
+    patch: Partial<{
+      status: ChangeRequest["status"];
+      decisionNote: string | null;
+      decidedAt: Date | null;
+      decidedBy: string | null;
+    }>
+  ): Promise<void> {
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.status !== undefined) dbPatch.status = patch.status;
+    if (patch.decisionNote !== undefined) dbPatch.decision_note = patch.decisionNote;
+    if (patch.decidedAt !== undefined) {
+      dbPatch.decided_at = patch.decidedAt ? patch.decidedAt.toISOString() : null;
+    }
+    if (patch.decidedBy !== undefined) dbPatch.decided_by = patch.decidedBy;
+    const { error } = await this.db
+      .from("booking_change_request")
+      .update(dbPatch)
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+
+  private mapChangeRequest(row: Record<string, unknown>): ChangeRequest {
+    return {
+      id: row.id as string,
+      bookingId: row.booking_id as string,
+      requestedNewSlotId: (row.requested_new_slot_id as string) ?? null,
+      reason: row.reason as string,
+      status: row.status as ChangeRequest["status"],
+      decisionNote: (row.decision_note as string) ?? null,
+      requestedAt: new Date(row.requested_at as string),
+      decidedAt: row.decided_at ? new Date(row.decided_at as string) : null,
+      decidedBy: (row.decided_by as string) ?? null,
     };
   }
 }

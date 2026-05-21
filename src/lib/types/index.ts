@@ -43,15 +43,32 @@ export interface Slot {
   version?: number; // optimistic locking
 }
 
+export type BookingStatus = "confirmed" | "cancelled" | "no_show";
+
 export interface Booking {
   id: string;
   slotId: string;
   traineeId: string;
   googleEventId: string | null;
   isAutoBooked: boolean;
-  status: "confirmed" | "cancelled";
+  status: BookingStatus;
   createdAt: Date;
   reminderSentAt: Date | null;
+}
+
+export type ChangeRequestStatus = "pending" | "approved" | "rejected";
+
+export interface ChangeRequest {
+  id: string;
+  bookingId: string;
+  /** null = bare cancel; set = reschedule (cancel old + book new on approval). */
+  requestedNewSlotId: string | null;
+  reason: string;
+  status: ChangeRequestStatus;
+  decisionNote: string | null;
+  requestedAt: Date;
+  decidedAt: Date | null;
+  decidedBy: string | null;
 }
 
 export interface EditLog {

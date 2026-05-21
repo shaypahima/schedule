@@ -1,4 +1,4 @@
-import { Booking, Slot, EditLog } from "@/lib/types";
+import { Booking, Slot, EditLog, ChangeRequest } from "@/lib/types";
 import { israelSlotToUTC } from "./israel-time";
 
 export class BookingError extends Error {
@@ -29,6 +29,23 @@ export interface BookingStore {
     windowEndUtc: Date
   ): Promise<Array<{ booking: Booking; slot: Slot }>> | Array<{ booking: Booking; slot: Slot }>;
   markReminderSent(bookingId: string, sentAt: Date): Promise<void> | void;
+
+  // --- Phase 15: cancel-request flow ---
+  createChangeRequest(input: {
+    bookingId: string;
+    requestedNewSlotId: string | null;
+    reason: string;
+  }): Promise<ChangeRequest> | ChangeRequest;
+  getChangeRequest(id: string): Promise<ChangeRequest | undefined> | ChangeRequest | undefined;
+  /** Returns the pending request for a booking, if any. */
+  getPendingRequestForBooking(
+    bookingId: string
+  ): Promise<ChangeRequest | undefined> | ChangeRequest | undefined;
+  listPendingRequests(): Promise<ChangeRequest[]> | ChangeRequest[];
+  updateChangeRequest(
+    id: string,
+    patch: Partial<Pick<ChangeRequest, "status" | "decisionNote" | "decidedAt" | "decidedBy">>
+  ): Promise<void> | void;
 }
 
 /** In-memory booking store for dev/testing. */
@@ -36,6 +53,7 @@ export class MockBookingStore implements BookingStore {
   private slots = new Map<string, Slot>();
   private bookings = new Map<string, Booking>();
   private editLogs = new Map<string, EditLog>();
+  private changeRequests = new Map<string, ChangeRequest>();
 
   addSlot(slot: Slot): void {
     this.slots.set(slot.id, { ...slot, version: slot.version ?? 1 });
@@ -147,6 +165,58 @@ export class MockBookingStore implements BookingStore {
     const b = this.bookings.get(bookingId);
     if (!b) return;
     this.bookings.set(bookingId, { ...b, reminderSentAt: sentAt });
+  }
+
+  createChangeRequest(input: {
+    bookingId: string;
+    requestedNewSlotId: string | null;
+    reason: string;
+  }): ChangeRequest {
+    // Enforce one pending per booking.
+    const existing = this.getPendingRequestForBooking(input.bookingId);
+    if (existing) {
+      throw new BookingError("A pending request already exists for this booking");
+    }
+    const cr: ChangeRequest = {
+      id: `cr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      bookingId: input.bookingId,
+      requestedNewSlotId: input.requestedNewSlotId,
+      reason: input.reason,
+      status: "pending",
+      decisionNote: null,
+      requestedAt: new Date(),
+      decidedAt: null,
+      decidedBy: null,
+    };
+    this.changeRequests.set(cr.id, cr);
+    return { ...cr };
+  }
+
+  getChangeRequest(id: string): ChangeRequest | undefined {
+    const c = this.changeRequests.get(id);
+    return c ? { ...c } : undefined;
+  }
+
+  getPendingRequestForBooking(bookingId: string): ChangeRequest | undefined {
+    for (const c of this.changeRequests.values()) {
+      if (c.bookingId === bookingId && c.status === "pending") return { ...c };
+    }
+    return undefined;
+  }
+
+  listPendingRequests(): ChangeRequest[] {
+    return Array.from(this.changeRequests.values())
+      .filter((c) => c.status === "pending")
+      .map((c) => ({ ...c }));
+  }
+
+  updateChangeRequest(
+    id: string,
+    patch: Partial<Pick<ChangeRequest, "status" | "decisionNote" | "decidedAt" | "decidedBy">>
+  ): void {
+    const c = this.changeRequests.get(id);
+    if (!c) return;
+    this.changeRequests.set(id, { ...c, ...patch });
   }
 }
 

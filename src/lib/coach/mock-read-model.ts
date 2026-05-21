@@ -92,12 +92,13 @@ export function makeCoachReadModel(
     async getCoachDashboard(): Promise<DashboardView> {
       const today = todayIL();
       const todayRoster = await this.getDayBookings(today);
+      const pendingRequests = await this.getPendingChangeRequests();
       return {
         pendingApprovals: await pendingApprovalsCount(),
-        pendingChangeRequests: 0,
+        pendingChangeRequests: pendingRequests.length,
         noShowsThisWeek: 0,
         todayRoster,
-        urgentRequests: [],
+        urgentRequests: pendingRequests.slice(0, 3),
       };
     },
 
@@ -246,8 +247,36 @@ export function makeCoachReadModel(
     },
 
     async getPendingChangeRequests(): Promise<ChangeRequestEntry[]> {
-      // Phase 15 wires booking_change_request — stub returns empty list today.
-      return [];
+      const pending = await store.listPendingRequests();
+      const { byId } = await traineesByStatus();
+      const out: ChangeRequestEntry[] = [];
+      for (const r of pending) {
+        const booking = await store.getBooking(r.bookingId);
+        if (!booking) continue;
+        const fromSlot = await store.getSlot(booking.slotId);
+        if (!fromSlot) continue;
+        const toSlot = r.requestedNewSlotId
+          ? await store.getSlot(r.requestedNewSlotId)
+          : null;
+        const t = byId.get(booking.traineeId);
+        out.push({
+          id: r.id,
+          requestedAt: r.requestedAt.toISOString(),
+          reason: r.reason,
+          trainee: { id: booking.traineeId, name: t?.name ?? "" },
+          fromSlot: {
+            id: fromSlot.id,
+            startsAt: israelSlotToUTC(fromSlot.date, fromSlot.startTime).toISOString(),
+          },
+          toSlot: toSlot
+            ? {
+                id: toSlot.id,
+                startsAt: israelSlotToUTC(toSlot.date, toSlot.startTime).toISOString(),
+              }
+            : null,
+        });
+      }
+      return out;
     },
   };
 }
