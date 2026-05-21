@@ -529,7 +529,8 @@ void main() {
       expect(find.text('לבטל את האימון בשעה 10:00?'), findsOneWidget);
     });
 
-    testWidgets('edit counter banner shows X/3 from server', (tester) async {
+    testWidgets('no edit-counter banner shown anymore (24h approval replaced the 3/week cap)',
+        (tester) async {
       final repo = _FakeSlotRepo();
       final bookings = _FakeBookingRepo();
       when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
@@ -539,8 +540,7 @@ void main() {
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('edit-counter-banner')), findsOneWidget);
-      expect(find.text('נשארו לך 2 שינויים השבוע'), findsOneWidget);
+      expect(find.byKey(const Key('edit-counter-banner')), findsNothing);
     });
 
     testWidgets('booking failure surfaces server error message in snackbar',

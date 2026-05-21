@@ -32,7 +32,7 @@ Domain terms used by trainees, coach, and the booking app. Implementation detail
 
 **Reschedule request**: structurally the same as a **cancel request**, but the trainee names a target slot they'd prefer. On coach approval the old booking is cancelled and the new slot is booked in the same transaction. A bare cancel request (no target slot) is the degenerate case.
 
-**Edit limit**: cap of 3 cancels/reschedules per trainee per week, applied only to **immediate** edits (outside the cancel window). Inside-window requests are gated by coach approval, not by the counter — the two don't stack. Auto-booked sessions remain exempt from the counter.
+**Cancel/reschedule policy** (revised — supersedes the old "Edit limit" rule): the 24h **cancel window** is the only gate. Outside the window: trainee cancels/reschedules freely (no per-week cap). Inside the window: trainee submits a **cancel request** the coach must approve. The previous 3-edits-per-week counter has been removed.
 
 ## Attendance
 

@@ -136,41 +136,13 @@ describe("Bookings", () => {
       expect(result).toMatchObject({ ok: false, error: "NOT_FOUND" });
     });
 
-    it("returns EDIT_LIMIT after 3 cancels", async () => {
-      for (let i = 6; i <= 8; i++) {
+    it("no per-week cap on cancels: trainee can cancel any number of bookings outside the lockout (24h approval covers inside-window)", async () => {
+      for (let i = 6; i <= 9; i++) {
         const b = await tx.book("t1", `slot-${i}`);
         if (!b.ok) throw new Error("Setup failed");
-        await tx.cancel(b.booking.id, "t1");
+        const r = await tx.cancel(b.booking.id, "t1");
+        expect(r.ok).toBe(true);
       }
-      const b4 = await tx.book("t1", "slot-9");
-      if (!b4.ok) throw new Error("Setup failed");
-      const result = await tx.cancel(b4.booking.id, "t1");
-      expect(result).toMatchObject({ ok: false, error: "EDIT_LIMIT" });
-    });
-
-    it("auto-booked cancel is exempt from edit limit", async () => {
-      // Exhaust edit limit
-      for (let i = 6; i <= 8; i++) {
-        const b = await tx.book("t1", `slot-${i}`);
-        if (!b.ok) throw new Error("Setup failed");
-        await tx.cancel(b.booking.id, "t1");
-      }
-
-      // Auto-booked booking in store
-      store.addBooking({
-        id: "auto-1",
-        slotId: "slot-9",
-        traineeId: "t1",
-        googleEventId: null,
-        isAutoBooked: true,
-        status: "confirmed",
-        createdAt: new Date(),
-        reminderSentAt: null,
-      });
-      store.updateSlot({ ...store.getSlot("slot-9")!, currentBookings: 1 });
-
-      const result = await tx.cancel("auto-1", "t1");
-      expect(result.ok).toBe(true);
     });
   });
 
@@ -205,29 +177,9 @@ describe("Bookings", () => {
       expect(store.getSlot("slot-6")!.currentBookings).toBe(1);
     });
 
-    it("counts as 1 edit", async () => {
-      const b = await tx.book("t1", "slot-6");
-      if (!b.ok) throw new Error("Setup failed");
-
-      await tx.reschedule(b.booking.id, "t1", "slot-7");
-      
-      expect(await tx.getRemainingEdits("t1", "2026-04-05")).toBe(2);
-    });
-
-    it("returns EDIT_LIMIT when exhausted", async () => {
-      // Use up 3 edits
-      for (let i = 6; i <= 8; i++) {
-        const b = await tx.book("t1", `slot-${i}`);
-        if (!b.ok) throw new Error("Setup failed");
-        await tx.cancel(b.booking.id, "t1");
-      }
-
-      const b = await tx.book("t1", "slot-9");
-      if (!b.ok) throw new Error("Setup failed");
-      const result = await tx.reschedule(b.booking.id, "t1", "slot-10");
-      expect(result).toMatchObject({ ok: false, error: "EDIT_LIMIT" });
-      // Old booking still confirmed
-      expect(store.getBooking(b.booking.id)!.status).toBe("confirmed");
+    it("getRemainingEdits returns Infinity (3-edit cap removed; 24h approval is the new gate)", async () => {
+      const remaining = await tx.getRemainingEdits("t1", "2026-04-05");
+      expect(remaining).toBe(Number.POSITIVE_INFINITY);
     });
 
     it("rolls back if calendar fails for new event", async () => {

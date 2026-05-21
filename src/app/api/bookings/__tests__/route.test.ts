@@ -146,7 +146,8 @@ describe("GET /api/bookings", () => {
     const body = await res.json();
     expect(body).toHaveProperty("bookings");
     expect(body).toHaveProperty("remainingEdits");
-    expect(body.remainingEdits).toBe(3);
+    // 3-edit cap removed; backend returns Infinity which serializes to null in JSON.
+    expect(body.remainingEdits).toBeNull();
   });
 
   it("each booking has an isLocked flag (lockout = within 7h)", async () => {
@@ -223,35 +224,8 @@ describe("DELETE /api/bookings", () => {
     expect(body.success).toBe(true);
   });
 
-  it("returns 409 when edit limit reached", async () => {
-    mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
-    mockLoadProfile.mockResolvedValue(traineeProfile);
-
-    const { store } = getContainer();
-    for (let i = 7; i <= 10; i++) {
-      store.upsertSlot({
-        id: `slot-${i}`,
-        date: `2026-04-${String(i).padStart(2, "0")}`,
-        startTime: "10:00",
-        capacity: 2,
-        lockoutOverride: false,
-        currentBookings: 0,
-      });
-    }
-
-    for (let i = 6; i <= 8; i++) {
-      const br = await POST(makeRequest({ slotId: `slot-${i}` }));
-      const { booking } = await br.json();
-      await DELETE(makeRequest({ bookingId: booking.id }, "DELETE"));
-    }
-
-    const br4 = await POST(makeRequest({ slotId: "slot-9" }));
-    const { booking: b4 } = await br4.json();
-    const res = await DELETE(makeRequest({ bookingId: b4.id }, "DELETE"));
-    expect(res.status).toBe(409);
-    const body = await res.json();
-    expect(body.error).toContain("Edit limit");
-  });
+  // The 3-edit-per-week cap was removed; the 24h approval flow is now the
+  // only cancel gate. Outside-window cancels are unbounded.
 });
 
 describe("PATCH /api/bookings", () => {

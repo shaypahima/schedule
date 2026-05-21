@@ -85,7 +85,7 @@ describe("CoachReadModel", () => {
   });
 
   describe("getTraineeDetail", () => {
-    it("returns trainee with recent bookings + remainingEdits", async () => {
+    it("returns trainee with recent bookings + remainingEdits (now Infinity post-edit-limit-removal)", async () => {
       await bookings.book("t1", "slot-a", { bypass: true });
 
       const detail = await coachRead.getTraineeDetail("t1");
@@ -93,7 +93,7 @@ describe("CoachReadModel", () => {
       expect(detail).not.toBeNull();
       expect(detail!.trainee.id).toBe("t1");
       expect(detail!.recentBookings).toHaveLength(1);
-      expect(detail!.remainingEdits).toBe(3);
+      expect(detail!.remainingEdits).toBe(Number.POSITIVE_INFINITY);
       expect(detail!.weekBookingsCount).toBe(1);
     });
 

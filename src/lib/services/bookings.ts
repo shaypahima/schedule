@@ -96,7 +96,6 @@ export interface Bookings {
 
 const LOCKOUT_HOURS = 7;
 const MAX_SESSIONS_PER_WEEK = 2;
-const MAX_EDITS_PER_WEEK = 3;
 
 export function makeBookings(
   store: BookingStore,
@@ -111,11 +110,6 @@ export function makeBookings(
     return null;
   }
 
-  async function editsUsed(traineeId: string, weekStart: string): Promise<number> {
-    const log = await store.getEditLog(traineeId, weekStart);
-    return log?.editCount ?? 0;
-  }
-
   async function bookingsUsed(traineeId: string, weekStart: string): Promise<number> {
     const bookings = await store.getTraineeBookingsForWeek(traineeId, weekStart);
     return bookings.length;
@@ -125,19 +119,6 @@ export function makeBookings(
     const ws = weekStartForDate(slotDate);
     if ((await bookingsUsed(traineeId, ws)) >= MAX_SESSIONS_PER_WEEK) {
       throw new BookingError("Max 2 sessions per week");
-    }
-  }
-
-  async function checkEditLimit(
-    traineeId: string,
-    slotDate: string,
-    isAutoBooked?: boolean
-  ): Promise<void> {
-    if (isAutoBooked) return;
-    const ws = weekStartForDate(slotDate);
-    const remaining = MAX_EDITS_PER_WEEK - (await editsUsed(traineeId, ws));
-    if (remaining <= 0) {
-      throw new BookingError("Edit limit reached (3/week)");
     }
   }
 
@@ -266,12 +247,9 @@ export function makeBookings(
 
         const lockout = checkLockout(slot);
         if (lockout) return { ok: false, error: lockout, message: "Cannot modify within 7 hours of session" };
-
-        try {
-          await checkEditLimit(traineeId, slot.date, booking.isAutoBooked);
-        } catch (e) {
-          return { ok: false, error: "EDIT_LIMIT", message: (e as Error).message };
-        }
+        // No edit-count gate anymore — the 24h approval flow is the only
+        // cancel gate. Inside-window cancels go through requestCancel + coach
+        // approve. Outside the window: immediate cancel, no per-week cap.
       }
 
       await deleteCalendarEvent(booking.googleEventId);
@@ -281,10 +259,6 @@ export function makeBookings(
         ...slot,
         currentBookings: Math.max(0, slot.currentBookings - 1),
       });
-
-      if (!opts.bypass && !booking.isAutoBooked) {
-        await store.incrementEditCount(traineeId, weekStartForDate(slot.date));
-      }
 
       await notify({
         type: "cancel",
@@ -310,12 +284,7 @@ export function makeBookings(
 
       const lockout = checkLockout(oldSlot);
       if (lockout) return { ok: false, error: lockout, message: "Cannot modify within 7 hours of session" };
-
-      try {
-        await checkEditLimit(traineeId, oldSlot.date, oldBooking.isAutoBooked);
-      } catch (e) {
-        return { ok: false, error: "EDIT_LIMIT", message: (e as Error).message };
-      }
+      // No edit-count gate — see cancel() above.
 
       const newSlot = await store.getSlot(newSlotId);
       if (!newSlot) return { ok: false, error: "NOT_FOUND", message: "New slot not found" };
@@ -364,10 +333,6 @@ export function makeBookings(
       };
 
       await store.addBooking(newBooking);
-
-      if (!oldBooking.isAutoBooked) {
-        await store.incrementEditCount(traineeId, weekStartForDate(oldSlot.date));
-      }
 
       await notify({
         type: "reschedule",
@@ -532,32 +497,34 @@ export function makeBookings(
       await checkBookingLimit(traineeId, slotDate);
     },
 
-    async assertCanCancel(traineeId, slotDate, isAutoBooked) {
-      await checkEditLimit(traineeId, slotDate, isAutoBooked);
+    // The 3-edits-per-week cap was removed when the 24h approval flow became
+    // the sole cancel/reschedule gate (per ADR-0005 update). These helpers
+    // stay on the interface for backward compatibility but are now no-ops.
+    async assertCanCancel() {
+      /* no-op: 24h approval flow replaces the per-week edit cap */
     },
 
-    async assertCanReschedule(traineeId, slotDate, isAutoBooked) {
-      await checkEditLimit(traineeId, slotDate, isAutoBooked);
+    async assertCanReschedule() {
+      /* no-op: 24h approval flow replaces the per-week edit cap */
     },
 
-    async trackEdit(traineeId, slotDate, isAutoBooked) {
-      if (isAutoBooked) return;
-      await store.incrementEditCount(traineeId, weekStartForDate(slotDate));
+    async trackEdit() {
+      /* no-op: edits are no longer counted */
     },
 
-    async getRemainingEdits(traineeId, weekStart) {
-      return MAX_EDITS_PER_WEEK - (await editsUsed(traineeId, weekStart));
+    async getRemainingEdits() {
+      // Effectively unlimited. Caller code should stop displaying this.
+      return Number.POSITIVE_INFINITY;
     },
 
     async status(traineeId, slotDate) {
       const ws = weekStartForDate(slotDate);
       const bu = await bookingsUsed(traineeId, ws);
-      const eu = await editsUsed(traineeId, ws);
       return {
         bookingsUsed: bu,
         bookingsLeft: Math.max(0, MAX_SESSIONS_PER_WEEK - bu),
-        editsUsed: eu,
-        editsLeft: Math.max(0, MAX_EDITS_PER_WEEK - eu),
+        editsUsed: 0,
+        editsLeft: Number.POSITIVE_INFINITY,
       };
     },
   };

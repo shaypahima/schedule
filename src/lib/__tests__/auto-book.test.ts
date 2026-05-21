@@ -134,14 +134,14 @@ describe("Auto-book cron", () => {
     if (!r3.ok) expect(r3.error).toBe("WEEKLY_LIMIT");
   });
 
-  it("does not count toward 3-edit limit", async () => {
+  it("does not block subsequent bookings (3-edit cap removed; auto-book never restricted)", async () => {
     const bookings = buildBookings();
     await autoBookRecurring(
       [recurringTrainees[0]], bookings, store,
       "2026-04-05"
     );
 
-    // Edit count should still be 3 remaining
-    expect(await bookings.getRemainingEdits("t1", "2026-04-05")).toBe(3);
+    // Edit limit is unlimited now (24h approval is the only cancel gate).
+    expect(await bookings.getRemainingEdits("t1", "2026-04-05")).toBe(Number.POSITIVE_INFINITY);
   });
 });

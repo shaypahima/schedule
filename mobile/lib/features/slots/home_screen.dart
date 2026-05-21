@@ -8,6 +8,7 @@ import '../bookings/booking_repository.dart';
 import '../bookings/cancel_request_sheet.dart';
 import '../coach/contact_coach_card.dart';
 import '../dashboard/dashboard_repository.dart';
+import '../profile/profile_repository.dart';
 import '../profile/profile_screen.dart';
 import 'slot.dart';
 import 'slot_repository.dart';
@@ -83,10 +84,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('המאמן שלי'),
+        title: Consumer(
+          builder: (context, ref, _) {
+            final profileAsync = ref.watch(profileProvider);
+            final firstName = profileAsync.valueOrNull?.name.split(' ').first;
+            return Text(firstName != null && firstName.isNotEmpty
+                ? 'שלום $firstName'
+                : 'שלום');
+          },
+        ),
         actions: [
           IconButton(
             key: const Key('profile-button'),
+            tooltip: 'הפרופיל שלי',
             icon: const Icon(Icons.person),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ProfileScreen()),
@@ -181,9 +191,14 @@ class _WelcomeHero extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final view = ref.watch(myBookingsProvider).valueOrNull;
+    final dashboard = ref.watch(traineeDashboardProvider).valueOrNull;
+    final profile = ref.watch(profileProvider).valueOrNull;
     final confirmed =
         (view?.bookings ?? []).where((b) => b.isConfirmed).toList();
     final next = _nextSession(confirmed, now);
+    final attendancePct = dashboard != null
+        ? '${(dashboard.attendanceRate * 100).round()}%'
+        : '—';
 
     return Container(
       width: double.infinity,
@@ -200,7 +215,7 @@ class _WelcomeHero extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            hebrewGreeting(now),
+            '${hebrewGreeting(now)}${profile != null ? ', ${profile.name.split(' ').first}' : ''}',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.9),
                   fontWeight: FontWeight.w500,
@@ -222,8 +237,8 @@ class _WelcomeHero extends ConsumerWidget {
               ),
               const SizedBox(width: 10),
               _StatBadge(
-                value: '${view?.remainingEdits ?? 3}/3',
-                label: 'שינויים שנותרו',
+                value: attendancePct,
+                label: 'נוכחות',
               ),
               const SizedBox(width: 10),
               _StatBadge(
@@ -232,6 +247,8 @@ class _WelcomeHero extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          _QuickActions(),
         ],
       ),
     );
@@ -281,6 +298,100 @@ class _StatBadge extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.85),
                     )),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActions extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Row(
+      children: [
+        _QuickActionChip(
+          icon: Icons.person_outline,
+          label: 'הפרופיל',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          ),
+        ),
+        const SizedBox(width: 10),
+        _QuickActionChip(
+          icon: Icons.history,
+          label: 'היסטוריה',
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('היסטוריה תופיע בקרוב')),
+            );
+          },
+        ),
+        const SizedBox(width: 10),
+        _QuickActionChip(
+          icon: Icons.help_outline,
+          label: 'עזרה',
+          onTap: () {
+            showDialog<void>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('צריך עזרה?'),
+                content: const Text(
+                  'יש לפנות למאמן ישירות ב-WhatsApp או טלפון.\n'
+                  'ניתן לבטל אימון עד 24 שעות לפניו ללא אישור.\n'
+                  'בתוך 24 שעות, ניתן לשלוח בקשת ביטול שהמאמן יאשר.',
+                  textAlign: TextAlign.right,
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('הבנתי'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _QuickActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -421,7 +532,7 @@ class _MyBookingsSection extends ConsumerWidget {
             final bd = (b.slotDate ?? '') + (b.slotStartTime ?? '');
             return ad.compareTo(bd);
           });
-        if (confirmed.isEmpty && view.remainingEdits == 3) {
+        if (confirmed.isEmpty) {
           return const SizedBox.shrink();
         }
         return Padding(
@@ -429,32 +540,19 @@ class _MyBookingsSection extends ConsumerWidget {
           child: Card(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'נשארו לך ${view.remainingEdits} שינויים השבוע',
-                    key: const Key('edit-counter-banner'),
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                  if (confirmed.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      key: const Key('my-bookings-section'),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('האימונים שלי',
-                              style: Theme.of(context).textTheme.titleSmall),
-                          const SizedBox(height: 4),
-                          for (final b in confirmed)
-                            _MyBookingRow(
-                                key: Key('my-booking-${b.id}'), booking: b),
-                        ],
-                      ),
-                    ),
+              child: Container(
+                key: const Key('my-bookings-section'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('האימונים שלי',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    for (final b in confirmed)
+                      _MyBookingRow(
+                          key: Key('my-booking-${b.id}'), booking: b),
                   ],
-                ],
+                ),
               ),
             ),
           ),

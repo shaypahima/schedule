@@ -66,7 +66,8 @@ describe("GET /api/me/dashboard", () => {
     expect(body.attendanceRate).toBe(1);
     expect(body.nextSessionAt).toBeNull();
     expect(body.recentVisibleNote).toBeNull();
-    expect(body.remainingEdits).toBe(3);
+    // 3-edit cap removed; Infinity serializes to null in JSON.
+    expect(body.remainingEdits).toBeNull();
   });
 
   it("counts upcoming confirmed booking as nextSessionAt + sessionsThisMonth", async () => {
