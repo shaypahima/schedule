@@ -1,11 +1,22 @@
 import { Booking, Slot } from "@/lib/types";
-import { BookingStore } from "./booking-service";
+import { BookingStore, BookingError } from "./booking-store";
 import { GoogleCalendarService } from "./google-calendar";
 import { NotificationService, NotificationPayload } from "./notification";
-import { WeeklyLimits } from "./weekly-limits";
-import { israelSlotToUTC, isLockedOut } from "./israel-time";
+import { israelSlotToUTC, isLockedOut, weekStartForDate } from "./israel-time";
 
-export type ErrorCode =
+/**
+ * Bookings — the single booking orchestrator.
+ *
+ * Collapses what used to be split across BookingService (exception-based)
+ * + BookingTransaction (result-based) + WeeklyLimits (shallow wrapper).
+ *
+ * Per ADR-0005, the booking domain is about to grow (cancel-request flow,
+ * no-show status, only-active-trainees-may-book). The verbs `decideRequest`
+ * and `markNoShow` are stubbed on the interface from day 1 so Phase 15/16
+ * just wire the data without changing the shape.
+ */
+
+export type BookingError_Code =
   | "SLOT_FULL"
   | "ALREADY_BOOKED"
   | "NOT_FOUND"
@@ -13,51 +24,96 @@ export type ErrorCode =
   | "EDIT_LIMIT"
   | "WEEKLY_LIMIT"
   | "CONFLICT"
-  | "CALENDAR_FAILURE";
+  | "CALENDAR_FAILURE"
+  | "NOT_IMPLEMENTED";
 
 export type BookingResult =
   | { ok: true; booking: Booking }
-  | { ok: false; error: ErrorCode; message: string };
+  | { ok: false; error: BookingError_Code; message: string };
 
-export interface BookingTransactionOpts {
+export interface BookingOpts {
   bypass?: boolean;
   isAutoBooked?: boolean;
   traineeName?: string;
 }
 
-export interface BookingTransaction {
-  book(
-    traineeId: string,
-    slotId: string,
-    opts?: BookingTransactionOpts
-  ): Promise<BookingResult>;
-
-  cancel(
-    bookingId: string,
-    traineeId: string,
-    opts?: { bypass?: boolean }
-  ): Promise<BookingResult>;
-
+export interface Bookings {
+  book(traineeId: string, slotId: string, opts?: BookingOpts): Promise<BookingResult>;
+  cancel(bookingId: string, traineeId: string, opts?: { bypass?: boolean }): Promise<BookingResult>;
   reschedule(
     bookingId: string,
     traineeId: string,
     newSlotId: string,
     opts?: { traineeName?: string }
   ): Promise<BookingResult>;
+
+  // --- Stubs ---
+  // Phase 15 wires these once booking_change_request table lands.
+  decideRequest(
+    requestId: string,
+    decision: "approve" | "reject",
+    note?: string
+  ): Promise<BookingResult>;
+  // Phase 16 wires this once no_show status enum value lands.
+  markNoShow(bookingId: string): Promise<BookingResult>;
+
+  // --- Limits (collapsed from WeeklyLimits) ---
+  assertCanBook(traineeId: string, slotDate: string): Promise<void>;
+  assertCanCancel(traineeId: string, slotDate: string, isAutoBooked?: boolean): Promise<void>;
+  assertCanReschedule(traineeId: string, slotDate: string, isAutoBooked?: boolean): Promise<void>;
+  trackEdit(traineeId: string, slotDate: string, isAutoBooked?: boolean): Promise<void>;
+  getRemainingEdits(traineeId: string, weekStart: string): Promise<number>;
+  status(
+    traineeId: string,
+    slotDate: string
+  ): Promise<{ bookingsUsed: number; bookingsLeft: number; editsUsed: number; editsLeft: number }>;
 }
 
 const LOCKOUT_HOURS = 7;
+const MAX_SESSIONS_PER_WEEK = 2;
+const MAX_EDITS_PER_WEEK = 3;
 
-export function createBookingTransaction(
+export function makeBookings(
   store: BookingStore,
-  limits: WeeklyLimits,
   calendar: GoogleCalendarService | null,
   notifier: NotificationService | null
-): BookingTransaction {
-  function checkLockout(slot: Slot): ErrorCode | null {
+): Bookings {
+  // --- Internal helpers ---
+
+  function checkLockout(slot: Slot): BookingError_Code | null {
     if (slot.lockoutOverride) return null;
     if (isLockedOut(slot.date, slot.startTime, LOCKOUT_HOURS)) return "LOCKOUT";
     return null;
+  }
+
+  async function editsUsed(traineeId: string, weekStart: string): Promise<number> {
+    const log = await store.getEditLog(traineeId, weekStart);
+    return log?.editCount ?? 0;
+  }
+
+  async function bookingsUsed(traineeId: string, weekStart: string): Promise<number> {
+    const bookings = await store.getTraineeBookingsForWeek(traineeId, weekStart);
+    return bookings.length;
+  }
+
+  async function checkBookingLimit(traineeId: string, slotDate: string): Promise<void> {
+    const ws = weekStartForDate(slotDate);
+    if ((await bookingsUsed(traineeId, ws)) >= MAX_SESSIONS_PER_WEEK) {
+      throw new BookingError("Max 2 sessions per week");
+    }
+  }
+
+  async function checkEditLimit(
+    traineeId: string,
+    slotDate: string,
+    isAutoBooked?: boolean
+  ): Promise<void> {
+    if (isAutoBooked) return;
+    const ws = weekStartForDate(slotDate);
+    const remaining = MAX_EDITS_PER_WEEK - (await editsUsed(traineeId, ws));
+    if (remaining <= 0) {
+      throw new BookingError("Edit limit reached (3/week)");
+    }
   }
 
   async function createCalendarEvent(
@@ -67,11 +123,7 @@ export function createBookingTransaction(
     if (!calendar || !traineeName) return null;
     const start = israelSlotToUTC(slot.date, slot.startTime);
     const end = new Date(start.getTime() + 60 * 60 * 1000);
-    const event = await calendar.createEvent({
-      summary: traineeName,
-      start,
-      end,
-    });
+    const event = await calendar.createEvent({ summary: traineeName, start, end });
     return event.id;
   }
 
@@ -80,7 +132,7 @@ export function createBookingTransaction(
     try {
       await calendar.deleteEvent(eventId);
     } catch {
-      // Calendar event may already be deleted
+      // event may already be gone
     }
   }
 
@@ -93,11 +145,12 @@ export function createBookingTransaction(
     }
   }
 
+  // --- Verbs ---
+
   return {
     async book(traineeId, slotId, opts = {}) {
       let slot = await store.getSlot(slotId);
 
-      // Auto-create slot from "new-YYYY-MM-DD-HH:mm" placeholder IDs
       if (!slot && slotId.startsWith("new-")) {
         const match = slotId.match(/^new-(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2})$/);
         if (match) {
@@ -113,9 +166,8 @@ export function createBookingTransaction(
         }
       }
 
-      if (!slot) return { ok: false, error: "NOT_FOUND", message: "Slot not found" } as const;
+      if (!slot) return { ok: false, error: "NOT_FOUND", message: "Slot not found" };
 
-      // Use the resolved slot ID (may differ from input for auto-created slots)
       const resolvedSlotId = slot.id;
 
       if (!opts.bypass) {
@@ -123,7 +175,7 @@ export function createBookingTransaction(
         if (lockout) return { ok: false, error: lockout, message: "Cannot modify within 7 hours of session" };
 
         try {
-          await limits.assertCanBook(traineeId, slot.date);
+          await checkBookingLimit(traineeId, slot.date);
         } catch (e) {
           return { ok: false, error: "WEEKLY_LIMIT", message: (e as Error).message };
         }
@@ -134,27 +186,20 @@ export function createBookingTransaction(
       }
 
       const existingBookings = await store.getConfirmedBookingsForSlot(resolvedSlotId);
-      const existing = existingBookings.find((b) => b.traineeId === traineeId);
-      if (existing) {
+      if (existingBookings.find((b) => b.traineeId === traineeId)) {
         return { ok: false, error: "ALREADY_BOOKED", message: "Already booked" };
       }
 
-      // Optimistic lock: increment slot bookings
       try {
-        await store.updateSlot({
-          ...slot,
-          currentBookings: slot.currentBookings + 1,
-        });
+        await store.updateSlot({ ...slot, currentBookings: slot.currentBookings + 1 });
       } catch {
         return { ok: false, error: "CONFLICT", message: "Slot was modified by another request" };
       }
 
-      // Create calendar event — rollback slot on failure
       let googleEventId: string | null = null;
       try {
         googleEventId = await createCalendarEvent(slot, opts.traineeName);
       } catch {
-        // Rollback slot capacity
         const fresh = await store.getSlot(resolvedSlotId);
         if (fresh) {
           await store.updateSlot({
@@ -198,7 +243,7 @@ export function createBookingTransaction(
         if (lockout) return { ok: false, error: lockout, message: "Cannot modify within 7 hours of session" };
 
         try {
-          await limits.assertCanCancel(traineeId, slot.date, booking.isAutoBooked);
+          await checkEditLimit(traineeId, slot.date, booking.isAutoBooked);
         } catch (e) {
           return { ok: false, error: "EDIT_LIMIT", message: (e as Error).message };
         }
@@ -212,8 +257,8 @@ export function createBookingTransaction(
         currentBookings: Math.max(0, slot.currentBookings - 1),
       });
 
-      if (!opts.bypass) {
-        await limits.trackEdit(traineeId, slot.date, booking.isAutoBooked);
+      if (!opts.bypass && !booking.isAutoBooked) {
+        await store.incrementEditCount(traineeId, weekStartForDate(slot.date));
       }
 
       await notify({
@@ -227,7 +272,6 @@ export function createBookingTransaction(
     },
 
     async reschedule(bookingId, traineeId, newSlotId, opts = {}) {
-      // Validate old booking
       const oldBooking = await store.getBooking(bookingId);
       if (!oldBooking || oldBooking.status !== "confirmed") {
         return { ok: false, error: "NOT_FOUND", message: "Booking not found" };
@@ -239,17 +283,15 @@ export function createBookingTransaction(
       const oldSlot = await store.getSlot(oldBooking.slotId);
       if (!oldSlot) return { ok: false, error: "NOT_FOUND", message: "Slot not found" };
 
-      // Check lockout + edit limit on old slot BEFORE touching anything
       const lockout = checkLockout(oldSlot);
       if (lockout) return { ok: false, error: lockout, message: "Cannot modify within 7 hours of session" };
 
       try {
-        await limits.assertCanReschedule(traineeId, oldSlot.date, oldBooking.isAutoBooked);
+        await checkEditLimit(traineeId, oldSlot.date, oldBooking.isAutoBooked);
       } catch (e) {
         return { ok: false, error: "EDIT_LIMIT", message: (e as Error).message };
       }
 
-      // Validate new slot BEFORE modifying old booking
       const newSlot = await store.getSlot(newSlotId);
       if (!newSlot) return { ok: false, error: "NOT_FOUND", message: "New slot not found" };
 
@@ -258,25 +300,17 @@ export function createBookingTransaction(
       }
 
       const newSlotBookings = await store.getConfirmedBookingsForSlot(newSlotId);
-      const alreadyBooked = newSlotBookings.find((b) => b.traineeId === traineeId);
-      if (alreadyBooked) {
+      if (newSlotBookings.find((b) => b.traineeId === traineeId)) {
         return { ok: false, error: "ALREADY_BOOKED", message: "Already booked in new slot" };
       }
 
-      // All checks passed — now modify atomically
-
-      // 1. Create new calendar event first (fail fast)
       let newGoogleEventId: string | null = null;
       try {
-        newGoogleEventId = await createCalendarEvent(
-          newSlot,
-          opts.traineeName
-        );
+        newGoogleEventId = await createCalendarEvent(newSlot, opts.traineeName);
       } catch {
         return { ok: false, error: "CALENDAR_FAILURE", message: "Failed to create calendar event" };
       }
 
-      // 2. Cancel old booking
       await deleteCalendarEvent(oldBooking.googleEventId);
       await store.updateBooking({ ...oldBooking, status: "cancelled" });
       await store.updateSlot({
@@ -284,20 +318,11 @@ export function createBookingTransaction(
         currentBookings: Math.max(0, oldSlot.currentBookings - 1),
       });
 
-      // 3. Book new slot
       try {
-        await store.updateSlot({
-          ...newSlot,
-          currentBookings: newSlot.currentBookings + 1,
-        });
+        await store.updateSlot({ ...newSlot, currentBookings: newSlot.currentBookings + 1 });
       } catch {
-        // Rollback: restore old booking
         await store.updateBooking({ ...oldBooking, status: "confirmed" });
-        await store.updateSlot({
-          ...oldSlot,
-          currentBookings: oldSlot.currentBookings,
-        });
-        // Delete new calendar event
+        await store.updateSlot({ ...oldSlot, currentBookings: oldSlot.currentBookings });
         await deleteCalendarEvent(newGoogleEventId);
         return { ok: false, error: "CONFLICT", message: "New slot was modified by another request" };
       }
@@ -315,8 +340,9 @@ export function createBookingTransaction(
 
       await store.addBooking(newBooking);
 
-      // Track as single edit
-      await limits.trackEdit(traineeId, oldSlot.date, oldBooking.isAutoBooked);
+      if (!oldBooking.isAutoBooked) {
+        await store.incrementEditCount(traineeId, weekStartForDate(oldSlot.date));
+      }
 
       await notify({
         type: "reschedule",
@@ -328,6 +354,49 @@ export function createBookingTransaction(
       });
 
       return { ok: true, booking: newBooking };
+    },
+
+    async decideRequest() {
+      return { ok: false, error: "NOT_IMPLEMENTED", message: "Phase 15 wires booking_change_request" };
+    },
+
+    async markNoShow() {
+      return { ok: false, error: "NOT_IMPLEMENTED", message: "Phase 16 wires no-show status" };
+    },
+
+    // --- Limits ---
+
+    async assertCanBook(traineeId, slotDate) {
+      await checkBookingLimit(traineeId, slotDate);
+    },
+
+    async assertCanCancel(traineeId, slotDate, isAutoBooked) {
+      await checkEditLimit(traineeId, slotDate, isAutoBooked);
+    },
+
+    async assertCanReschedule(traineeId, slotDate, isAutoBooked) {
+      await checkEditLimit(traineeId, slotDate, isAutoBooked);
+    },
+
+    async trackEdit(traineeId, slotDate, isAutoBooked) {
+      if (isAutoBooked) return;
+      await store.incrementEditCount(traineeId, weekStartForDate(slotDate));
+    },
+
+    async getRemainingEdits(traineeId, weekStart) {
+      return MAX_EDITS_PER_WEEK - (await editsUsed(traineeId, weekStart));
+    },
+
+    async status(traineeId, slotDate) {
+      const ws = weekStartForDate(slotDate);
+      const bu = await bookingsUsed(traineeId, ws);
+      const eu = await editsUsed(traineeId, ws);
+      return {
+        bookingsUsed: bu,
+        bookingsLeft: Math.max(0, MAX_SESSIONS_PER_WEEK - bu),
+        editsUsed: eu,
+        editsLeft: Math.max(0, MAX_EDITS_PER_WEEK - eu),
+      };
     },
   };
 }

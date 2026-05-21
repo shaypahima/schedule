@@ -1,4 +1,4 @@
-import { BookingStore } from "./booking-service";
+import { BookingStore } from "./booking-store";
 import { NotificationService } from "./notification";
 
 const WINDOW_START_MIN = 60;

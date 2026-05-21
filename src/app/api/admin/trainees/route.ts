@@ -92,7 +92,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { auth, store, tx } = getContainer();
+    const { auth, store, bookings } = getContainer();
     const profile = await auth.updateTrainee(id, updates);
 
     if (updates.isActive === false) {
@@ -101,7 +101,7 @@ export async function PATCH(request: NextRequest) {
         (b) => b.traineeId === id && b.status === "confirmed"
       );
       for (const b of active) {
-        await tx.cancel(b.id, id, { bypass: true });
+        await bookings.cancel(b.id, id, { bypass: true });
       }
     }
 

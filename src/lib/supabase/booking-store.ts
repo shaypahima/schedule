@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Booking, Slot, EditLog } from "@/lib/types";
-import { BookingStore } from "@/lib/services/booking-service";
+import { BookingStore } from "@/lib/services/booking-store";
 import { israelSlotToUTC } from "@/lib/services/israel-time";
 
 /**

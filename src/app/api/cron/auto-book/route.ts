@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
 import { autoBookRecurring, RecurringTrainee } from "@/lib/services/auto-book";
 import { requireCron } from "@/lib/route-guard";
+import { todayIL, weekStartForDate } from "@/lib/services/israel-time";
 
 export async function GET(request: NextRequest) {
   const { error } = requireCron(request);
   if (error) return error;
 
-  const { auth, tx, limits, store } = getContainer();
+  const { auth, bookings, store } = getContainer();
   const allTrainees = await auth.getTrainees();
 
   const recurringTrainees: RecurringTrainee[] = allTrainees
@@ -25,17 +26,16 @@ export async function GET(request: NextRequest) {
       preferredTime: t.preferredTime!,
     }));
 
-  // Calculate next week's Sunday
-  const today = new Date();
-  const daysUntilSunday = (7 - today.getDay()) % 7 || 7;
-  const nextSunday = new Date(today);
-  nextSunday.setDate(today.getDate() + daysUntilSunday);
+  // Calculate next week's Sunday (Israel time)
+  const todayStr = todayIL();
+  const thisWeekStart = weekStartForDate(todayStr);
+  const [y, m, d] = thisWeekStart.split("-").map(Number);
+  const nextSunday = new Date(y, m - 1, d + 7, 12);
   const weekStart = `${nextSunday.getFullYear()}-${String(nextSunday.getMonth() + 1).padStart(2, "0")}-${String(nextSunday.getDate()).padStart(2, "0")}`;
 
   const results = await autoBookRecurring(
     recurringTrainees,
-    tx,
-    limits,
+    bookings,
     store,
     weekStart
   );

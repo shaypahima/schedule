@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { MockBookingStore } from "@/lib/services/booking-service";
+import { MockBookingStore } from "@/lib/services/booking-store";
 import { MockGoogleCalendarService } from "@/lib/services/mock-google-calendar";
 import { autoBookRecurring, RecurringTrainee } from "@/lib/services/auto-book";
-import { createBookingTransaction } from "@/lib/services/booking-transaction";
-import { createWeeklyLimits } from "@/lib/services/weekly-limits";
+import { makeBookings } from "@/lib/services/bookings";
 
 describe("Auto-book cron", () => {
   let store: MockBookingStore;
@@ -14,10 +13,8 @@ describe("Auto-book cron", () => {
     { id: "t2", name: "Dana", preferredDay: 2, preferredTime: "14:00" }, // Tue
   ];
 
-  function buildTxAndLimits() {
-    const limits = createWeeklyLimits(store);
-    const tx = createBookingTransaction(store, limits, calendar, null);
-    return { tx, limits };
+  function buildBookings() {
+    return makeBookings(store, calendar, null);
   }
 
   beforeEach(() => {
@@ -53,12 +50,9 @@ describe("Auto-book cron", () => {
   });
 
   it("books recurring trainees into their preferred slots", async () => {
-    const { tx, limits } = buildTxAndLimits();
+    const bookings = buildBookings();
     const results = await autoBookRecurring(
-      recurringTrainees,
-      tx,
-      limits,
-      store,
+      recurringTrainees, bookings, store,
       "2026-04-05"
     );
 
@@ -70,12 +64,9 @@ describe("Auto-book cron", () => {
   });
 
   it("marks bookings as auto-booked", async () => {
-    const { tx, limits } = buildTxAndLimits();
+    const bookings = buildBookings();
     const results = await autoBookRecurring(
-      recurringTrainees,
-      tx,
-      limits,
-      store,
+      recurringTrainees, bookings, store,
       "2026-04-05"
     );
 
@@ -88,8 +79,8 @@ describe("Auto-book cron", () => {
   });
 
   it("creates Google Calendar events", async () => {
-    const { tx, limits } = buildTxAndLimits();
-    await autoBookRecurring(recurringTrainees, tx, limits, store, "2026-04-05");
+    const bookings = buildBookings();
+    await autoBookRecurring(recurringTrainees, bookings, store, "2026-04-05");
     expect(calendar.getEvents()).toHaveLength(2);
     expect(calendar.getEvents()[0].summary).toBe("Avi");
   });
@@ -100,12 +91,9 @@ describe("Auto-book cron", () => {
       currentBookings: 2,
     });
 
-    const { tx, limits } = buildTxAndLimits();
+    const bookings = buildBookings();
     const results = await autoBookRecurring(
-      recurringTrainees,
-      tx,
-      limits,
-      store,
+      recurringTrainees, bookings, store,
       "2026-04-05"
     );
 
@@ -115,16 +103,13 @@ describe("Auto-book cron", () => {
   });
 
   it("skips when trainee already has 2 bookings this week", async () => {
-    const { tx, limits } = buildTxAndLimits();
+    const bookings = buildBookings();
     // Pre-book t1 into 2 slots via tx
-    await tx.book("t1", "slot-2026-04-05-10:00", { bypass: true });
-    await tx.book("t1", "slot-2026-04-05-14:00", { bypass: true });
+    await bookings.book("t1", "slot-2026-04-05-10:00", { bypass: true });
+    await bookings.book("t1", "slot-2026-04-05-14:00", { bypass: true });
 
     const results = await autoBookRecurring(
-      [recurringTrainees[0]],
-      tx,
-      limits,
-      store,
+      [recurringTrainees[0]], bookings, store,
       "2026-04-05"
     );
 
@@ -133,36 +118,30 @@ describe("Auto-book cron", () => {
   });
 
   it("auto-booked counts toward 2/week", async () => {
-    const { tx, limits } = buildTxAndLimits();
+    const bookings = buildBookings();
     await autoBookRecurring(
-      [recurringTrainees[0]],
-      tx,
-      limits,
-      store,
+      [recurringTrainees[0]], bookings, store,
       "2026-04-05"
     );
 
     // Book one more manually (no bypass)
-    const r2 = await tx.book("t1", "slot-2026-04-05-14:00", { traineeName: "Avi" });
+    const r2 = await bookings.book("t1", "slot-2026-04-05-14:00", { traineeName: "Avi" });
     expect(r2.ok).toBe(true);
 
     // Third should fail due to weekly limit
-    const r3 = await tx.book("t1", "slot-2026-04-07-10:00", { traineeName: "Avi" });
+    const r3 = await bookings.book("t1", "slot-2026-04-07-10:00", { traineeName: "Avi" });
     expect(r3.ok).toBe(false);
     if (!r3.ok) expect(r3.error).toBe("WEEKLY_LIMIT");
   });
 
   it("does not count toward 3-edit limit", async () => {
-    const { tx, limits } = buildTxAndLimits();
+    const bookings = buildBookings();
     await autoBookRecurring(
-      [recurringTrainees[0]],
-      tx,
-      limits,
-      store,
+      [recurringTrainees[0]], bookings, store,
       "2026-04-05"
     );
 
     // Edit count should still be 3 remaining
-    expect(await limits.getRemainingEdits("t1", "2026-04-05")).toBe(3);
+    expect(await bookings.getRemainingEdits("t1", "2026-04-05")).toBe(3);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { MockBookingStore } from "@/lib/services/booking-service";
+import { MockBookingStore } from "@/lib/services/booking-store";
 import { MockNotificationService } from "@/lib/services/notification";
 import { sendDueReminders } from "@/lib/services/reminders";
 import { israelSlotToUTC } from "@/lib/services/israel-time";

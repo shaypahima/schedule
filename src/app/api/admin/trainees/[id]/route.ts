@@ -11,7 +11,7 @@ export async function GET(
   if ("error" in r) return r.error;
 
   const { id } = await params;
-  const { auth, store, limits } = getContainer();
+  const { auth, store, bookings } = getContainer();
 
   // Find trainee profile
   const trainees = await auth.getTrainees();
@@ -43,7 +43,7 @@ export async function GET(
   // Remaining edits this week
   const today = todayIL();
   const weekStart = weekStartForDate(today);
-  const remainingEdits = await limits.getRemainingEdits(id, weekStart);
+  const remainingEdits = await bookings.getRemainingEdits(id, weekStart);
 
   // Current week bookings count
   const weekBookings = await store.getTraineeBookingsForWeek(id, weekStart);

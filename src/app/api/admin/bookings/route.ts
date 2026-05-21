@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "traineeId and slotId required" }, { status: 400 });
   }
 
-  const { tx } = getContainer();
-  const result = await tx.book(traineeId, slotId, { bypass: true, traineeName });
+  const { bookings } = getContainer();
+  const result = await bookings.book(traineeId, slotId, { bypass: true, traineeName });
   if (!result.ok) return NextResponse.json({ error: result.message }, { status: 409 });
   return NextResponse.json({ booking: result.booking }, { status: 201 });
 }
@@ -28,8 +28,8 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "bookingId required" }, { status: 400 });
   }
 
-  const { tx } = getContainer();
-  const result = await tx.cancel(bookingId, "", { bypass: true });
+  const { bookings } = getContainer();
+  const result = await bookings.cancel(bookingId, "", { bypass: true });
   if (!result.ok) return NextResponse.json({ error: result.message }, { status: 409 });
   return NextResponse.json({ success: true });
 }

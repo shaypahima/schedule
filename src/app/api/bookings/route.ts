@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
   const { slotId } = await request.json();
   if (!slotId) return NextResponse.json({ error: "slotId required" }, { status: 400 });
 
-  const { tx } = getContainer();
-  const result = await tx.book(r.trainee.userId, slotId, { traineeName: r.trainee.name });
+  const { bookings } = getContainer();
+  const result = await bookings.book(r.trainee.userId, slotId, { traineeName: r.trainee.name });
   if (!result.ok) return NextResponse.json({ error: result.message }, { status: 409 });
   return NextResponse.json({ booking: result.booking }, { status: 201 });
 }
@@ -22,11 +22,11 @@ export async function GET(request: NextRequest) {
   const r = await requireActiveTrainee(request);
   if ("error" in r) return r.error;
 
-  const { store, limits } = getContainer();
-  const bookings = await store.getTraineeBookings(r.trainee.userId);
+  const { store, bookings } = getContainer();
+  const myBookings = await store.getTraineeBookings(r.trainee.userId);
 
   const enriched = await Promise.all(
-    bookings.map(async (b) => {
+    myBookings.map(async (b) => {
       const slot = await store.getSlot(b.slotId);
       const isLocked = slot
         ? !slot.lockoutOverride && isLockedOut(slot.date, slot.startTime, LOCKOUT_HOURS)
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     })
   );
 
-  const remainingEdits = await limits.getRemainingEdits(r.trainee.userId, todayIL());
+  const remainingEdits = await bookings.getRemainingEdits(r.trainee.userId, todayIL());
   return NextResponse.json({ bookings: enriched, remainingEdits });
 }
 
@@ -52,8 +52,8 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "bookingId and newSlotId required" }, { status: 400 });
   }
 
-  const { tx } = getContainer();
-  const result = await tx.reschedule(bookingId, r.trainee.userId, newSlotId, { traineeName: r.trainee.name });
+  const { bookings } = getContainer();
+  const result = await bookings.reschedule(bookingId, r.trainee.userId, newSlotId, { traineeName: r.trainee.name });
   if (!result.ok) return NextResponse.json({ error: result.message }, { status: 409 });
   return NextResponse.json({ booking: result.booking });
 }
@@ -65,8 +65,8 @@ export async function DELETE(request: NextRequest) {
   const { bookingId } = await request.json();
   if (!bookingId) return NextResponse.json({ error: "bookingId required" }, { status: 400 });
 
-  const { tx } = getContainer();
-  const result = await tx.cancel(bookingId, r.trainee.userId);
+  const { bookings } = getContainer();
+  const result = await bookings.cancel(bookingId, r.trainee.userId);
   if (!result.ok) return NextResponse.json({ error: result.message }, { status: 409 });
   return NextResponse.json({ success: true });
 }

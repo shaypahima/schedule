@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { MockBookingStore } from "@/lib/services/booking-service";
-import { createWeeklyLimits } from "@/lib/services/weekly-limits";
-import {
-  createBookingTransaction,
-  BookingTransaction,
-} from "@/lib/services/booking-transaction";
+import { MockBookingStore } from "@/lib/services/booking-store";
+import { makeBookings, Bookings } from "@/lib/services/bookings";
 import { MockNotificationService } from "@/lib/services/notification";
 import { GoogleCalendarService } from "@/lib/services/google-calendar";
 
@@ -19,9 +15,9 @@ function makeSlot(id: string, date: string, time = "10:00", capacity = 2) {
   };
 }
 
-describe("BookingTransaction", () => {
+describe("Bookings", () => {
   let store: MockBookingStore;
-  let tx: BookingTransaction;
+  let tx: Bookings;
   let notifier: MockNotificationService;
   let mockCalendar: GoogleCalendarService;
 
@@ -33,8 +29,8 @@ describe("BookingTransaction", () => {
       deleteEvent: vi.fn().mockResolvedValue(undefined),
       getFreeBusy: vi.fn().mockResolvedValue({ busy: [] }),
     };
-    const limits = createWeeklyLimits(store);
-    tx = createBookingTransaction(store, limits, mockCalendar, notifier);
+    
+    tx = makeBookings(store, mockCalendar, notifier);
 
     // Set time well before any slots (no lockout issues)
     vi.setSystemTime(new Date("2026-04-04T06:00:00Z"));
@@ -214,8 +210,8 @@ describe("BookingTransaction", () => {
       if (!b.ok) throw new Error("Setup failed");
 
       await tx.reschedule(b.booking.id, "t1", "slot-7");
-      const limits = createWeeklyLimits(store);
-      expect(await limits.getRemainingEdits("t1", "2026-04-05")).toBe(2);
+      
+      expect(await tx.getRemainingEdits("t1", "2026-04-05")).toBe(2);
     });
 
     it("returns EDIT_LIMIT when exhausted", async () => {
@@ -251,12 +247,7 @@ describe("BookingTransaction", () => {
 
   describe("book without calendar (null)", () => {
     it("works when calendar is null", async () => {
-      const txNoCalendar = createBookingTransaction(
-        store,
-        createWeeklyLimits(store),
-        null,
-        notifier
-      );
+      const txNoCalendar = makeBookings(store, null, notifier);
       const result = await txNoCalendar.book("t1", "slot-6", { traineeName: "Alice" });
       expect(result.ok).toBe(true);
       if (result.ok) expect(result.booking.googleEventId).toBeNull();

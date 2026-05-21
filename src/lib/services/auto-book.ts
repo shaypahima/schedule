@@ -1,6 +1,5 @@
-import { BookingStore } from "./booking-service";
-import { BookingTransaction } from "./booking-transaction";
-import { WeeklyLimits } from "./weekly-limits";
+import { BookingStore } from "./booking-store";
+import { Bookings } from "./bookings";
 
 export interface RecurringTrainee {
   id: string;
@@ -22,21 +21,21 @@ export interface AutoBookResult {
  */
 export async function autoBookRecurring(
   trainees: RecurringTrainee[],
-  tx: BookingTransaction,
-  limits: WeeklyLimits,
+  bookings: Bookings,
   store: BookingStore,
   weekStartDate: string // YYYY-MM-DD (Sunday)
 ): Promise<AutoBookResult[]> {
+  // store is reserved for future enrichment (currently unused beyond Bookings).
+  void store;
   const results: AutoBookResult[] = [];
 
   for (const trainee of trainees) {
-    // Calculate the actual date for the preferred day
     const [y, m, d] = weekStartDate.split("-").map(Number);
     const slotDate = new Date(y, m - 1, d + trainee.preferredDay);
     const dateStr = `${slotDate.getFullYear()}-${String(slotDate.getMonth() + 1).padStart(2, "0")}-${String(slotDate.getDate()).padStart(2, "0")}`;
 
-    // Check 2/week limit (bypass skips this in tx.book, so check manually)
-    const status = await limits.status(trainee.id, dateStr);
+    // Check 2/week limit (bypass skips this in book, so check manually)
+    const status = await bookings.status(trainee.id, dateStr);
     if (status.bookingsLeft <= 0) {
       results.push({
         traineeId: trainee.id,
@@ -48,7 +47,7 @@ export async function autoBookRecurring(
 
     const slotId = `slot-${dateStr}-${trainee.preferredTime}`;
 
-    const result = await tx.book(trainee.id, slotId, {
+    const result = await bookings.book(trainee.id, slotId, {
       bypass: true,
       isAutoBooked: true,
       traineeName: trainee.name,

@@ -3,15 +3,13 @@ import { MockGoogleCalendarService } from "./mock-google-calendar";
 import { RealGoogleCalendarService } from "./real-google-calendar";
 import { InMemoryTokenStore, TokenStore } from "./token-store";
 import { AuthService } from "./auth";
-import { BookingStore, MockBookingStore } from "./booking-service";
+import { BookingStore, MockBookingStore } from "./booking-store";
 import { NotificationService, MockNotificationService } from "./notification";
-import { createBookingTransaction, BookingTransaction } from "./booking-transaction";
-import { createWeeklyLimits, WeeklyLimits } from "./weekly-limits";
+import { Bookings, makeBookings } from "./bookings";
 import { SupabaseBookingStore } from "@/lib/supabase/booking-store";
 import { SupabaseAuthService, MockAuthService } from "@/lib/supabase/auth-service";
 import { getSupabaseClient, getSupabaseAdminClient } from "@/lib/supabase/client";
 
-/** Fully mocked (in-memory, no DB) — for tests */
 function isFullMock() {
   return process.env.MOCK_SERVICES === "true";
 }
@@ -28,19 +26,15 @@ let bookingStore: BookingStore;
 let notificationService: NotificationService;
 
 export function getTokenStore(): TokenStore {
-  if (!tokenStore) {
-    tokenStore = new InMemoryTokenStore();
-  }
+  if (!tokenStore) tokenStore = new InMemoryTokenStore();
   return tokenStore;
 }
 
 export function getCalendarService(): GoogleCalendarService {
   if (!calendarService) {
-    if (isMockCalendar()) {
-      calendarService = new MockGoogleCalendarService();
-    } else {
-      calendarService = new RealGoogleCalendarService(getTokenStore());
-    }
+    calendarService = isMockCalendar()
+      ? new MockGoogleCalendarService()
+      : new RealGoogleCalendarService(getTokenStore());
   }
   return calendarService;
 }
@@ -55,25 +49,18 @@ export function getRealCalendarService(): RealGoogleCalendarService | null {
 
 export function getAuthService(): AuthService {
   if (!authService) {
-    if (isFullMock()) {
-      authService = new MockAuthService();
-    } else {
-      authService = new SupabaseAuthService(getSupabaseClient(), getSupabaseAdminClient());
-    }
+    authService = isFullMock()
+      ? new MockAuthService()
+      : new SupabaseAuthService(getSupabaseClient(), getSupabaseAdminClient());
   }
   return authService;
 }
 
 export function getBookingStore(): BookingStore {
   if (!bookingStore) {
-    if (isFullMock()) {
-      bookingStore = new MockBookingStore();
-    } else {
-      // Service-role client: backend is trusted; route guards enforce
-      // role + identity before we hit the store. RLS would otherwise
-      // reject queries from the anon client (no auth.uid()).
-      bookingStore = new SupabaseBookingStore(getSupabaseAdminClient());
-    }
+    bookingStore = isFullMock()
+      ? new MockBookingStore()
+      : new SupabaseBookingStore(getSupabaseAdminClient());
   }
   return bookingStore;
 }
@@ -85,25 +72,23 @@ export function getNotificationService(): NotificationService {
   return notificationService;
 }
 
-// --- Container: unified facade over deep modules ---
-
+/**
+ * Container — unified facade over the booking domain.
+ *
+ * Tests MUST use getContainer(overrides) rather than reaching for global
+ * factories like getBookingStore() so the override path is honored.
+ */
 export interface Container {
-  tx: BookingTransaction;
-  limits: WeeklyLimits;
   store: BookingStore;
+  bookings: Bookings;
   auth: AuthService;
 }
 
 let _container: Container | null = null;
 
 export function getContainer(overrides?: Partial<Container>): Container {
-  if (overrides) {
-    const base = buildContainer();
-    return { ...base, ...overrides };
-  }
-  if (!_container) {
-    _container = buildContainer();
-  }
+  if (overrides) return { ...buildContainer(), ...overrides };
+  if (!_container) _container = buildContainer();
   return _container;
 }
 
@@ -119,10 +104,9 @@ export function resetContainer(): void {
 
 function buildContainer(): Container {
   const store = getBookingStore();
-  const limits = createWeeklyLimits(store);
   const calendar = isMockCalendar() ? null : getCalendarService();
   const notifier = getNotificationService();
-  const tx = createBookingTransaction(store, limits, calendar, notifier);
+  const bookings = makeBookings(store, calendar, notifier);
   const auth = getAuthService();
-  return { tx, limits, store, auth };
+  return { store, bookings, auth };
 }
