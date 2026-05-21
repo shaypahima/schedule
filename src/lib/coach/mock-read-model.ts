@@ -88,15 +88,32 @@ export function makeCoachReadModel(
     ).length;
   }
 
+  async function countNoShowsForWeek(weekStart: string): Promise<number> {
+    const [y, m, d] = weekStart.split("-").map(Number);
+    const end = new Date(y, m - 1, d + 7);
+    const weekEndStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
+    const all = await store.getAllBookings();
+    let count = 0;
+    for (const b of all) {
+      if (b.status !== "no_show") continue;
+      const slot = await store.getSlot(b.slotId);
+      if (!slot) continue;
+      if (slot.date >= weekStart && slot.date < weekEndStr) count++;
+    }
+    return count;
+  }
+
   return {
     async getCoachDashboard(): Promise<DashboardView> {
       const today = todayIL();
       const todayRoster = await this.getDayBookings(today);
       const pendingRequests = await this.getPendingChangeRequests();
+      const weekStart = weekStartForDate(today);
+      const noShowsThisWeek = await countNoShowsForWeek(weekStart);
       return {
         pendingApprovals: await pendingApprovalsCount(),
         pendingChangeRequests: pendingRequests.length,
-        noShowsThisWeek: 0,
+        noShowsThisWeek,
         todayRoster,
         urgentRequests: pendingRequests.slice(0, 3),
       };

@@ -504,8 +504,26 @@ export function makeBookings(
       return { ok: true, request: updated!, effectedBooking };
     },
 
-    async markNoShow() {
-      return { ok: false, error: "NOT_IMPLEMENTED", message: "Phase 16 wires no-show status" };
+    async markNoShow(bookingId) {
+      const booking = await store.getBooking(bookingId);
+      if (!booking || booking.status !== "confirmed") {
+        return { ok: false, error: "NOT_FOUND", message: "Booking not found or not confirmed" };
+      }
+      const slot = await store.getSlot(booking.slotId);
+      if (!slot) return { ok: false, error: "NOT_FOUND", message: "Slot not found" };
+
+      // Coach can only mark past slots as no-show.
+      const slotStartMs = israelSlotToUTC(slot.date, slot.startTime).getTime();
+      if (slotStartMs > Date.now()) {
+        return {
+          ok: false,
+          error: "CONFLICT",
+          message: "Cannot mark a future slot as no-show",
+        };
+      }
+
+      await store.updateBooking({ ...booking, status: "no_show" });
+      return { ok: true, booking: { ...booking, status: "no_show" } };
     },
 
     // --- Limits ---
