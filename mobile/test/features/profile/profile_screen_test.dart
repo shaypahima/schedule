@@ -8,6 +8,8 @@ import 'package:velofit/features/coach/calendar_repository.dart' show CalendarRe
 import 'package:velofit/features/profile/profile.dart';
 import 'package:velofit/features/profile/profile_repository.dart';
 import 'package:velofit/features/profile/profile_screen.dart';
+import 'package:velofit/features/profile/trainee_profile.dart';
+import 'package:velofit/features/profile/trainee_profile_repository.dart';
 import 'package:velofit/utils/url_opener.dart';
 
 class _FakeProfileRepo extends Mock implements ProfileRepository {}
@@ -15,6 +17,8 @@ class _FakeProfileRepo extends Mock implements ProfileRepository {}
 class _FakeAuth extends Mock implements AuthRepository {}
 
 class _FakeCalendarRepo extends Mock implements CalendarRepository {}
+
+class _FakeTraineeProfileRepo extends Mock implements TraineeProfileRepository {}
 
 class _CapturingUrlOpener implements UrlOpener {
   final List<Uri> opened = [];
@@ -27,6 +31,7 @@ Widget _harness(
   AuthRepository? auth,
   CalendarRepository? calendar,
   UrlOpener? urlOpener,
+  TraineeProfileRepository? traineeProfileRepo,
 }) {
   final calRepo = calendar ?? _FakeCalendarRepo();
   if (calendar == null) {
@@ -34,11 +39,17 @@ Widget _harness(
       (_) async => const CalendarStatus(connected: false, mock: false),
     );
   }
+  final tpRepo = traineeProfileRepo ?? _FakeTraineeProfileRepo();
+  if (traineeProfileRepo == null) {
+    when(() => (tpRepo as _FakeTraineeProfileRepo).fetch())
+        .thenAnswer((_) async => const TraineeProfile());
+  }
   return ProviderScope(
     overrides: [
       profileRepositoryProvider.overrideWithValue(repo),
       if (auth != null) authRepositoryProvider.overrideWithValue(auth),
       calendarRepositoryProvider.overrideWithValue(calRepo),
+      traineeProfileRepositoryProvider.overrideWithValue(tpRepo),
       if (urlOpener != null) urlOpenerProvider.overrideWithValue(urlOpener),
     ],
     child: MaterialApp(
@@ -177,6 +188,84 @@ void main() {
 
       expect(opener.opened, hasLength(1));
       expect(opener.opened.first.toString(), 'https://accounts.google.com/o/oauth2/v2/auth?xxx');
+    });
+
+    testWidgets('trainee sees ערוך פרופיל button', (tester) async {
+      final repo = _FakeProfileRepo();
+      when(() => repo.fetchMe()).thenAnswer((_) async => const Profile(
+            id: 't1',
+            email: 't@example.com',
+            name: 'יעל',
+            role: 'trainee',
+          ));
+
+      await tester.pumpWidget(_harness(repo));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('edit-profile-button')), findsOneWidget);
+      expect(find.text('ערוך פרופיל'), findsOneWidget);
+    });
+
+    testWidgets('coach does NOT see ערוך פרופיל button', (tester) async {
+      final repo = _FakeProfileRepo();
+      when(() => repo.fetchMe()).thenAnswer((_) async => const Profile(
+            id: 'c1',
+            email: 'coach@example.com',
+            name: 'Coach',
+            role: 'coach',
+          ));
+
+      await tester.pumpWidget(_harness(repo));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('edit-profile-button')), findsNothing);
+    });
+
+    testWidgets('trainee preview shows phone, age (from dob), height, weight, goals',
+        (tester) async {
+      final repo = _FakeProfileRepo();
+      when(() => repo.fetchMe()).thenAnswer((_) async => const Profile(
+            id: 't1',
+            email: 't@example.com',
+            name: 'יעל',
+            role: 'trainee',
+          ));
+      final tp = _FakeTraineeProfileRepo();
+      when(() => tp.fetch()).thenAnswer((_) async => const TraineeProfile(
+            phone: '+972501234567',
+            dateOfBirth: '1992-04-08',
+            heightCm: 168,
+            weightKg: 65,
+            goals: 'לרדת 5 קילו',
+          ));
+
+      await tester.pumpWidget(_harness(repo, traineeProfileRepo: tp));
+      await tester.pumpAndSettle();
+
+      expect(find.text('+972501234567'), findsOneWidget);
+      expect(find.text('168 ס״מ'), findsOneWidget);
+      expect(find.text('65 ק״ג'), findsOneWidget);
+      expect(find.text('לרדת 5 קילו'), findsOneWidget);
+    });
+
+    testWidgets('trainee preview shows חסר fallback when fields empty',
+        (tester) async {
+      final repo = _FakeProfileRepo();
+      when(() => repo.fetchMe()).thenAnswer((_) async => const Profile(
+            id: 't1',
+            email: 't@example.com',
+            name: 'יעל',
+            role: 'trainee',
+          ));
+      final tp = _FakeTraineeProfileRepo();
+      when(() => tp.fetch()).thenAnswer((_) async => const TraineeProfile());
+
+      await tester.pumpWidget(_harness(repo, traineeProfileRepo: tp));
+      await tester.pumpAndSettle();
+
+      // Trainee preview section should be visible with placeholder values
+      expect(find.byKey(const Key('trainee-preview-card')), findsOneWidget);
+      expect(find.text('חסר'), findsWidgets);
     });
 
     testWidgets('sign-out button calls AuthRepository.signOut', (tester) async {
