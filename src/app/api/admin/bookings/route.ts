@@ -39,25 +39,34 @@ export async function GET(request: NextRequest) {
   const r = await requireCoach(request);
   if ("error" in r) return r.error;
 
-  const { store, auth } = getContainer();
+  const { coachRead } = getContainer();
   const date = new URL(request.url).searchParams.get("date");
 
-  let bookings;
   if (date) {
-    const slots = await store.getAllSlotsForDate(date);
-    const slotIds = new Set(slots.map((s) => s.id));
-    const all = await store.getAllBookings();
-    bookings = all.filter((b) => b.status === "confirmed" && slotIds.has(b.slotId));
-  } else {
-    const all = await store.getAllBookings();
-    bookings = all.filter((b) => b.status === "confirmed");
+    const roster = await coachRead.getDayBookings(date);
+    // Preserve the legacy response shape for mobile compatibility.
+    return NextResponse.json({
+      bookings: roster.map((e) => ({
+        id: e.bookingId,
+        slotId: e.slotId,
+        traineeId: e.trainee.id,
+        traineeName: e.trainee.name,
+        slotDate: e.slotDate,
+        startTime: e.slotTime,
+        status: e.status,
+        isAutoBooked: e.isAutoBooked,
+      })),
+    });
   }
 
+  // No date filter: flatten across all days (rare path; mobile uses date filter).
+  const { store, auth } = getContainer();
+  const all = await store.getAllBookings();
+  const confirmed = all.filter((b) => b.status === "confirmed");
   const trainees = await auth.getTrainees();
   const nameMap = new Map(trainees.map((t) => [t.id, t.name]));
-
   const enriched = [];
-  for (const b of bookings) {
+  for (const b of confirmed) {
     const slot = await store.getSlot(b.slotId);
     enriched.push({
       ...b,
@@ -66,6 +75,5 @@ export async function GET(request: NextRequest) {
       startTime: slot?.startTime ?? null,
     });
   }
-
   return NextResponse.json({ bookings: enriched });
 }

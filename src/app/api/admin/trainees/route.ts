@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
-import { todayIL, weekStartForDate } from "@/lib/services/israel-time";
 import { requireCoach } from "@/lib/auth/require";
 import { inviteTraineeByEmail, resendInvite } from "@/lib/services/trainee-invite";
 
@@ -8,38 +7,29 @@ export async function GET(request: NextRequest) {
   const r = await requireCoach(request);
   if ("error" in r) return r.error;
 
-  const { auth, store } = getContainer();
-  const trainees = await auth.getTrainees();
-  const filter = new URL(request.url).searchParams.get("filter");
+  const { coachRead } = getContainer();
+  const filterParam = new URL(request.url).searchParams.get("filter");
+  const filter = filterParam === "unbooked" ? "unbooked-this-week" : "all";
 
-  if (filter === "unbooked") {
-    const today = todayIL();
-    const weekStart = weekStartForDate(today);
-    const active = trainees.filter((t) => t.isActive);
-    const unbooked = [];
-    for (const t of active) {
-      const weekBookings = await store.getTraineeBookingsForWeek(t.id, weekStart);
-      if (weekBookings.length === 0) {
-        unbooked.push({ id: t.id, name: t.name });
-      }
-    }
-    return NextResponse.json({ trainees: unbooked });
+  const summaries = await coachRead.getTraineesList(filter);
+
+  if (filter === "unbooked-this-week") {
+    return NextResponse.json({
+      trainees: summaries.map((s) => ({ id: s.id, name: s.name })),
+    });
   }
 
   return NextResponse.json({
-    trainees: trainees.map((t) => {
-      const tt = t as typeof t & { status?: string; email?: string };
-      return {
-        id: t.id,
-        name: t.name,
-        email: tt.email ?? null,
-        isRecurring: t.isRecurring,
-        preferredDay: t.preferredDay,
-        preferredTime: t.preferredTime,
-        isActive: t.isActive,
-        status: tt.status ?? (t.isActive ? "active" : "deactivated"),
-      };
-    }),
+    trainees: summaries.map((s) => ({
+      id: s.id,
+      name: s.name,
+      email: s.email,
+      isRecurring: s.isRecurring,
+      preferredDay: s.preferredDay,
+      preferredTime: s.preferredTime,
+      isActive: s.status !== "deactivated" && s.status !== "rejected",
+      status: s.status,
+    })),
   });
 }
 

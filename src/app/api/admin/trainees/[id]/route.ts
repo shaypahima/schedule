@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
-import { todayIL, weekStartForDate } from "@/lib/services/israel-time";
 import { requireCoach } from "@/lib/auth/require";
 
 export async function GET(
@@ -11,54 +10,34 @@ export async function GET(
   if ("error" in r) return r.error;
 
   const { id } = await params;
-  const { auth, store, bookings } = getContainer();
+  const { coachRead } = getContainer();
 
-  // Find trainee profile
-  const trainees = await auth.getTrainees();
-  const trainee = trainees.find((t) => t.id === id);
-  if (!trainee) {
+  const detail = await coachRead.getTraineeDetail(id);
+  if (!detail) {
     return NextResponse.json({ error: "Trainee not found" }, { status: 404 });
   }
 
-  // Get all bookings for this trainee, join with slot info
-  const allBookings = await store.getAllBookings();
-  const traineeBookings = allBookings
-    .filter((b) => b.traineeId === id && b.status === "confirmed")
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  // Enrich with slot date/time
-  const sessions = [];
-  for (const booking of traineeBookings.slice(0, 10)) {
-    const slot = await store.getSlot(booking.slotId);
-    sessions.push({
-      bookingId: booking.id,
-      slotId: booking.slotId,
-      date: slot?.date ?? null,
-      startTime: slot?.startTime ?? null,
-      isAutoBooked: booking.isAutoBooked,
-      createdAt: booking.createdAt,
-    });
-  }
-
-  // Remaining edits this week
-  const today = todayIL();
-  const weekStart = weekStartForDate(today);
-  const remainingEdits = await bookings.getRemainingEdits(id, weekStart);
-
-  // Current week bookings count
-  const weekBookings = await store.getTraineeBookingsForWeek(id, weekStart);
-
+  // Map to the existing response shape for mobile compatibility.
   return NextResponse.json({
     trainee: {
-      id: trainee.id,
-      name: trainee.name,
-      isRecurring: trainee.isRecurring,
-      preferredDay: trainee.preferredDay,
-      preferredTime: trainee.preferredTime,
-      isActive: trainee.isActive,
+      id: detail.trainee.id,
+      name: detail.trainee.name,
+      isRecurring: detail.trainee.isRecurring,
+      preferredDay: detail.trainee.preferredDay,
+      preferredTime: detail.trainee.preferredTime,
+      isActive:
+        detail.trainee.status !== "deactivated" &&
+        detail.trainee.status !== "rejected",
     },
-    sessions,
-    remainingEdits,
-    weekBookingsCount: weekBookings.length,
+    sessions: detail.recentBookings.map((e) => ({
+      bookingId: e.bookingId,
+      slotId: e.slotId,
+      date: e.slotDate,
+      startTime: e.slotTime,
+      isAutoBooked: e.isAutoBooked,
+      createdAt: e.startsAt,
+    })),
+    remainingEdits: detail.remainingEdits,
+    weekBookingsCount: detail.weekBookingsCount,
   });
 }

@@ -6,6 +6,8 @@ import { AuthService } from "./auth";
 import { BookingStore, MockBookingStore } from "./booking-store";
 import { NotificationService, MockNotificationService } from "./notification";
 import { Bookings, makeBookings } from "./bookings";
+import { CoachReadModel } from "@/lib/coach/read-model";
+import { makeCoachReadModel } from "@/lib/coach/mock-read-model";
 import { SupabaseBookingStore } from "@/lib/supabase/booking-store";
 import { SupabaseAuthService, MockAuthService } from "@/lib/supabase/auth-service";
 import { getSupabaseClient, getSupabaseAdminClient } from "@/lib/supabase/client";
@@ -82,6 +84,7 @@ export interface Container {
   store: BookingStore;
   bookings: Bookings;
   auth: AuthService;
+  coachRead: CoachReadModel;
 }
 
 let _container: Container | null = null;
@@ -108,5 +111,6 @@ function buildContainer(): Container {
   const notifier = getNotificationService();
   const bookings = makeBookings(store, calendar, notifier);
   const auth = getAuthService();
-  return { store, bookings, auth };
+  const coachRead = makeCoachReadModel(store, auth, bookings);
+  return { store, bookings, auth, coachRead };
 }
