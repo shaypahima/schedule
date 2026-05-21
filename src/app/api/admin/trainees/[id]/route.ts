@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
 import { requireCoach } from "@/lib/auth/require";
+import { getTraineeProfile } from "@/lib/services/trainee-profile-repo";
 
 export async function GET(
   request: NextRequest,
@@ -17,7 +18,8 @@ export async function GET(
     return NextResponse.json({ error: "Trainee not found" }, { status: 404 });
   }
 
-  // Map to the existing response shape for mobile compatibility.
+  const profile = await getTraineeProfile(id);
+
   return NextResponse.json({
     trainee: {
       id: detail.trainee.id,
@@ -29,6 +31,7 @@ export async function GET(
         detail.trainee.status !== "deactivated" &&
         detail.trainee.status !== "rejected",
     },
+    profile,
     sessions: detail.recentBookings.map((e) => ({
       bookingId: e.bookingId,
       slotId: e.slotId,
