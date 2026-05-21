@@ -8,6 +8,7 @@ import '../slots/slot.dart';
 import '../slots/slot_repository.dart';
 import 'admin_repository.dart';
 import 'approvals_repository.dart';
+import 'change_requests_screen.dart';
 import 'coach_dashboard_repository.dart';
 import 'coach_trainees_screen.dart';
 import 'pending_approvals_screen.dart';
@@ -224,6 +225,9 @@ class _CoachDashboard extends ConsumerWidget {
                 value: '$changeRequestsCount',
                 label: 'בקשות שינוי',
                 highlight: changeRequestsCount > 0,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ChangeRequestsScreen()),
+                ),
               ),
               const SizedBox(width: 10),
               _DashStat(
@@ -251,34 +255,48 @@ class _DashStat extends StatelessWidget {
   final String value;
   final String label;
   final bool highlight;
-  const _DashStat({super.key, required this.value, required this.label, this.highlight = false});
+  final VoidCallback? onTap;
+  const _DashStat({
+    super.key,
+    required this.value,
+    required this.label,
+    this.highlight = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: highlight
-              ? BrandColors.orange.withValues(alpha: 0.85)
-              : Colors.white.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    )),
-            Text(label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.9),
-                    )),
-          ],
-        ),
+    final inner = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: highlight
+            ? BrandColors.orange.withValues(alpha: 0.85)
+            : Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(12),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  )),
+          Text(label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.9),
+                  )),
+        ],
+      ),
+    );
+    return Expanded(
+      child: onTap == null
+          ? inner
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: inner,
+            ),
     );
   }
 }
