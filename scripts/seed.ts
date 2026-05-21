@@ -57,7 +57,7 @@ async function ensureAuthUser(email: string): Promise<string> {
   return created.user.id;
 }
 
-async function upsertProfile(id: string, email: string, name: string, role: "admin" | "trainee"): Promise<void> {
+async function upsertProfile(id: string, email: string, name: string, role: "coach" | "trainee"): Promise<void> {
   const { error } = await supabase.from("profiles").upsert(
     { id, email, name, role, is_active: true },
     { onConflict: "id" },
@@ -101,7 +101,7 @@ async function seed() {
 
   // Coach
   const coachId = await ensureAuthUser(COACH_EMAIL);
-  await upsertProfile(coachId, COACH_EMAIL, COACH_NAME, "admin");
+  await upsertProfile(coachId, COACH_EMAIL, COACH_NAME, "coach");
   console.log(`Coach: ${COACH_NAME} <${COACH_EMAIL}>`);
 
   // Trainees
