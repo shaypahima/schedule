@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'admin_repository.dart';
+import 'coach_trainee_detail_screen.dart';
 import 'notes_sheet.dart';
 
 String statusLabel(String status) {
@@ -107,10 +108,16 @@ class _TraineeRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
+    return InkWell(
       key: Key('trainee-row-${trainee.id}'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CoachTraineeDetailScreen(traineeId: trainee.id),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
         children: [
           Expanded(
             child: Column(
@@ -169,6 +176,7 @@ class _TraineeRow extends ConsumerWidget {
               onPressed: () => _confirmDeactivate(context, ref),
             ),
         ],
+        ),
       ),
     );
   }
