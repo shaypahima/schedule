@@ -56,6 +56,15 @@ export interface Booking {
   reminderSentAt: Date | null;
 }
 
+export interface CoachNote {
+  id: string;
+  traineeId: string;
+  body: string;
+  visibleToTrainee: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export type ChangeRequestStatus = "pending" | "approved" | "rejected";
 
 export interface ChangeRequest {
