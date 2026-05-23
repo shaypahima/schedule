@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/spacing.dart';
+import '../../design/widgets.dart';
 import '../../theme.dart';
 import '../../utils/week_dates.dart';
 import '../bookings/booking.dart';
@@ -247,30 +249,33 @@ class _WelcomeHero extends ConsumerWidget {
                   ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              _StatBadge(
+              HeroStat(
                 value: '${confirmed.length}',
                 label: 'אימונים השבוע',
+                accent: Colors.white,
               ),
-              const SizedBox(width: 10),
-              _StatBadge(
+              const SizedBox(width: AppSpacing.sm),
+              HeroStat(
                 value: attendancePct,
                 label: 'נוכחות',
+                accent: BrandColors.orange,
               ),
-              const SizedBox(width: 10),
-              _StatBadge(
+              const SizedBox(width: AppSpacing.sm),
+              HeroStat(
                 value: streak,
                 label: 'רצף',
+                accent: BrandColors.orange,
               ),
             ],
           ),
           if (next != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             _NextSessionPill(label: next),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _QuickActions(),
         ],
       ),
@@ -300,11 +305,13 @@ class _NextSessionPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -319,40 +326,6 @@ class _NextSessionPill extends StatelessWidget {
                 ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StatBadge extends StatelessWidget {
-  final String value;
-  final String label;
-  const _StatBadge({required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.22),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    )),
-            Text(label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.85),
-                    )),
-          ],
-        ),
       ),
     );
   }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/spacing.dart';
+import '../../design/widgets.dart';
+import '../../theme.dart';
 import 'history_repository.dart';
 
 class HistoryScreen extends ConsumerWidget {
@@ -23,9 +26,9 @@ class HistoryScreen extends ConsumerWidget {
               child: Text('עדיין אין היסטוריית אימונים'),
             );
           }
-          // Group entries by year-month.
           final months = _groupByMonth(entries);
           return ListView.builder(
+            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
             itemCount: months.length,
             itemBuilder: (_, i) {
               final m = months[i];
@@ -33,17 +36,15 @@ class HistoryScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                    child: Text(
-                      _monthLabel(m.year, m.month),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                      AppSpacing.xs,
                     ),
+                    child: SectionHeader(_monthLabel(m.year, m.month)),
                   ),
-                  for (final e in m.entries)
-                    _HistoryTile(entry: e),
+                  for (final e in m.entries) _HistoryTile(entry: e),
                 ],
               );
             },
@@ -63,8 +64,9 @@ class HistoryScreen extends ConsumerWidget {
       map[key]!.entries.add(e);
     }
     final result = map.values.toList();
-    result.sort((a, b) =>
-        b.year.compareTo(a.year) != 0 ? b.year.compareTo(a.year) : b.month.compareTo(a.month));
+    result.sort((a, b) => b.year.compareTo(a.year) != 0
+        ? b.year.compareTo(a.year)
+        : b.month.compareTo(a.month));
     return result;
   }
 
@@ -90,35 +92,37 @@ class _HistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final (icon, color, label) = _decoration(cs, entry.status, entry.isPast);
+    final theme = Theme.of(context);
+    final (stripe, label) = _decoration(entry.status, entry.isPast);
     final day = int.parse(entry.date.substring(8, 10));
     final mon = int.parse(entry.date.substring(5, 7));
 
-    return ListTile(
+    return StatusStripeTile(
       key: Key('history-tile-${entry.bookingId}'),
-      leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.15),
-        child: Icon(icon, color: color),
+      stripeColor: stripe,
+      title: Text(
+        '${entry.startTime}  ·  $day.$mon',
+        style: theme.textTheme.titleMedium,
       ),
-      title: Text('${entry.startTime} • $day.$mon'),
-      subtitle: Text(label),
-      dense: true,
+      subtitle: Text(
+        label,
+        style: theme.textTheme.bodySmall?.copyWith(color: stripe),
+      ),
     );
   }
 
-  (IconData, Color, String) _decoration(ColorScheme cs, String status, bool isPast) {
+  (Color, String) _decoration(String status, bool isPast) {
     switch (status) {
       case 'confirmed':
         return isPast
-            ? (Icons.check_circle, Colors.green.shade700, 'הושלם')
-            : (Icons.event, cs.primary, 'אישור');
+            ? (BrandColors.success, 'הושלם')
+            : (BrandColors.teal, 'מתוכנן');
       case 'cancelled':
-        return (Icons.cancel_outlined, cs.error, 'בוטל');
+        return (BrandColors.inkMuted, 'בוטל');
       case 'no_show':
-        return (Icons.report_gmailerrorred, Colors.orange.shade800, 'לא הגיע');
+        return (BrandColors.orange, 'לא הגיע');
       default:
-        return (Icons.help_outline, cs.outline, status);
+        return (BrandColors.inkMuted, status);
     }
   }
 }
