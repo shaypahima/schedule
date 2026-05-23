@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/spacing.dart';
+import '../../design/widgets.dart';
+import '../../theme.dart';
 import 'notes_sheet.dart';
 import 'trainee_detail_repository.dart';
 
@@ -25,14 +28,14 @@ class CoachTraineeDetailScreen extends ConsumerWidget {
           child: Text('שגיאה: $err', key: const Key('trainee-detail-error')),
         ),
         data: (v) => ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
             _HeaderCard(view: v),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             _BioCard(bio: v.bio),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             _SessionsCard(sessions: v.sessions),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton.tonalIcon(
               key: const Key('open-notes-button'),
               icon: const Icon(Icons.sticky_note_2_outlined),
@@ -57,41 +60,78 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: theme.colorScheme.primary,
-              child: Text(
-                view.name.isNotEmpty ? view.name.characters.first : '?',
-                style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white),
-              ),
+    return Row(
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [BrandColors.teal, BrandColors.tealDark],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            view.name.isNotEmpty ? view.name.characters.first : '?',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(view.name, style: theme.textTheme.titleLarge),
+              const SizedBox(height: 2),
+              Row(
                 children: [
-                  Text(view.name, style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 4),
+                  _StatusDot(
+                    color: view.isActive ? BrandColors.success : BrandColors.inkMuted,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
                   Text(
                     view.isActive ? 'פעיל' : 'מושבת',
                     key: const Key('trainee-active-label'),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: view.isActive ? BrandColors.success : BrandColors.inkMuted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    '·',
+                    style: theme.textTheme.bodySmall?.copyWith(color: BrandColors.inkMuted),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    '${view.weekBookingsCount} אימונים השבוע',
                     style: theme.textTheme.bodySmall,
                   ),
-                  Text('${view.weekBookingsCount} אימונים השבוע',
-                      style: theme.textTheme.bodySmall),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+      ],
+    );
+  }
+}
+
+class _StatusDot extends StatelessWidget {
+  final Color color;
+  const _StatusDot({required this.color});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
@@ -102,58 +142,65 @@ class _BioCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       key: const Key('bio-card'),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
+      decoration: BoxDecoration(
+        color: BrandColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: BrandColors.line),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('פרופיל אישי', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            _row(Icons.phone, 'טלפון', bio.phone ?? 'חסר'),
-            _row(Icons.cake_outlined, 'גיל', _ageText(bio.dateOfBirth)),
-            _row(Icons.height, 'גובה',
-                bio.heightCm == null ? 'חסר' : '${bio.heightCm} ס״מ'),
-            _row(Icons.monitor_weight_outlined, 'משקל',
-                bio.weightKg == null ? 'חסר' : '${bio.weightKg} ק״ג'),
-            _row(Icons.flag_outlined, 'מטרות', bio.goals ?? 'חסר'),
-            _row(Icons.medical_information_outlined, 'מידע רפואי',
-                bio.medical ?? 'חסר'),
-            if (bio.introText != null && bio.introText!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text('הצגה עצמית',
-                  style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 4),
-              Text(bio.introText!),
-            ],
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader('פרופיל אישי'),
+          DataGrid(children: [
+            InfoRow(icon: Icons.cake_outlined, label: 'גיל', value: _ageText(bio.dateOfBirth)),
+            InfoRow(icon: Icons.phone_outlined, label: 'טלפון', value: bio.phone),
+            InfoRow(
+              icon: Icons.height,
+              label: 'גובה',
+              value: bio.heightCm == null ? null : '${bio.heightCm} ס״מ',
+            ),
+            InfoRow(
+              icon: Icons.monitor_weight_outlined,
+              label: 'משקל',
+              value: bio.weightKg == null ? null : '${bio.weightKg} ק״ג',
+            ),
+          ]),
+          const SizedBox(height: AppSpacing.md),
+          const SectionHeader('מטרות ומגבלות'),
+          InfoRow(icon: Icons.flag_outlined, label: 'מטרות', value: bio.goals),
+          InfoRow(
+            icon: Icons.medical_information_outlined,
+            label: 'מידע רפואי',
+            value: bio.medical,
+          ),
+          if (bio.introText != null && bio.introText!.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            const SectionHeader('הצגה עצמית'),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: BrandColors.bg,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                border: Border(
+                  right: BorderSide(color: BrandColors.teal, width: 2),
+                ),
+              ),
+              child: Text(
+                bio.introText!,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _row(IconData icon, String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(width: 10),
-            Text('$label:'),
-            const SizedBox(width: 6),
-            Expanded(child: Text(value)),
-          ],
-        ),
-      );
-
-  String _ageText(String? dob) {
-    if (dob == null) return 'חסר';
+  String? _ageText(String? dob) {
+    if (dob == null) return null;
     try {
       final d = DateTime.parse(dob);
       final now = DateTime.now();
@@ -161,7 +208,7 @@ class _BioCard extends StatelessWidget {
       if (now.month < d.month || (now.month == d.month && now.day < d.day)) age -= 1;
       return '$age';
     } catch (_) {
-      return 'חסר';
+      return null;
     }
   }
 }
@@ -172,36 +219,69 @@ class _SessionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
+    return Container(
+      decoration: BoxDecoration(
+        color: BrandColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: BrandColors.line),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('אימונים אחרונים',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            if (sessions.isEmpty)
-              const Text('אין אימונים קודמים', key: Key('sessions-empty')),
-            for (final s in sessions.take(5))
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    const Icon(Icons.event, size: 18),
-                    const SizedBox(width: 10),
-                    Text('${s.date}  ${s.startTime}'),
-                  ],
-                ),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader('אימונים אחרונים'),
+          if (sessions.isEmpty)
+            Text(
+              'אין אימונים קודמים',
+              key: const Key('sessions-empty'),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: BrandColors.inkMuted,
+                fontStyle: FontStyle.italic,
               ),
-          ],
-        ),
+            ),
+          for (final s in sessions.take(5)) _SessionRow(session: s),
+        ],
       ),
     );
   }
 }
+
+class _SessionRow extends StatelessWidget {
+  final TraineeSession session;
+  const _SessionRow({required this.session});
+
+  @override
+  Widget build(BuildContext context) {
+    final day = int.tryParse(session.date.substring(8, 10)) ?? 0;
+    final mon = int.tryParse(session.date.substring(5, 7)) ?? 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(
+              color: BrandColors.teal,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            session.startTime,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: BrandColors.ink,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            '$day.$mon',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+

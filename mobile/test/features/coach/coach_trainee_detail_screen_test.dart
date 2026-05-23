@@ -78,8 +78,11 @@ void main() {
       await tester.pumpWidget(_harness(repo));
       await tester.pumpAndSettle();
 
-      expect(find.text('2026-04-10  10:00'), findsOneWidget);
-      expect(find.text('2026-04-08  14:00'), findsOneWidget);
+      // New layout splits time + date.
+      expect(find.text('10:00'), findsOneWidget);
+      expect(find.text('14:00'), findsOneWidget);
+      expect(find.text('10.4'), findsOneWidget);
+      expect(find.text('8.4'), findsOneWidget);
     });
 
     testWidgets('empty sessions shows placeholder', (tester) async {
