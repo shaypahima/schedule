@@ -90,3 +90,35 @@ export interface EditLog {
   weekStart: string; // YYYY-MM-DD (Sunday)
   editCount: number;
 }
+
+export interface MeasurementLog {
+  id: string;
+  traineeId: string;
+  loggedAt: Date;
+  weightKg: number | null;
+  metrics: Record<string, unknown> | null;
+  photoUrl: string | null;
+  note: string | null;
+}
+
+export interface MeasurementInput {
+  weightKg?: number | null;
+  metrics?: Record<string, unknown> | null;
+  photoUrl?: string | null;
+  note?: string | null;
+  /** Override the logged_at timestamp (e.g., post-session prompt uses session end). Defaults to now. */
+  loggedAt?: Date;
+}
+
+export interface SessionLog {
+  bookingId: string;
+  feedback: Record<string, unknown> | null;
+  coachNotes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SessionLogInput {
+  feedback?: Record<string, unknown> | null;
+  coachNotes?: string | null;
+}
