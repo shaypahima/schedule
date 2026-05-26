@@ -96,6 +96,43 @@ void main() {
       expect(find.text('2026-05-10 – 2026-05-15'), findsOneWidget);
     });
 
+    testWidgets('empty day renders EmptyState pattern (R18)', (tester) async {
+      final slots = _FakeSlotRepo();
+      final admin = _FakeAdminRepo();
+      when(() => slots.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => admin.fetchBookings(date: any(named: 'date')))
+          .thenAnswer((_) async => []);
+
+      await tester.pumpWidget(_harness(slots: slots, admin: admin));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('week-empty')), findsOneWidget);
+      expect(find.text('אין שעות פנויות ביום זה'), findsOneWidget);
+      expect(find.text('בחר יום אחר או עבור לשבוע אחר'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('week-empty')),
+          matching: find.byIcon(Icons.event_busy_outlined),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('fetch error renders ErrorCard with retry (R17)', (tester) async {
+      final slots = _FakeSlotRepo();
+      final admin = _FakeAdminRepo();
+      when(() => slots.fetchSlots(any())).thenThrow(Exception('boom'));
+      when(() => admin.fetchBookings(date: any(named: 'date')))
+          .thenAnswer((_) async => []);
+
+      await tester.pumpWidget(_harness(slots: slots, admin: admin));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('week-error')), findsOneWidget);
+      expect(find.text('שגיאה בטעינת המועדים'), findsOneWidget);
+      expect(find.byKey(const Key('week-error-retry')), findsOneWidget);
+    });
+
     testWidgets('remove booking → confirm dialog → admin.removeBooking',
         (tester) async {
       final slots = _FakeSlotRepo();

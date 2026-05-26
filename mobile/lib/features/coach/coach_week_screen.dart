@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/spacing.dart';
+import '../../design/widgets.dart';
 import '../../theme.dart';
 import '../../utils/week_dates.dart';
 import '../profile/profile_screen.dart';
@@ -106,7 +108,10 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            padding: const EdgeInsets.symmetric(
+              vertical: AppSpacing.xs,
+              horizontal: AppSpacing.xs,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -114,21 +119,36 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
                   InkWell(
                     key: Key('day-chip-$i'),
                     onTap: () => setState(() => _selectedIndex = i),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.xxs,
+                        horizontal: AppSpacing.sm,
+                      ),
                       decoration: BoxDecoration(
                         color: i == _selectedIndex
-                            ? Theme.of(context).colorScheme.primaryContainer
+                            ? BrandColors.teal.withValues(alpha: 0.12)
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                       ),
                       child: Column(
                         children: [
-                          Text(hebrewDayShort[i],
-                              style: Theme.of(context).textTheme.titleLarge),
+                          Text(
+                            hebrewDayShort[i],
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: i == _selectedIndex
+                                      ? BrandColors.tealDark
+                                      : BrandColors.ink,
+                                  fontWeight: i == _selectedIndex
+                                      ? FontWeight.w700
+                                      : FontWeight.normal,
+                                ),
+                          ),
                           Text(
                             '${_weekDates[i].day}/${_weekDates[i].month}',
-                            style: Theme.of(context).textTheme.labelSmall,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: BrandColors.inkSoft,
+                                ),
                           ),
                         ],
                       ),
@@ -140,8 +160,19 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
           const Divider(height: 1),
           Expanded(
             child: slotsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(child: Text('שגיאה: $err')),
+              loading: () => const Padding(
+                padding: EdgeInsets.all(AppSpacing.md),
+                child: SkeletonList(),
+              ),
+              error: (err, _) => KeyedSubtree(
+                key: const Key('week-error'),
+                child: ErrorCard(
+                  message: 'שגיאה בטעינת המועדים',
+                  retryKey: const Key('week-error-retry'),
+                  onRetry: () =>
+                      ref.invalidate(slotsForDateProvider(_selectedDate)),
+                ),
+              ),
               data: (slots) {
                 final bookings = bookingsAsync.valueOrNull ?? [];
                 final bySlot = <String, List<AdminBooking>>{};
@@ -149,11 +180,21 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
                   bySlot.putIfAbsent(b.slotId, () => []).add(b);
                 }
                 if (slots.isEmpty) {
-                  return const Center(child: Text('אין שעות פנויות'));
+                  return const Padding(
+                    key: Key('week-empty'),
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                    child: EmptyState(
+                      icon: Icons.event_busy_outlined,
+                      headline: 'אין שעות פנויות ביום זה',
+                      helper: 'בחר יום אחר או עבור לשבוע אחר',
+                    ),
+                  );
                 }
                 return ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
                   itemCount: slots.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: AppSpacing.xs),
                   itemBuilder: (_, i) {
                     final slot = slots[i];
                     final slotBookings = bySlot[slot.id] ?? const [];
@@ -186,12 +227,18 @@ class _CoachDashboard extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [BrandColors.tealDark, BrandColors.teal],
+          colors: [BrandColors.teal, BrandColors.tealDark],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
+          stops: [0.2, 1.0],
         ),
       ),
       child: Column(
@@ -203,13 +250,13 @@ class _CoachDashboard extends ConsumerWidget {
                   color: Colors.white.withValues(alpha: 0.9),
                 ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               _DashStat(value: '${bookings.length}', label: 'אימונים היום'),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               _DashStat(value: '$activeCount', label: 'מתאמנים פעילים'),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               _DashStat(
                 value: '$pendingCount',
                 label: 'אישורים',
@@ -217,7 +264,7 @@ class _CoachDashboard extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               _DashStat(
@@ -229,13 +276,13 @@ class _CoachDashboard extends ConsumerWidget {
                   MaterialPageRoute(builder: (_) => const ChangeRequestsScreen()),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               _DashStat(
                 key: const Key('no-shows-stat'),
                 value: '$noShowsThisWeek',
                 label: 'אי-הגעה השבוע',
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               const _DashSpacer(),
             ],
           ),
@@ -267,24 +314,32 @@ class _DashStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inner = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
-        color: highlight
-            ? BrandColors.orange.withValues(alpha: 0.85)
-            : Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border(
+          top: BorderSide(
+            color: highlight ? BrandColors.orange : Colors.white,
+            width: 3,
+          ),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
+                    height: 1.05,
                   )),
           Text(label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: Colors.white.withValues(alpha: 0.85),
                   )),
         ],
       ),
@@ -294,7 +349,7 @@ class _DashStat extends StatelessWidget {
           ? inner
           : InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               child: inner,
             ),
     );

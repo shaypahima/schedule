@@ -168,6 +168,62 @@ class HeroStat extends StatelessWidget {
   }
 }
 
+/// Error card — error-tinted container with icon, message, and optional retry.
+/// Replaces bare `Text('שגיאה: $err')`.
+class ErrorCard extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+  final String retryLabel;
+  final Key? retryKey;
+
+  const ErrorCard({
+    super.key,
+    required this.message,
+    this.onRetry,
+    this.retryLabel = 'נסה שוב',
+    this.retryKey,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: BrandColors.error.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: const Border(
+            right: BorderSide(color: BrandColors.error, width: 3),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: BrandColors.error, size: 20),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                message,
+                style: theme.textTheme.bodyMedium?.copyWith(color: BrandColors.ink),
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(width: AppSpacing.sm),
+              TextButton(
+                key: retryKey,
+                onPressed: onRetry,
+                child: Text(retryLabel),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Empty state — icon + headline + helper. Replaces bare "אין X" text.
 /// When the recovery action is an already-visible affordance (e.g., the day
 /// picker), helper text alone suffices and no button is rendered.
@@ -221,9 +277,10 @@ class EmptyState extends StatelessWidget {
 }
 
 /// Loading skeleton — replaces bare CircularProgressIndicator.
-/// Renders N rounded rectangles with a subtle pulse, sized to mirror the
-/// content that will resolve into place. Reduces layout shift on load.
-class SkeletonList extends StatefulWidget {
+/// Renders N rounded rectangles sized to mirror the content that will resolve
+/// into place. Reduces layout shift on load. Static (no infinite animation) so
+/// widget tests don't hang on `pumpAndSettle`.
+class SkeletonList extends StatelessWidget {
   final int count;
   final double itemHeight;
   final double gap;
@@ -235,55 +292,19 @@ class SkeletonList extends StatefulWidget {
   });
 
   @override
-  State<SkeletonList> createState() => _SkeletonListState();
-}
-
-class _SkeletonListState extends State<SkeletonList>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) {
-        final t = Curves.easeInOut.transform(_ctrl.value);
-        final color = Color.lerp(
-          BrandColors.line,
-          BrandColors.line.withValues(alpha: 0.55),
-          t,
-        )!;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < widget.count; i++) ...[
-              Container(
-                height: widget.itemHeight,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-              ),
-              if (i < widget.count - 1) SizedBox(height: widget.gap),
-            ],
-          ],
-        );
-      },
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: count,
+      separatorBuilder: (_, _) => SizedBox(height: gap),
+      itemBuilder: (_, _) => Container(
+        height: itemHeight,
+        decoration: BoxDecoration(
+          color: BrandColors.line.withValues(alpha: 0.75),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+      ),
     );
   }
 }
