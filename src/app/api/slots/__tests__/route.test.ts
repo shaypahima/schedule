@@ -27,6 +27,24 @@ const activeTrainee: Profile = {
   createdAt: "2026-01-01T00:00:00Z",
 };
 
+const coach: Profile = {
+  userId: "c1",
+  email: "coach@example.com",
+  phone: null,
+  name: "Coach",
+  role: "coach",
+  status: "active",
+  hasIntro: false,
+  createdAt: "2026-01-01T00:00:00Z",
+};
+
+const pendingTrainee: Profile = {
+  ...activeTrainee,
+  userId: "p1",
+  email: "p1@example.com",
+  status: "pending",
+};
+
 function makeRequest(date?: string, authHeader?: string) {
   const url = `http://localhost/api/slots${date ? `?date=${date}` : ""}`;
   const headers: Record<string, string> = {};
@@ -90,5 +108,21 @@ describe("GET /api/slots", () => {
     const eleven = body.slots.find((s: { startTime: string }) => s.startTime === "11:00");
     expect(ten?.remainingCapacity).toBe(2);
     expect(eleven?.remainingCapacity).toBe(1);
+  });
+
+  it("allows a coach to view slots (read-only)", async () => {
+    mockJwtSession.mockResolvedValue({ userId: "c1", email: "coach@example.com" });
+    mockLoadProfile.mockResolvedValue(coach);
+
+    const res = await GET(makeRequest("2026-05-24", "Bearer jwt"));
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 403 for a pending trainee", async () => {
+    mockJwtSession.mockResolvedValue({ userId: "p1", email: "p1@example.com" });
+    mockLoadProfile.mockResolvedValue(pendingTrainee);
+
+    const res = await GET(makeRequest("2026-05-24", "Bearer jwt"));
+    expect(res.status).toBe(403);
   });
 });
