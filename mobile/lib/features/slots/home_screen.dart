@@ -88,15 +88,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Consumer(
-          builder: (context, ref, _) {
-            final profileAsync = ref.watch(profileProvider);
-            final firstName = profileAsync.valueOrNull?.name.split(' ').first;
-            return Text(firstName != null && firstName.isNotEmpty
-                ? 'שלום $firstName'
-                : 'שלום');
-          },
-        ),
+        title: const SizedBox.shrink(),
         actions: [
           IconButton(
             key: const Key('profile-button'),
@@ -137,11 +129,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: slotsAsync.when(
                     loading: () => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 48),
-                      child: Center(
-                        key: Key('slots-loading'),
-                        child: CircularProgressIndicator(),
-                      ),
+                      key: Key('slots-loading-skeleton'),
+                      padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                      child: SkeletonList(),
                     ),
                     error: (err, _) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 48),
@@ -155,10 +145,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     data: (slots) {
                       if (slots.isEmpty) {
                         return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 48),
-                          child: Center(
-                            key: Key('slots-empty'),
-                            child: Text('אין מועדים פנויים בתאריך זה'),
+                          key: Key('slots-empty'),
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                          child: EmptyState(
+                            icon: Icons.event_busy_outlined,
+                            headline: 'אין מועדים פנויים בתאריך זה',
+                            helper: 'בחר יום אחר מהשורה למעלה',
                           ),
                         );
                       }
@@ -201,9 +193,6 @@ class _WelcomeHero extends ConsumerWidget {
     final confirmed =
         (view?.bookings ?? []).where((b) => b.isConfirmed).toList();
     final next = _nextSession(confirmed, now);
-    final attendancePct = dashboard != null
-        ? '${(dashboard.attendanceRate * 100).round()}%'
-        : '—';
     final streak = dashboard != null && dashboard.currentStreak > 0
         ? '🔥 ${dashboard.currentStreak}'
         : '—';
@@ -211,10 +200,15 @@ class _WelcomeHero extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [BrandColors.teal, BrandColors.orange],
+          colors: [BrandColors.teal, BrandColors.tealDark],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
           stops: [0.2, 1.0],
@@ -253,21 +247,15 @@ class _WelcomeHero extends ConsumerWidget {
           Row(
             children: [
               HeroStat(
-                value: '${confirmed.length}',
-                label: 'אימונים השבוע',
-                accent: Colors.white,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              HeroStat(
-                value: attendancePct,
-                label: 'נוכחות',
-                accent: BrandColors.orange,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              HeroStat(
                 value: streak,
                 label: 'רצף',
                 accent: BrandColors.orange,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              HeroStat(
+                value: '${confirmed.length}',
+                label: 'אימונים השבוע',
+                accent: Colors.white,
               ),
             ],
           ),
@@ -343,38 +331,13 @@ class _QuickActions extends ConsumerWidget {
             MaterialPageRoute(builder: (_) => const ProfileScreen()),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.sm),
         _QuickActionChip(
           icon: Icons.history,
           label: 'היסטוריה',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const HistoryScreen()),
           ),
-        ),
-        const SizedBox(width: 10),
-        _QuickActionChip(
-          icon: Icons.help_outline,
-          label: 'עזרה',
-          onTap: () {
-            showDialog<void>(
-              context: context,
-              builder: (_) => AlertDialog(
-                title: const Text('צריך עזרה?'),
-                content: const Text(
-                  'יש לפנות למאמן ישירות ב-WhatsApp או טלפון.\n'
-                  'ניתן לבטל אימון עד 24 שעות לפניו ללא אישור.\n'
-                  'בתוך 24 שעות, ניתן לשלוח בקשת ביטול שהמאמן יאשר.',
-                  textAlign: TextAlign.right,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('הבנתי'),
-                  ),
-                ],
-              ),
-            );
-          },
         ),
       ],
     );
@@ -396,12 +359,15 @@ class _QuickActionChip extends StatelessWidget {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.sm,
+            horizontal: AppSpacing.xs,
+          ),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
             border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
           ),
           child: Column(
@@ -517,7 +483,7 @@ class _UpcomingSessionsCard extends ConsumerWidget {
                               shape: BoxShape.circle,
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: AppSpacing.sm),
                           Text(
                             '${b.slotDate ?? ""}  •  ${b.slotStartTime ?? ""}',
                             style: Theme.of(context).textTheme.bodyMedium,
