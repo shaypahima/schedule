@@ -21,7 +21,7 @@ Widget _harness(HistoryRepository repo) => ProviderScope(
 
 void main() {
   group('HistoryScreen', () {
-    testWidgets('empty state shows Hebrew placeholder', (tester) async {
+    testWidgets('empty state uses EmptyState pattern (R34)', (tester) async {
       final repo = _FakeRepo();
       when(() => repo.fetch()).thenAnswer((_) async => []);
 
@@ -30,6 +30,17 @@ void main() {
 
       expect(find.byKey(const Key('history-empty')), findsOneWidget);
       expect(find.text('עדיין אין היסטוריית אימונים'), findsOneWidget);
+      expect(
+        find.text('כשתשלים את האימון הראשון, הוא יופיע כאן'),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('history-empty')),
+          matching: find.byIcon(Icons.fitness_center_outlined),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('groups entries by month with Hebrew month names', (tester) async {

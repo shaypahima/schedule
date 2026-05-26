@@ -66,11 +66,7 @@ class _HeaderCard extends StatelessWidget {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [BrandColors.teal, BrandColors.tealDark],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-            ),
+            color: BrandColors.teal,
             borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           ),
           alignment: Alignment.center,
@@ -176,15 +172,15 @@ class _BioCard extends StatelessWidget {
             label: 'מידע רפואי',
             value: bio.medical,
           ),
-          if (bio.introText != null && bio.introText!.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.md),
-            const SectionHeader('הצגה עצמית'),
+          const SizedBox(height: AppSpacing.md),
+          const SectionHeader('הצגה עצמית'),
+          if (bio.introText != null && bio.introText!.isNotEmpty)
             Container(
               padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
                 color: BrandColors.bg,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                border: Border(
+                border: const Border(
                   right: BorderSide(color: BrandColors.teal, width: 2),
                 ),
               ),
@@ -192,8 +188,15 @@ class _BioCard extends StatelessWidget {
                 bio.introText!,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
+            )
+          else
+            Text(
+              'אין הצגה עצמית',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: BrandColors.inkMuted,
+                    fontStyle: FontStyle.italic,
+                  ),
             ),
-          ],
         ],
       ),
     );
@@ -231,15 +234,17 @@ class _SessionsCard extends StatelessWidget {
         children: [
           const SectionHeader('אימונים אחרונים'),
           if (sessions.isEmpty)
-            Text(
-              'אין אימונים קודמים',
-              key: const Key('sessions-empty'),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: BrandColors.inkMuted,
-                fontStyle: FontStyle.italic,
+            const Padding(
+              key: Key('sessions-empty'),
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              child: EmptyState(
+                icon: Icons.history,
+                headline: 'עדיין אין אימונים',
+                helper: 'כאן יופיעו האימונים הקודמים של המתאמן',
               ),
-            ),
-          for (final s in sessions.take(5)) _SessionRow(session: s),
+            )
+          else
+            for (final s in sessions.take(5)) _SessionRow(session: s),
         ],
       ),
     );

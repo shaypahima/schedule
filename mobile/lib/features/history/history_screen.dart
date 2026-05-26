@@ -15,15 +15,25 @@ class HistoryScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('היסטוריית אימונים')),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Text('שגיאה: $err', key: const Key('history-error')),
+        loading: () => const Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: SkeletonList(),
+        ),
+        error: (err, _) => ErrorCard(
+          key: const Key('history-error'),
+          message: 'שגיאה בטעינת ההיסטוריה',
+          onRetry: () => ref.invalidate(historyProvider),
         ),
         data: (entries) {
           if (entries.isEmpty) {
-            return const Center(
+            return const Padding(
               key: Key('history-empty'),
-              child: Text('עדיין אין היסטוריית אימונים'),
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: EmptyState(
+                icon: Icons.fitness_center_outlined,
+                headline: 'עדיין אין היסטוריית אימונים',
+                helper: 'כשתשלים את האימון הראשון, הוא יופיע כאן',
+              ),
             );
           }
           final months = _groupByMonth(entries);
@@ -106,7 +116,7 @@ class _HistoryTile extends StatelessWidget {
       ),
       subtitle: Text(
         label,
-        style: theme.textTheme.bodySmall?.copyWith(color: stripe),
+        style: theme.textTheme.bodySmall?.copyWith(color: BrandColors.inkSoft),
       ),
     );
   }
