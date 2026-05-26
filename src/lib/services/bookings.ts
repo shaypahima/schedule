@@ -434,22 +434,25 @@ export function makeBookings(
       const oldSlot = await store.getSlot(booking.slotId);
       if (!oldSlot) return { ok: false, error: "NOT_FOUND", message: "Slot not found" };
 
+      // For reschedule: book the NEW slot first, before touching the old one.
+      // If target filled since request was submitted (race), bail with SLOT_FULL —
+      // leaves request pending + old booking intact (#55).
+      let effectedBooking: Booking | undefined;
+      if (request.requestedNewSlotId) {
+        const r = await this.book(booking.traineeId, request.requestedNewSlotId, {
+          bypass: true,
+          isAutoBooked: booking.isAutoBooked,
+        });
+        if (!r.ok) return { ok: false, error: r.error, message: r.message };
+        effectedBooking = r.booking;
+      }
+
       await deleteCalendarEvent(booking.googleEventId);
       await store.updateBooking({ ...booking, status: "cancelled" });
       await store.updateSlot({
         ...oldSlot,
         currentBookings: Math.max(0, oldSlot.currentBookings - 1),
       });
-
-      let effectedBooking: Booking | undefined;
-      if (request.requestedNewSlotId) {
-        // Reschedule — book the new slot under the coach's authority (bypass limits).
-        const r = await this.book(booking.traineeId, request.requestedNewSlotId, {
-          bypass: true,
-          isAutoBooked: booking.isAutoBooked,
-        });
-        if (r.ok) effectedBooking = r.booking;
-      }
 
       await store.updateChangeRequest(requestId, {
         status: statusValue,
