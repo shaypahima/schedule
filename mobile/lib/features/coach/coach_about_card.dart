@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/spacing.dart';
+import '../../theme.dart';
 import 'coach_info_repository.dart';
 
 class CoachAboutCard extends ConsumerWidget {
@@ -20,63 +22,65 @@ class CoachAboutCard extends ConsumerWidget {
         final theme = Theme.of(context);
         return Padding(
           key: const Key('coach-about-card'),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-          child: Card(
-            elevation: 0,
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor: theme.colorScheme.primary,
-                        child: Text(
-                          info.name.isNotEmpty ? info.name.characters.first : '?',
-                          style: theme.textTheme.titleMedium?.copyWith(color: Colors.white),
-                        ),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            0,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: BrandColors.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+              border: Border.all(color: BrandColors.line),
+            ),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: BrandColors.teal,
+                      child: Text(
+                        info.name.isNotEmpty ? info.name.characters.first : '?',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(info.name, style: theme.textTheme.titleMedium),
-                            Text('המאמן שלי',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                )),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (info.specialty != null || info.yearsExperience != null) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        if (info.specialty != null)
-                          _Pill(text: info.specialty!, icon: Icons.fitness_center),
-                        if (info.yearsExperience != null)
-                          _Pill(
-                            text: '${info.yearsExperience} שנות ניסיון',
-                            icon: Icons.workspace_premium,
-                          ),
-                      ],
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(info.name, style: theme.textTheme.titleMedium),
                     ),
                   ],
-                  if (info.bio != null && info.bio!.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(info.bio!, style: theme.textTheme.bodyMedium),
-                  ],
+                ),
+                if (info.specialty != null || info.yearsExperience != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xxs,
+                    children: [
+                      if (info.specialty != null)
+                        _Pill(
+                          text: info.specialty!,
+                          icon: Icons.fitness_center,
+                          accent: BrandColors.teal,
+                        ),
+                      if (info.yearsExperience != null)
+                        _Pill(
+                          text: '${info.yearsExperience} שנות ניסיון',
+                          icon: Icons.workspace_premium,
+                          accent: BrandColors.orange,
+                        ),
+                    ],
+                  ),
                 ],
-              ),
+                if (info.bio != null && info.bio!.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(info.bio!, style: theme.textTheme.bodyMedium),
+                ],
+              ],
             ),
           ),
         );
@@ -88,27 +92,32 @@ class CoachAboutCard extends ConsumerWidget {
 class _Pill extends StatelessWidget {
   final String text;
   final IconData icon;
-  const _Pill({required this.text, required this.icon});
+  final Color accent;
+  const _Pill({required this.text, required this.icon, required this.accent});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
       decoration: BoxDecoration(
-        color: cs.primaryContainer,
-        borderRadius: BorderRadius.circular(999),
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: cs.onPrimaryContainer),
-          const SizedBox(width: 6),
-          Text(text,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: cs.onPrimaryContainer,
-                fontWeight: FontWeight.w600,
-              )),
+          Icon(icon, size: 14, color: accent),
+          const SizedBox(width: AppSpacing.xxs),
+          Text(
+            text,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
         ],
       ),
     );

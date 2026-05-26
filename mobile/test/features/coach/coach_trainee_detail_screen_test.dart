@@ -85,7 +85,8 @@ void main() {
       expect(find.text('8.4'), findsOneWidget);
     });
 
-    testWidgets('empty sessions shows placeholder', (tester) async {
+    testWidgets('empty sessions uses EmptyState pattern with history icon (R24)',
+        (tester) async {
       final repo = _FakeRepo();
       when(() => repo.fetch('t1')).thenAnswer((_) async => _viewWith());
 
@@ -93,6 +94,26 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('sessions-empty')), findsOneWidget);
+      expect(find.text('עדיין אין אימונים'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('sessions-empty')),
+          matching: find.byIcon(Icons.history),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('empty intro_text shows muted placeholder (R23)', (tester) async {
+      final repo = _FakeRepo();
+      when(() => repo.fetch('t1')).thenAnswer(
+        (_) async => _viewWith(bio: const TraineeBio()),
+      );
+
+      await tester.pumpWidget(_harness(repo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('אין הצגה עצמית'), findsOneWidget);
     });
 
     testWidgets('shows מושבת label when inactive', (tester) async {

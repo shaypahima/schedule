@@ -21,7 +21,7 @@ Widget _harness(ChangeRequestsRepository repo) => ProviderScope(
 
 void main() {
   group('ChangeRequestsScreen', () {
-    testWidgets('shows empty placeholder', (tester) async {
+    testWidgets('empty state uses EmptyState pattern (R28)', (tester) async {
       final repo = _FakeRepo();
       when(() => repo.fetch()).thenAnswer((_) async => []);
 
@@ -30,6 +30,64 @@ void main() {
 
       expect(find.byKey(const Key('change-requests-empty')), findsOneWidget);
       expect(find.text('אין בקשות שינוי פתוחות'), findsOneWidget);
+      expect(
+        find.text('כשמתאמן יבקש ביטול בתוך 24 שעות הבקשה תופיע כאן'),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('change-requests-empty')),
+          matching: find.byIcon(Icons.inbox_outlined),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('reason field has סיבה label (R29)', (tester) async {
+      final repo = _FakeRepo();
+      when(() => repo.fetch()).thenAnswer((_) async => const [
+            ChangeRequest(
+              id: 'r1',
+              requestedAt: '2026-04-08T10:00:00Z',
+              reason: 'חולה',
+              traineeId: 't1',
+              traineeName: 'יעל',
+              fromSlotStartsAt: '2026-04-09T07:00:00Z',
+              toSlotStartsAt: null,
+            ),
+          ]);
+
+      await tester.pumpWidget(_harness(repo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('סיבה'), findsOneWidget);
+      expect(find.text('חולה'), findsOneWidget);
+    });
+
+    testWidgets('avatar falls back to ? when name empty (R30)', (tester) async {
+      final repo = _FakeRepo();
+      when(() => repo.fetch()).thenAnswer((_) async => const [
+            ChangeRequest(
+              id: 'r1',
+              requestedAt: '2026-04-08T10:00:00Z',
+              reason: '',
+              traineeId: 't1',
+              traineeName: '',
+              fromSlotStartsAt: '2026-04-09T07:00:00Z',
+              toSlotStartsAt: null,
+            ),
+          ]);
+
+      await tester.pumpWidget(_harness(repo));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('cr-tile-r1')),
+          matching: find.text('?'),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('renders cancel + reschedule requests', (tester) async {
