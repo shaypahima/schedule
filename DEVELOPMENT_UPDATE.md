@@ -50,7 +50,19 @@ Cancel/Reschedule → Outside 24h: trainee acts freely. Inside 24h: trainee subm
 All flows server-enforced via Bookings service. Spec-locked gate order (tests in bookings.test.ts): LOCKOUT (7h) → WEEKLY_LIMIT (2/wk) → SLOT_FULL (capacity) → ALREADY_BOOKED (duplicate). Bypass flag (coach manual add) skips first two.
 
 4. Build Status by Theme
-Latest merge — PR #56 (8 commits, master at 133f992):
+Latest merges:
+
+PR #58 (master at 334da4e) — #53 reminder cadence retune:
+  Drops 1h-before reminder. Three windows: 24h-before, 2h-before, 30min-after-slot-end.
+  Migration 00016 (reminder_24h_sent_at + reminder_2h_sent_at + postsession_prompt_sent_at).
+  ReminderKind type + Hebrew copy per kind. Post-session push silently no-ops until FCM (#36).
+  272/272 backend, 109/109 mobile.
+
+PR #57 — #55 reschedule race fix:
+  Reorders Bookings.decideRequest: book new slot first, then cancel old. Race on full target now
+  returns SLOT_FULL + leaves request pending + old booking intact. ADR-0007.
+
+PR #56 — Epic #54 (40 items, 5 vertical slices):
 
 Epic #54 — UI remediation closed. All 40 items shipped (R1-R40):
   Slice 1 — trainee home: drop dup greeting, hero gradient teal→tealDark, SkeletonList, EmptyState, hero stat trim
@@ -67,9 +79,7 @@ PR #51 (earlier) — phases 11-18 already on master:
 
 Open epics:
 
-#52 — Progress tracking (measurement_logs + session_logs + photos + post-session prompt + fl_chart)
-#53 — Reminder cron retune (drop 1h; add 24h + 2h + post-session)
-#55 — Race: approving reschedule when target slot has since filled strands trainee (latent bug surfaced by PR #56 race test; logic in decideRequest line 445-452 swallows SLOT_FULL from book())
+#52 — Progress tracking (measurement_logs + session_logs + photos + post-session prompt + fl_chart). Backend slice up next.
 
 Open HITL:
 
@@ -80,6 +90,8 @@ Open HITL:
 
 Closed/deprecated:
 
+#53 — Reminder cron retune (closed by PR #58)
+#55 — Reschedule race (closed by PR #57)
 #54 — UI remediation epic (closed by PR #56)
 #1 — original PRD (kept for history; deprecation header points at CONTEXT.md + ADRs)
 
@@ -172,8 +184,6 @@ ADR-0006 — Coach notes are v1 progress primitive (#52 graduates this to v2)
 10. Next Immediate Actions
 Order (vertical slices, no parallelism):
 
-#55 race-condition fix — pick reservation strategy (hold slot at request time vs abort approval on SLOT_FULL); small backend change, real user impact.
-#53 reminder retune — drop 1h cron, add 24h + 2h + post-session columns + cron logic. Post-session push gated on FCM (#36).
 #52 progress tracking backend — measurement_logs + session_logs migrations + APIs + Supabase Storage bucket.
 #52 progress tracking mobile — ProgressTab, MeasurementLoggerSheet, photo timeline (blocked on backend).
 #25 Firebase project setup (HITL) — unblocks #36.
