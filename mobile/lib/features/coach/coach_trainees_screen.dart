@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/spacing.dart';
+import '../../design/widgets.dart';
 import 'admin_repository.dart';
 import 'coach_trainee_detail_screen.dart';
 import 'notes_sheet.dart';
@@ -21,7 +23,7 @@ Color statusColor(BuildContext c, String status) {
   final cs = Theme.of(c).colorScheme;
   switch (status) {
     case 'pending':
-      return Colors.amber.shade200;
+      return const Color.fromARGB(255, 254, 230, 191); // BrandColors.warning @ ~12% on white
     case 'deactivated':
       return cs.surfaceContainerHighest;
     case 'active':
@@ -56,11 +58,24 @@ class CoachTraineesScreen extends ConsumerWidget {
         ],
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('שגיאה: $err')),
+        loading: () => const Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: SkeletonList(),
+        ),
+        error: (err, _) => ErrorCard(
+          message: 'שגיאה בטעינת המתאמנים',
+          onRetry: () => ref.invalidate(traineeRecordsProvider),
+        ),
         data: (trainees) {
           if (trainees.isEmpty) {
-            return const Center(child: Text('אין מתאמנים'));
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: EmptyState(
+                icon: Icons.group_outlined,
+                headline: 'אין מתאמנים',
+                helper: 'הזמן מתאמן חדש מהכפתור למעלה',
+              ),
+            );
           }
           return ListView.separated(
             itemCount: trainees.length,

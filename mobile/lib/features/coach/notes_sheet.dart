@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/spacing.dart';
+import '../../design/widgets.dart';
 import 'notes_repository.dart';
 
 /// Bottom sheet showing all notes for a trainee + an inline add form.
@@ -117,11 +119,18 @@ class _NotesSheetState extends ConsumerState<NotesSheet> {
               const SizedBox(height: 12),
               Expanded(
                 child: notesAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (err, _) => Center(child: Text('שגיאה: $err')),
+                  loading: () => const Padding(
+                    padding: EdgeInsets.all(AppSpacing.sm),
+                    child: SkeletonList(count: 3, itemHeight: 48),
+                  ),
+                  error: (err, _) => const ErrorCard(message: 'שגיאה בטעינת ההערות'),
                   data: (notes) {
                     if (notes.isEmpty) {
-                      return const Center(child: Text('אין הערות עדיין'));
+                      return const EmptyState(
+                        icon: Icons.sticky_note_2_outlined,
+                        headline: 'אין הערות עדיין',
+                        helper: 'כתוב הערה ראשונה בשדה למטה',
+                      );
                     }
                     return ListView.separated(
                       controller: scrollController,

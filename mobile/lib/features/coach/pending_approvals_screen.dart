@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/spacing.dart';
+import '../../design/widgets.dart';
 import 'approvals_repository.dart';
 
 class PendingApprovalsScreen extends ConsumerWidget {
@@ -12,24 +14,29 @@ class PendingApprovalsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('בקשות הצטרפות')),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('שגיאה: $err')),
+        loading: () => const Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: SkeletonList(),
+        ),
+        error: (err, _) => ErrorCard(
+          message: 'שגיאה בטעינת הבקשות',
+          onRetry: () => ref.invalidate(pendingApprovalsProvider),
+        ),
         data: (list) {
           if (list.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'אין בקשות הצטרפות חדשות',
-                  textAlign: TextAlign.center,
-                ),
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: EmptyState(
+                icon: Icons.how_to_reg_outlined,
+                headline: 'אין בקשות הצטרפות חדשות',
+                helper: 'כשמתאמן ירצה להצטרף, הוא יופיע כאן',
               ),
             );
           }
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(pendingApprovalsProvider),
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               itemCount: list.length,
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, i) => _PendingTile(approval: list[i]),

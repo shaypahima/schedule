@@ -23,9 +23,14 @@ class CoachTraineeDetailScreen extends ConsumerWidget {
         ),
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Text('שגיאה: $err', key: const Key('trainee-detail-error')),
+        loading: () => const Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: SkeletonList(count: 3),
+        ),
+        error: (err, _) => ErrorCard(
+          key: const Key('trainee-detail-error'),
+          message: 'שגיאה בטעינת הפרטים',
+          onRetry: () => ref.invalidate(traineeDetailProvider(traineeId)),
         ),
         data: (v) => ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
