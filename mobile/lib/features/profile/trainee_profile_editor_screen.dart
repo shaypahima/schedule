@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/spacing.dart';
+import '../../design/widgets.dart';
 import 'trainee_profile.dart';
 import 'trainee_profile_repository.dart';
 
@@ -125,16 +127,20 @@ class _TraineeProfileEditorScreenState
     return Scaffold(
       appBar: AppBar(title: const Text('עריכת פרופיל')),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Text('שגיאה: $err', key: const Key('editor-fetch-error')),
+        loading: () => const Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: SkeletonList(count: 3),
+        ),
+        error: (err, _) => ErrorCard(
+          key: const Key('editor-fetch-error'),
+          message: 'שגיאה בטעינת הפרופיל',
         ),
         data: (profile) {
           if (!_initialised) _prefill(profile);
           return ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
-              _section('פרטי קשר'),
+              const SectionHeader('פרטי קשר'),
               TextField(
                 key: const Key('phone-field'),
                 controller: _phone,
@@ -144,8 +150,8 @@ class _TraineeProfileEditorScreenState
                   errorText: _phoneError,
                 ),
               ),
-              const SizedBox(height: 16),
-              _section('פרטים אישיים'),
+              const SizedBox(height: AppSpacing.xl),
+              const SectionHeader('פרטים אישיים'),
               TextField(
                 key: const Key('dob-field'),
                 controller: _dob,
@@ -153,26 +159,28 @@ class _TraineeProfileEditorScreenState
                   labelText: 'תאריך לידה (YYYY-MM-DD)',
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       key: const Key('height-field'),
                       controller: _height,
-                      keyboardType: TextInputType.number,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: false),
                       decoration: InputDecoration(
                         labelText: 'גובה (ס״מ)',
                         errorText: _heightError,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: TextField(
                       key: const Key('weight-field'),
                       controller: _weight,
-                      keyboardType: TextInputType.number,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: false),
                       decoration: InputDecoration(
                         labelText: 'משקל (ק״ג)',
                         errorText: _weightError,
@@ -181,8 +189,8 @@ class _TraineeProfileEditorScreenState
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              _section('מטרות וביטחון'),
+              const SizedBox(height: AppSpacing.xl),
+              const SectionHeader('מטרות וביטחון'),
               TextField(
                 key: const Key('goals-field'),
                 controller: _goals,
@@ -192,7 +200,7 @@ class _TraineeProfileEditorScreenState
                   labelText: 'מטרות האימון',
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               TextField(
                 key: const Key('medical-field'),
                 controller: _medical,
@@ -202,18 +210,17 @@ class _TraineeProfileEditorScreenState
                   labelText: 'מידע רפואי / מגבלות',
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
               FilledButton(
                 key: const Key('save-button'),
                 onPressed: _saving ? null : _save,
                 child: Text(_saving ? 'שומר...' : 'שמירה'),
               ),
               if (_error != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  _error!,
+                const SizedBox(height: AppSpacing.md),
+                ErrorCard(
                   key: const Key('editor-error'),
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  message: _error!,
                 ),
               ],
             ],
@@ -222,15 +229,4 @@ class _TraineeProfileEditorScreenState
       ),
     );
   }
-
-  Widget _section(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-      );
 }

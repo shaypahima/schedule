@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:velofit/design/widgets.dart';
 import 'package:velofit/features/coach/coach_info.dart';
 import 'package:velofit/features/coach/coach_info_repository.dart';
 import 'package:velofit/features/coach/coach_settings_screen.dart';
@@ -87,6 +88,34 @@ void main() {
       expect(captured!.yearsExperience, 5);
       expect(captured!.bio, 'אוהב לעזור');
       expect(find.text('נשמר'), findsOneWidget);
+    });
+
+    testWidgets('uses shared SectionHeader (R25), not custom _section helper',
+        (tester) async {
+      final repo = _FakeCoachInfoRepo();
+      when(() => repo.fetch()).thenAnswer((_) async => null);
+
+      await tester.pumpWidget(_harness(repo: repo));
+      await tester.pumpAndSettle();
+
+      // Two sections: contact / presentation.
+      expect(find.byType(SectionHeader), findsNWidgets(2));
+    });
+
+    testWidgets('bio field has hint text (R27)', (tester) async {
+      final repo = _FakeCoachInfoRepo();
+      when(() => repo.fetch()).thenAnswer((_) async => null);
+
+      await tester.pumpWidget(_harness(repo: repo));
+      await tester.pumpAndSettle();
+
+      final bio =
+          tester.widget<TextField>(find.byKey(const Key('coach-bio-field')));
+      expect(bio.minLines, 4);
+      expect(
+        bio.decoration!.hintText,
+        'כמה משפטים על הניסיון והסגנון שלך',
+      );
     });
 
     testWidgets('invalid years shows inline error and does not call repo',

@@ -51,13 +51,14 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
       body: profileAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Text(
-            'שגיאה: $err',
-            key: const Key('profile-error'),
-            textAlign: TextAlign.center,
-          ),
+        loading: () => const Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: SkeletonList(count: 2),
+        ),
+        error: (err, _) => ErrorCard(
+          key: const Key('profile-error'),
+          message: 'שגיאה בטעינת הפרופיל',
+          onRetry: () => ref.invalidate(profileProvider),
         ),
         data: (profile) => ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -115,11 +116,7 @@ class _IdentityCard extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [BrandColors.teal, BrandColors.tealDark],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-              ),
+              color: BrandColors.teal,
               borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
             ),
             alignment: Alignment.center,
@@ -174,9 +171,9 @@ class _TraineePreviewCard extends ConsumerWidget {
       child: async.when(
         loading: () => const SizedBox(
           height: 96,
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          child: SkeletonList(count: 2, itemHeight: 36),
         ),
-        error: (e, _) => Text('שגיאה: $e'),
+        error: (e, _) => const ErrorCard(message: 'שגיאה בטעינת הפרטים'),
         data: (tp) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -227,21 +224,43 @@ class _CoachCalendarStatus extends ConsumerWidget {
     if (status.mock) {
       return Container(
         key: const Key('calendar-mock'),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: BoxDecoration(
-          color: Colors.amber.shade100,
-          borderRadius: BorderRadius.circular(8),
+          color: BrandColors.warning.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          border: const Border(
+            right: BorderSide(color: BrandColors.warning, width: 3),
+          ),
         ),
-        child: const Text(
-          '🛠 יומן Google במצב סימולציה (פיתוח)',
-          textAlign: TextAlign.center,
+        child: Row(
+          children: [
+            const Icon(Icons.build_outlined,
+                color: BrandColors.warning, size: 18),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'יומן Google במצב סימולציה (פיתוח)',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
         ),
       );
     }
     if (status.connected) {
-      return const Text(
-        '✓ יומן Google מחובר',
-        key: Key('calendar-connected'),
+      return Row(
+        key: const Key('calendar-connected'),
+        children: [
+          const Icon(Icons.check_circle, color: BrandColors.success, size: 20),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            'יומן Google מחובר',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: BrandColors.success,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
       );
     }
     return FilledButton.tonalIcon(

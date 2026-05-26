@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/spacing.dart';
+import '../../design/widgets.dart';
 import 'coach_info.dart';
 import 'coach_info_repository.dart';
 
@@ -90,8 +92,11 @@ class _CoachSettingsScreenState extends ConsumerState<CoachSettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('הגדרות מאמן')),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('שגיאה: $err')),
+        loading: () => const Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: SkeletonList(count: 3),
+        ),
+        error: (err, _) => const ErrorCard(message: 'שגיאה בטעינת ההגדרות'),
         data: (info) {
           if (!_initialised) {
             _phone.text = info?.contactPhone ?? '';
@@ -101,9 +106,9 @@ class _CoachSettingsScreenState extends ConsumerState<CoachSettingsScreen> {
             _initialised = true;
           }
           return ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
-              _section('יצירת קשר'),
+              const SectionHeader('יצירת קשר'),
               TextField(
                 key: const Key('contact-phone-field'),
                 controller: _phone,
@@ -113,8 +118,8 @@ class _CoachSettingsScreenState extends ConsumerState<CoachSettingsScreen> {
                   errorText: _phoneError,
                 ),
               ),
-              const SizedBox(height: 24),
-              _section('הצגה למתאמנים'),
+              const SizedBox(height: AppSpacing.xl),
+              const SectionHeader('הצגה למתאמנים'),
               TextField(
                 key: const Key('coach-specialty-field'),
                 controller: _specialty,
@@ -122,38 +127,39 @@ class _CoachSettingsScreenState extends ConsumerState<CoachSettingsScreen> {
                   labelText: 'התמחות (למשל: כוח, קרדיו, שיקום)',
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               TextField(
                 key: const Key('coach-years-field'),
                 controller: _years,
-                keyboardType: TextInputType.number,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: false),
                 decoration: InputDecoration(
                   labelText: 'שנות ניסיון',
                   errorText: _yearsError,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               TextField(
                 key: const Key('coach-bio-field'),
                 controller: _bio,
-                minLines: 3,
-                maxLines: 7,
+                minLines: 4,
+                maxLines: 8,
                 decoration: const InputDecoration(
                   labelText: 'תיאור קצר על עצמך',
+                  hintText: 'כמה משפטים על הניסיון והסגנון שלך',
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
               FilledButton(
                 key: const Key('contact-phone-save'),
                 onPressed: _saving ? null : _save,
                 child: Text(_saving ? 'שומר...' : 'שמירה'),
               ),
               if (_error != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  _error!,
+                const SizedBox(height: AppSpacing.md),
+                ErrorCard(
                   key: const Key('coach-settings-error'),
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  message: _error!,
                 ),
               ],
             ],
@@ -162,15 +168,4 @@ class _CoachSettingsScreenState extends ConsumerState<CoachSettingsScreen> {
       ),
     );
   }
-
-  Widget _section(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-      );
 }
