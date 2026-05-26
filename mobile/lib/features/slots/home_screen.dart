@@ -14,6 +14,7 @@ import '../dashboard/dashboard_repository.dart';
 import '../history/history_screen.dart';
 import '../profile/profile_repository.dart';
 import '../profile/profile_screen.dart';
+import '../progress/progress_screen.dart';
 import 'slot.dart';
 import 'slot_repository.dart';
 
@@ -317,6 +318,14 @@ class _QuickActions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Row(
       children: [
+        _QuickActionChip(
+          icon: Icons.timeline,
+          label: 'התקדמות',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ProgressScreen()),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
         _QuickActionChip(
           icon: Icons.person_outline,
           label: 'הפרופיל',
