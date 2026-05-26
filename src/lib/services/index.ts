@@ -6,9 +6,11 @@ import { AuthService } from "./auth";
 import { BookingStore, MockBookingStore } from "./booking-store";
 import { NotificationService, MockNotificationService } from "./notification";
 import { Bookings, makeBookings } from "./bookings";
+import { ProgressStore, MockProgressStore } from "./progress-store";
 import { CoachReadModel } from "@/lib/coach/read-model";
 import { makeCoachReadModel } from "@/lib/coach/mock-read-model";
 import { SupabaseBookingStore } from "@/lib/supabase/booking-store";
+import { SupabaseProgressStore } from "@/lib/supabase/progress-store";
 import { SupabaseAuthService, MockAuthService } from "@/lib/supabase/auth-service";
 import { getSupabaseClient, getSupabaseAdminClient } from "@/lib/supabase/client";
 
@@ -26,6 +28,7 @@ let tokenStore: TokenStore;
 let authService: AuthService;
 let bookingStore: BookingStore;
 let notificationService: NotificationService;
+let progressStore: ProgressStore;
 
 export function getTokenStore(): TokenStore {
   if (!tokenStore) tokenStore = new InMemoryTokenStore();
@@ -74,6 +77,15 @@ export function getNotificationService(): NotificationService {
   return notificationService;
 }
 
+export function getProgressStore(): ProgressStore {
+  if (!progressStore) {
+    progressStore = isFullMock()
+      ? new MockProgressStore()
+      : new SupabaseProgressStore(getSupabaseAdminClient());
+  }
+  return progressStore;
+}
+
 /**
  * Container — unified facade over the booking domain.
  *
@@ -85,6 +97,7 @@ export interface Container {
   bookings: Bookings;
   auth: AuthService;
   coachRead: CoachReadModel;
+  progress: ProgressStore;
 }
 
 let _container: Container | null = null;
@@ -103,6 +116,7 @@ export function resetContainer(): void {
   authService = undefined!;
   bookingStore = undefined!;
   notificationService = undefined!;
+  progressStore = undefined!;
 }
 
 function buildContainer(): Container {
@@ -112,5 +126,6 @@ function buildContainer(): Container {
   const bookings = makeBookings(store, calendar, notifier);
   const auth = getAuthService();
   const coachRead = makeCoachReadModel(store, auth, bookings);
-  return { store, bookings, auth, coachRead };
+  const progress = getProgressStore();
+  return { store, bookings, auth, coachRead, progress };
 }
