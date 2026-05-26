@@ -1,3 +1,6 @@
+# Local dev env (--dart-define-from-file). Contains DEV_PASSWORD.
+dev-env.json
+
 # Miscellaneous
 *.class
 *.log
