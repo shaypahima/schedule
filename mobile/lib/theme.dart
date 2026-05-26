@@ -18,6 +18,7 @@ class BrandColors {
   static const line = Color(0xFFE6E2DC);
 
   static const success = Color(0xFF1F9D55);
+  static const warning = Color(0xFFB45309); // amber-700; legible on light bg
   static const error = Color(0xFFC53030);
 }
 

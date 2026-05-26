@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:velofit/design/widgets.dart';
 import 'package:velofit/features/profile/trainee_profile.dart';
 import 'package:velofit/features/profile/trainee_profile_editor_screen.dart';
 import 'package:velofit/features/profile/trainee_profile_repository.dart';
@@ -108,6 +109,34 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('editor-error')), findsOneWidget);
+    });
+
+    testWidgets('uses shared SectionHeader (R12), not custom _section helper',
+        (tester) async {
+      final repo = _FakeRepo();
+      when(() => repo.fetch()).thenAnswer((_) async => const TraineeProfile());
+
+      await tester.pumpWidget(_harness(repo));
+      await tester.pumpAndSettle();
+
+      // Three sections: contact / personal / goals — all via shared widget.
+      expect(find.byType(SectionHeader), findsNWidgets(3));
+    });
+
+    testWidgets('height + weight fields use integer-only keyboard (R13)',
+        (tester) async {
+      final repo = _FakeRepo();
+      when(() => repo.fetch()).thenAnswer((_) async => const TraineeProfile());
+
+      await tester.pumpWidget(_harness(repo));
+      await tester.pumpAndSettle();
+
+      final height = tester.widget<TextField>(find.byKey(const Key('height-field')));
+      final weight = tester.widget<TextField>(find.byKey(const Key('weight-field')));
+      expect(height.keyboardType,
+          const TextInputType.numberWithOptions(decimal: false));
+      expect(weight.keyboardType,
+          const TextInputType.numberWithOptions(decimal: false));
     });
 
     testWidgets('invalid height shows inline validation error and does not call repo',
