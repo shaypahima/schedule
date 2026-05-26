@@ -50,13 +50,23 @@ Cancel/Reschedule → Outside 24h: trainee acts freely. Inside 24h: trainee subm
 All flows server-enforced via Bookings service. Spec-locked gate order (tests in bookings.test.ts): LOCKOUT (7h) → WEEKLY_LIMIT (2/wk) → SLOT_FULL (capacity) → ALREADY_BOOKED (duplicate). Bypass flag (coach manual add) skips first two.
 
 4. Build Status by Theme
-Latest merges:
+Latest merges (2026-05-27 AFK session):
 
-PR #58 (master at 334da4e) — #53 reminder cadence retune:
+PR #60 — #52 progress tracking mobile:
+  ProgressScreen w/ last-weight snapshot card + weekly-delta + custom-painted line chart + log list.
+  MeasurementLoggerSheet (weight + energy/soreness 1-5 + free-text + comma-decimal parsing).
+  Home-screen quick action (Icons.timeline → 'התקדמות'). 117/117 mobile tests.
+
+PR #59 — #52 progress tracking backend:
+  3 migrations: measurement_logs (weight + jsonb metrics + photo_url + note, RLS),
+  session_logs (1:1 booking, jsonb feedback + coach_notes, RLS),
+  progress-photos Storage bucket policy (trainee writes own folder, coach reads all).
+  ProgressStore service (Mock + Supabase). 4 API routes. 308/308 backend.
+
+PR #58 — #53 reminder cadence retune:
   Drops 1h-before reminder. Three windows: 24h-before, 2h-before, 30min-after-slot-end.
   Migration 00016 (reminder_24h_sent_at + reminder_2h_sent_at + postsession_prompt_sent_at).
   ReminderKind type + Hebrew copy per kind. Post-session push silently no-ops until FCM (#36).
-  272/272 backend, 109/109 mobile.
 
 PR #57 — #55 reschedule race fix:
   Reorders Bookings.decideRequest: book new slot first, then cancel old. Race on full target now
@@ -79,7 +89,10 @@ PR #51 (earlier) — phases 11-18 already on master:
 
 Open epics:
 
-#52 — Progress tracking (measurement_logs + session_logs + photos + post-session prompt + fl_chart). Backend slice up next.
+#52 — Progress tracking. Backend + mobile core shipped (PRs #59 + #60). Open deferrals:
+  #61 — photo upload (image_picker native plumbing + photo timeline + side-by-side overlay)
+  #62 — coach progress tab + CoachReadModel aggregates (lastWeightKg, weightTrend14d)
+  post-session deep link blocked on #36
 
 Open HITL:
 
@@ -94,6 +107,10 @@ Closed/deprecated:
 #55 — Reschedule race (closed by PR #57)
 #54 — UI remediation epic (closed by PR #56)
 #1 — original PRD (kept for history; deprecation header points at CONTEXT.md + ADRs)
+
+ADRs added this session:
+
+ADR-0007 — Reschedule approval books new slot before cancelling old (#55)
 
 5. Design System Snapshot
 Color (BrandColors in mobile/lib/theme.dart):
@@ -163,7 +180,7 @@ HTTP: Dio + AuthedHttpClient (auto-injects JWT, unwraps DioException → ApiExce
 Auth: supabase_flutter
 Theme: BrandColors + Heebo + AppSpacing tokens
 Env: --dart-define-from-file=dev-env.json (gitignored)
-109 widget tests via mocktail + flutter_test (backend: 265 vitest)
+117 widget tests via mocktail + flutter_test (backend: 308 vitest)
 
 Infra
 
@@ -184,11 +201,11 @@ ADR-0006 — Coach notes are v1 progress primitive (#52 graduates this to v2)
 10. Next Immediate Actions
 Order (vertical slices, no parallelism):
 
-#52 progress tracking backend — measurement_logs + session_logs migrations + APIs + Supabase Storage bucket.
-#52 progress tracking mobile — ProgressTab, MeasurementLoggerSheet, photo timeline (blocked on backend).
+#61 progress photos — image_picker mobile plumbing + upload to progress-photos bucket + photo timeline.
+#62 coach progress tab + CoachReadModel aggregates — reuses WeightChart + admin route from PR #60/#59.
 #25 Firebase project setup (HITL) — unblocks #36.
-#36 FCM scaffold + push fan-out — blocked on #25.
+#36 FCM scaffold + push fan-out — blocked on #25 (also blocks #52 post-session deep link).
+#41 Calendar OAuth callback (build from scratch) — email-match + state HMAC + redirect to mobile deep link.
 #39 Distribution prep (HITL) — Apple Dev + Play Console + Fastlane + CI.
-#41 Calendar OAuth email-match + mobile deep link.
 
 This doc is the only "current state" file. If something here doesn't match what's shipped, fix this doc first.
