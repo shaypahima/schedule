@@ -62,6 +62,22 @@ export async function requireActiveTrainee(
   return { trainee: r };
 }
 
+/**
+ * Accepts a coach OR an active trainee. Use for read-only endpoints that
+ * expose shared coach-owned data (e.g., available slots) — the coach needs
+ * to see what their trainees see, but pending/rejected trainees still can't.
+ */
+export async function requireCoachOrActiveTrainee(
+  req: NextRequest
+): Promise<{ profile: Profile } | Err> {
+  const r = await loadAuthedProfile(req);
+  if (isErr(r)) return r;
+  if (r.role === "coach") return { profile: r };
+  if (r.role === "trainee" && r.status === "active") return { profile: r };
+  if (r.role === "trainee") return forbiddenStatus();
+  return forbiddenRole();
+}
+
 export async function requirePendingTrainee(
   req: NextRequest
 ): Promise<{ trainee: Profile } | Err> {

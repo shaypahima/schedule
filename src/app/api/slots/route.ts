@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCalendarService, getContainer } from "@/lib/services";
 import { generateAvailableSlots } from "@/lib/services/slot-availability";
 import { israelSlotToUTC } from "@/lib/services/israel-time";
-import { requireActiveTrainee } from "@/lib/auth/require";
+import { requireCoachOrActiveTrainee } from "@/lib/auth/require";
 
 export async function GET(request: NextRequest) {
-  const r = await requireActiveTrainee(request);
+  const r = await requireCoachOrActiveTrainee(request);
   if ("error" in r) return r.error;
 
   const { searchParams } = new URL(request.url);
