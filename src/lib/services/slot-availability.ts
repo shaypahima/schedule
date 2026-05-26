@@ -51,9 +51,9 @@ export function generateAvailableSlots(
     const currentBookings = existing?.currentBookings ?? 0;
     const remainingCapacity = capacity - currentBookings;
 
-    // Skip if full
-    if (remainingCapacity <= 0) continue;
-
+    // Full slots ARE returned (remainingCapacity: 0) so callers can render
+    // them as "מלא" rather than silently omit. UIs decide whether to disable
+    // booking; trainee tile shows "מלא", coach week shows the row + roster.
     const lockoutOverride = existing?.lockoutOverride ?? false;
     const lockedOut = !lockoutOverride && isLockedOut(date, timeStr);
 

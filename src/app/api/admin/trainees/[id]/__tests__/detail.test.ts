@@ -20,7 +20,7 @@ vi.mock("@/lib/services/trainee-profile-repo", () => ({
 process.env.MOCK_SERVICES = "true";
 
 import { GET } from "../route";
-import { getContainer, resetContainer, getAuthService } from "@/lib/services";
+import { resetContainer, getAuthService } from "@/lib/services";
 import { MockAuthService } from "@/lib/supabase/auth-service";
 import type { Profile } from "@/lib/auth/profile-repo";
 import type { Profile as DomainProfile } from "@/lib/types";
