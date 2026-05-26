@@ -89,6 +89,36 @@ describe("Bookings", () => {
       expect(result).toMatchObject({ ok: false, error: "LOCKOUT" });
     });
 
+    it("gate order: LOCKOUT wins over WEEKLY_LIMIT when both apply", async () => {
+      // Two bookings used up → trainee at weekly cap
+      await tx.book("t1", "slot-6");
+      await tx.book("t1", "slot-7");
+      // Move clock so slot-8 (2026-04-08) is within 7h lockout
+      vi.setSystemTime(new Date("2026-04-08T01:00:00Z"));
+      const result = await tx.book("t1", "slot-8");
+      expect(result).toMatchObject({ ok: false, error: "LOCKOUT" });
+    });
+
+    it("gate order: WEEKLY_LIMIT wins over SLOT_FULL when both apply", async () => {
+      await tx.book("t1", "slot-6");
+      await tx.book("t1", "slot-7");
+      // Fill slot-8 with other trainees so it's also at capacity
+      await tx.book("t2", "slot-8");
+      await tx.book("t3", "slot-8");
+      const result = await tx.book("t1", "slot-8");
+      expect(result).toMatchObject({ ok: false, error: "WEEKLY_LIMIT" });
+    });
+
+    it("gate order: SLOT_FULL wins over ALREADY_BOOKED when both apply", async () => {
+      // bypass=true skips lockout + weekly cap, leaving only slot/duplicate gates
+      // Trainee already booked into slot-6, AND we'll force slot-6 to capacity.
+      await tx.book("t1", "slot-6", { bypass: true });
+      await tx.book("t2", "slot-6", { bypass: true });
+      // slot-6 is now at capacity 2; t1 already in it.
+      const result = await tx.book("t1", "slot-6", { bypass: true });
+      expect(result).toMatchObject({ ok: false, error: "SLOT_FULL" });
+    });
+
     it("bypass=true skips lockout and weekly limit", async () => {
       vi.setSystemTime(new Date("2026-04-06T01:00:00Z"));
       await tx.book("t1", "slot-6", { bypass: true });
@@ -180,6 +210,35 @@ describe("Bookings", () => {
     it("getRemainingEdits returns Infinity (3-edit cap removed; 24h approval is the new gate)", async () => {
       const remaining = await tx.getRemainingEdits("t1", "2026-04-05");
       expect(remaining).toBe(Number.POSITIVE_INFINITY);
+    });
+
+    it("returns ALREADY_BOOKED when rescheduling to the booking's own slot (no-op safety)", async () => {
+      // Trainee has b1 on slot-6
+      const b = await tx.book("t1", "slot-6");
+      if (!b.ok) throw new Error("Setup failed");
+
+      // Try to "reschedule" b1 to slot-6 (same slot it's already on)
+      const result = await tx.reschedule(b.booking.id, "t1", "slot-6");
+      expect(result).toMatchObject({ ok: false, error: "ALREADY_BOOKED" });
+      // Nothing should change — no calendar event deleted/recreated either
+      expect(store.getBooking(b.booking.id)!.status).toBe("confirmed");
+      expect(store.getSlot("slot-6")!.currentBookings).toBe(1);
+      expect(mockCalendar.deleteEvent).not.toHaveBeenCalled();
+    });
+
+    it("returns ALREADY_BOOKED when rescheduling to a slot the trainee already holds", async () => {
+      // Trainee has two confirmed bookings: slot-6 and slot-7
+      const b1 = await tx.book("t1", "slot-6");
+      const b2 = await tx.book("t1", "slot-7");
+      if (!b1.ok || !b2.ok) throw new Error("Setup failed");
+
+      // Try to reschedule b1 to slot-7 (already booked into slot-7)
+      const result = await tx.reschedule(b1.booking.id, "t1", "slot-7");
+      expect(result).toMatchObject({ ok: false, error: "ALREADY_BOOKED" });
+      // Neither booking should change
+      expect(store.getBooking(b1.booking.id)!.status).toBe("confirmed");
+      expect(store.getBooking(b2.booking.id)!.status).toBe("confirmed");
+      expect(store.getSlot("slot-7")!.currentBookings).toBe(1);
     });
 
     it("rolls back if calendar fails for new event", async () => {

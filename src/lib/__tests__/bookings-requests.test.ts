@@ -141,6 +141,42 @@ describe("Bookings — request/decide (Phase 15)", () => {
     });
   });
 
+  describe("decideRequest — approve (reschedule) race conditions", () => {
+    it("when target slot has since filled up, request is approved but no new booking is made (trainee loses both)", async () => {
+      // Trainee requests reschedule slot-mon → slot-tue
+      const booking = await setupBooking();
+      const reqRes = await bookings.requestReschedule(
+        booking.id,
+        "t1",
+        "slot-tue",
+        "Conflict on Monday"
+      );
+      if (!reqRes.ok) throw new Error("setup failed");
+
+      // Meanwhile, slot-tue fills up to capacity (race)
+      await bookings.book("t2", "slot-tue");
+      await bookings.book("t3", "slot-tue");
+      expect(store.getSlot("slot-tue")!.currentBookings).toBe(2);
+
+      // Coach approves the reschedule request anyway
+      const decision = await bookings.decideRequest(reqRes.request.id, "c1", "approve");
+
+      // Documents current behaviour: request approved, old booking cancelled,
+      // new booking NOT made (silently). Trainee ends up with no booking.
+      // (This is a latent bug — file a follow-up issue if surprising; the
+      // test locks in current behaviour so the regression is visible.)
+      expect(decision.ok).toBe(true);
+      if (decision.ok) {
+        expect(decision.request.status).toBe("approved");
+        expect(decision.effectedBooking).toBeUndefined();
+      }
+      expect(store.getBooking(booking.id)!.status).toBe("cancelled");
+      expect(store.getSlot("slot-mon")!.currentBookings).toBe(0);
+      // slot-tue is still full with t2 + t3 (not t1)
+      expect(store.getSlot("slot-tue")!.currentBookings).toBe(2);
+    });
+  });
+
   describe("decideRequest — reject", () => {
     it("stamps request as rejected, leaves booking confirmed, slot stays held", async () => {
       const booking = await setupBooking();
