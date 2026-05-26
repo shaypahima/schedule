@@ -45,6 +45,8 @@ export interface Slot {
 
 export type BookingStatus = "confirmed" | "cancelled" | "no_show";
 
+export type ReminderKind = "reminder_24h" | "reminder_2h" | "post_session";
+
 export interface Booking {
   id: string;
   slotId: string;
@@ -53,7 +55,9 @@ export interface Booking {
   isAutoBooked: boolean;
   status: BookingStatus;
   createdAt: Date;
-  reminderSentAt: Date | null;
+  reminder24hSentAt: Date | null;
+  reminder2hSentAt: Date | null;
+  postSessionPromptSentAt: Date | null;
 }
 
 export interface CoachNote {

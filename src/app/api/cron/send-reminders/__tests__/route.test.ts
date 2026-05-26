@@ -30,9 +30,9 @@ describe("GET /api/cron/send-reminders", () => {
   it("sends reminders for due bookings", async () => {
     const slotDate = "2026-05-22";
     const slotTime = "10:00";
-    // freeze clock 62 min before the slot
+    // freeze clock 120 min before the slot — inside the 2h-before window
     vi.setSystemTime(
-      new Date(israelSlotToUTC(slotDate, slotTime).getTime() - 62 * 60 * 1000)
+      new Date(israelSlotToUTC(slotDate, slotTime).getTime() - 120 * 60 * 1000)
     );
 
     const { store } = getContainer();
@@ -52,7 +52,9 @@ describe("GET /api/cron/send-reminders", () => {
       isAutoBooked: false,
       status: "confirmed",
       createdAt: new Date(),
-      reminderSentAt: null,
+      reminder24hSentAt: null,
+      reminder2hSentAt: null,
+      postSessionPromptSentAt: null,
     });
 
     const res = await GET(
@@ -61,8 +63,9 @@ describe("GET /api/cron/send-reminders", () => {
 
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.sent).toBe(1);
+    expect(json.sent.reminder_2h).toBe(1);
     const notifier = getNotificationService() as MockNotificationService;
     expect(notifier.sentToTrainee).toHaveLength(1);
+    expect(notifier.sentToTrainee[0].kind).toBe("reminder_2h");
   });
 });
