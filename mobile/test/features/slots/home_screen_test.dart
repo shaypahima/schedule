@@ -153,7 +153,7 @@ void main() {
       expect(find.text('מלא'), findsOneWidget);
     });
 
-    testWidgets('empty day shows Hebrew placeholder', (tester) async {
+    testWidgets('empty day shows icon + headline + helper (R4)', (tester) async {
       final repo = _FakeSlotRepo();
       when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
 
@@ -162,9 +162,20 @@ void main() {
 
       expect(find.byKey(const Key('slots-empty')), findsOneWidget);
       expect(find.text('אין מועדים פנויים בתאריך זה'), findsOneWidget);
+      // Helper directs user back to day picker (no separate button needed).
+      expect(find.text('בחר יום אחר מהשורה למעלה'), findsOneWidget);
+      // Icon present inside the empty state.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('slots-empty')),
+          matching: find.byIcon(Icons.event_busy_outlined),
+        ),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('shows spinner while loading', (tester) async {
+    testWidgets('loading state renders skeleton (not bare spinner) — R3',
+        (tester) async {
       final repo = _FakeSlotRepo();
       final completer = Completer<List<Slot>>();
       when(() => repo.fetchSlots(any())).thenAnswer((_) => completer.future);
@@ -172,7 +183,15 @@ void main() {
       await tester.pumpWidget(_harness(repo: repo));
       await tester.pump(); // initial frame
 
-      expect(find.byKey(const Key('slots-loading')), findsOneWidget);
+      expect(find.byKey(const Key('slots-loading-skeleton')), findsOneWidget);
+      // Skeleton replaces the bare CircularProgressIndicator entirely.
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('slots-loading-skeleton')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsNothing,
+      );
 
       completer.complete(const []);
       await tester.pumpAndSettle();
@@ -529,6 +548,55 @@ void main() {
 
       expect(find.byKey(const Key('cancel-confirm-dialog')), findsOneWidget);
       expect(find.text('לבטל את האימון בשעה 10:00?'), findsOneWidget);
+    });
+
+    testWidgets('QuickActions no longer shows weak עזרה chip (R6)',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+
+      await tester.pumpWidget(_harness(repo: repo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('עזרה'), findsNothing);
+      // Profile + history chips remain.
+      expect(find.text('הפרופיל'), findsOneWidget);
+      expect(find.text('היסטוריה'), findsOneWidget);
+    });
+
+    testWidgets('hero renders 2 stats (streak + sessions); attendance dropped (R5)',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+
+      await tester.pumpWidget(_harness(repo: repo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('רצף'), findsOneWidget);
+      expect(find.text('אימונים השבוע'), findsOneWidget);
+      expect(find.text('נוכחות'), findsNothing);
+    });
+
+    testWidgets('AppBar has no greeting text — hero owns greeting (R1)',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => []);
+
+      await tester.pumpWidget(_harness(repo: repo));
+      await tester.pumpAndSettle();
+
+      final greetingInAppBar = find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byWidgetPredicate((w) {
+          if (w is! Text) return false;
+          final t = w.data ?? '';
+          return t.startsWith('שלום') ||
+              t.startsWith('בוקר טוב') ||
+              t.startsWith('צהריים טובים') ||
+              t.startsWith('ערב טוב');
+        }),
+      );
+      expect(greetingInAppBar, findsNothing);
     });
 
     testWidgets('no edit-counter banner shown anymore (24h approval replaced the 3/week cap)',
