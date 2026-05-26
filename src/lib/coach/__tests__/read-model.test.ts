@@ -14,7 +14,6 @@ const trainee: Profile = {
   preferredTime: null,
   isActive: true,
   createdAt: new Date("2026-01-01"),
-  reminderSentAt: null as never,
 } as Profile;
 
 describe("CoachReadModel", () => {

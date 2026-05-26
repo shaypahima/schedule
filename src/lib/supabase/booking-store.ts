@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Booking, Slot, EditLog, ChangeRequest } from "@/lib/types";
-import { BookingStore } from "@/lib/services/booking-store";
+import { Booking, Slot, EditLog, ChangeRequest, ReminderKind } from "@/lib/types";
+import { BookingStore, REMINDER_DB_COLUMN } from "@/lib/services/booking-store";
 import { israelSlotToUTC } from "@/lib/services/israel-time";
 
 /**
@@ -234,14 +234,16 @@ export class SupabaseBookingStore implements BookingStore {
   }
 
   async getRemindersDue(
+    kind: ReminderKind,
     windowStartUtc: Date,
     windowEndUtc: Date
   ): Promise<Array<{ booking: Booking; slot: Slot }>> {
+    const col = REMINDER_DB_COLUMN[kind];
     const { data } = await this.db
       .from("bookings")
       .select("*, slots!inner(*)")
       .eq("status", "confirmed")
-      .is("reminder_sent_at", null);
+      .is(col, null);
 
     const startMs = windowStartUtc.getTime();
     const endMs = windowEndUtc.getTime();
@@ -258,12 +260,17 @@ export class SupabaseBookingStore implements BookingStore {
     return out;
   }
 
-  async markReminderSent(bookingId: string, sentAt: Date): Promise<void> {
+  async markReminderSent(
+    bookingId: string,
+    kind: ReminderKind,
+    sentAt: Date
+  ): Promise<void> {
+    const col = REMINDER_DB_COLUMN[kind];
     const { error } = await this.db
       .from("bookings")
-      .update({ reminder_sent_at: sentAt.toISOString() })
+      .update({ [col]: sentAt.toISOString() })
       .eq("id", bookingId)
-      .is("reminder_sent_at", null);
+      .is(col, null);
     if (error) throw new Error(error.message);
   }
 
@@ -290,8 +297,14 @@ export class SupabaseBookingStore implements BookingStore {
       isAutoBooked: row.is_auto_booked as boolean,
       status: row.status as Booking["status"],
       createdAt: new Date(row.created_at as string),
-      reminderSentAt: row.reminder_sent_at
-        ? new Date(row.reminder_sent_at as string)
+      reminder24hSentAt: row.reminder_24h_sent_at
+        ? new Date(row.reminder_24h_sent_at as string)
+        : null,
+      reminder2hSentAt: row.reminder_2h_sent_at
+        ? new Date(row.reminder_2h_sent_at as string)
+        : null,
+      postSessionPromptSentAt: row.postsession_prompt_sent_at
+        ? new Date(row.postsession_prompt_sent_at as string)
         : null,
     };
   }

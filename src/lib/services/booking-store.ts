@@ -1,4 +1,4 @@
-import { Booking, Slot, EditLog, ChangeRequest } from "@/lib/types";
+import { Booking, Slot, EditLog, ChangeRequest, ReminderKind } from "@/lib/types";
 import { israelSlotToUTC } from "./israel-time";
 
 export class BookingError extends Error {
@@ -7,6 +7,22 @@ export class BookingError extends Error {
     this.name = "BookingError";
   }
 }
+
+const REMINDER_FIELD_MAP = {
+  reminder_24h: "reminder24hSentAt",
+  reminder_2h: "reminder2hSentAt",
+  post_session: "postSessionPromptSentAt",
+} as const;
+
+export function sentFieldFor(kind: ReminderKind): keyof Booking {
+  return REMINDER_FIELD_MAP[kind];
+}
+
+export const REMINDER_DB_COLUMN: Record<ReminderKind, string> = {
+  reminder_24h: "reminder_24h_sent_at",
+  reminder_2h: "reminder_2h_sent_at",
+  post_session: "postsession_prompt_sent_at",
+};
 
 export interface BookingStore {
   getSlot(slotId: string): Promise<Slot | undefined> | Slot | undefined;
@@ -24,11 +40,17 @@ export interface BookingStore {
   getAllBookings(): Promise<Booking[]> | Booking[];
   upsertSlot(slot: Slot): Promise<void> | void;
   resetEditCount(traineeId: string, weekStart: string): Promise<void> | void;
+  /**
+   * Confirmed bookings whose slot start time lies in [windowStartUtc, windowEndUtc)
+   * and whose `<kind>_sent_at` column is still NULL. For `post_session` the window
+   * matches the slot START, not the end — caller offsets by slot duration.
+   */
   getRemindersDue(
+    kind: ReminderKind,
     windowStartUtc: Date,
     windowEndUtc: Date
   ): Promise<Array<{ booking: Booking; slot: Slot }>> | Array<{ booking: Booking; slot: Slot }>;
-  markReminderSent(bookingId: string, sentAt: Date): Promise<void> | void;
+  markReminderSent(bookingId: string, kind: ReminderKind, sentAt: Date): Promise<void> | void;
 
   // --- Phase 15: cancel-request flow ---
   createChangeRequest(input: {
@@ -143,14 +165,16 @@ export class MockBookingStore implements BookingStore {
   }
 
   getRemindersDue(
+    kind: ReminderKind,
     windowStartUtc: Date,
     windowEndUtc: Date
   ): Array<{ booking: Booking; slot: Slot }> {
     const startMs = windowStartUtc.getTime();
     const endMs = windowEndUtc.getTime();
+    const sentField = sentFieldFor(kind);
     const out: Array<{ booking: Booking; slot: Slot }> = [];
     for (const b of this.bookings.values()) {
-      if (b.status !== "confirmed" || b.reminderSentAt !== null) continue;
+      if (b.status !== "confirmed" || b[sentField] !== null) continue;
       const slot = this.slots.get(b.slotId);
       if (!slot) continue;
       const slotMs = israelSlotToUTC(slot.date, slot.startTime).getTime();
@@ -161,10 +185,10 @@ export class MockBookingStore implements BookingStore {
     return out;
   }
 
-  markReminderSent(bookingId: string, sentAt: Date): void {
+  markReminderSent(bookingId: string, kind: ReminderKind, sentAt: Date): void {
     const b = this.bookings.get(bookingId);
     if (!b) return;
-    this.bookings.set(bookingId, { ...b, reminderSentAt: sentAt });
+    this.bookings.set(bookingId, { ...b, [sentFieldFor(kind)]: sentAt });
   }
 
   createChangeRequest(input: {

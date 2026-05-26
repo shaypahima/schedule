@@ -1,3 +1,5 @@
+import type { ReminderKind } from "@/lib/types";
+
 export interface NotificationPayload {
   type: "cancel" | "reschedule" | "booking";
   traineeName: string;
@@ -11,17 +13,33 @@ export interface TraineeReminderPayload {
   traineeId: string;
   slotDate: string;
   slotTime: string;
+  kind: ReminderKind;
 }
 
 export interface NotificationService {
   notifyCoach(payload: NotificationPayload): Promise<void>;
-  /** Send 1h-before reminder push to the trainee. */
+  /**
+   * Send reminder push to the trainee. Kind decides the copy:
+   *   reminder_24h → "מחר בשעה HH:MM נפגשים..."
+   *   reminder_2h  → "בעוד שעתיים אימון. נתראה!"
+   *   post_session → "איך הרגשת? תיעוד קצר עוזר..."
+   */
   notifyTrainee(payload: TraineeReminderPayload): Promise<void>;
+}
+
+const HEBREW_COPY: Record<ReminderKind, (slotTime: string) => string> = {
+  reminder_24h: (t) => `מחר בשעה ${t} נפגשים. כל עדכון, עכשיו זה הזמן.`,
+  reminder_2h: () => `בעוד שעתיים אימון. נתראה!`,
+  post_session: () => `איך הרגשת? תיעוד קצר עוזר לך לראות את ההתקדמות.`,
+};
+
+export function renderReminderCopy(payload: TraineeReminderPayload): string {
+  return HEBREW_COPY[payload.kind](payload.slotTime);
 }
 
 /**
  * Mock notification service — logs to console in dev.
- * Replace with email/push in production.
+ * Replace with FCM in production (#36).
  */
 export class MockNotificationService implements NotificationService {
   public sent: NotificationPayload[] = [];
@@ -34,6 +52,8 @@ export class MockNotificationService implements NotificationService {
 
   async notifyTrainee(payload: TraineeReminderPayload): Promise<void> {
     this.sentToTrainee.push(payload);
-    console.log(`[Notify Trainee] reminder: ${payload.traineeId} - ${payload.slotDate} ${payload.slotTime}`);
+    console.log(
+      `[Notify Trainee] ${payload.kind}: ${payload.traineeId} - ${payload.slotDate} ${payload.slotTime} — ${renderReminderCopy(payload)}`
+    );
   }
 }

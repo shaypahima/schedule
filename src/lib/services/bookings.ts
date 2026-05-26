@@ -224,7 +224,9 @@ export function makeBookings(
         isAutoBooked: opts.isAutoBooked ?? false,
         status: "confirmed",
         createdAt: new Date(),
-        reminderSentAt: null,
+        reminder24hSentAt: null,
+        reminder2hSentAt: null,
+        postSessionPromptSentAt: null,
       };
 
       await store.addBooking(booking);
@@ -329,7 +331,9 @@ export function makeBookings(
         isAutoBooked: oldBooking.isAutoBooked,
         status: "confirmed",
         createdAt: new Date(),
-        reminderSentAt: null,
+        reminder24hSentAt: null,
+        reminder2hSentAt: null,
+        postSessionPromptSentAt: null,
       };
 
       await store.addBooking(newBooking);
