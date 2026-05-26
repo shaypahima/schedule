@@ -206,14 +206,7 @@ class _WelcomeHero extends ConsumerWidget {
         AppSpacing.lg,
         AppSpacing.lg,
       ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [BrandColors.teal, BrandColors.tealDark],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          stops: [0.2, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(gradient: BrandColors.gradientHero),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -233,14 +233,7 @@ class _CoachDashboard extends ConsumerWidget {
         AppSpacing.lg,
         AppSpacing.lg,
       ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [BrandColors.teal, BrandColors.tealDark],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          stops: [0.2, 1.0],
-        ),
-      ),
+      decoration: const BoxDecoration(gradient: BrandColors.gradientHero),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -621,8 +614,11 @@ class _TraineePickerSheetState extends ConsumerState<_TraineePickerSheet> {
                 maxHeight: MediaQuery.of(context).size.height * 0.6,
               ),
               child: async.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Center(child: Text('שגיאה: $err')),
+                loading: () => const Padding(
+                  padding: EdgeInsets.all(AppSpacing.md),
+                  child: SkeletonList(count: 4, itemHeight: 48),
+                ),
+                error: (err, _) => const ErrorCard(message: 'שגיאה בטעינת המתאמנים'),
                 data: (trainees) {
                   final filtered = trainees
                       .where((t) =>

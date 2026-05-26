@@ -20,6 +20,16 @@ class BrandColors {
   static const success = Color(0xFF1F9D55);
   static const warning = Color(0xFFB45309); // amber-700; legible on light bg
   static const error = Color(0xFFC53030);
+
+  /// Canonical hero gradient — teal→tealDark, RTL-aware topRight→bottomLeft.
+  /// Every full-bleed hero (trainee home, coach dashboard) uses this exact
+  /// gradient. Don't invent new ones.
+  static const gradientHero = LinearGradient(
+    colors: [teal, tealDark],
+    begin: Alignment.topRight,
+    end: Alignment.bottomLeft,
+    stops: [0.2, 1.0],
+  );
 }
 
 ThemeData buildBrandTheme() {
