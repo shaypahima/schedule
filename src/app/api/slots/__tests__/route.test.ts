@@ -70,6 +70,16 @@ describe("GET /api/slots", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 401 when JWT is valid but no profile row exists", async () => {
+    mockJwtSession.mockResolvedValue({ userId: "ghost", email: "ghost@example.com" });
+    mockLoadProfile.mockResolvedValue(null);
+
+    const res = await GET(makeRequest("2026-05-20", "Bearer jwt"));
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error).toBe("PROFILE_NOT_FOUND");
+  });
+
   it("returns 400 when date param is missing or malformed", async () => {
     mockJwtSession.mockResolvedValue({ userId: "u1", email: "u1@example.com" });
     mockLoadProfile.mockResolvedValue(activeTrainee);
@@ -118,11 +128,55 @@ describe("GET /api/slots", () => {
     expect(res.status).toBe(200);
   });
 
+  it("allows a coach regardless of profile.status (coach is always coach)", async () => {
+    mockJwtSession.mockResolvedValue({ userId: "c2", email: "coach2@example.com" });
+    mockLoadProfile.mockResolvedValue({
+      ...coach,
+      userId: "c2",
+      email: "coach2@example.com",
+      // Coach with an unusual status — must still pass; coach role wins.
+      status: "deactivated",
+    });
+
+    const res = await GET(makeRequest("2026-05-24", "Bearer jwt"));
+    expect(res.status).toBe(200);
+  });
+
   it("returns 403 for a pending trainee", async () => {
     mockJwtSession.mockResolvedValue({ userId: "p1", email: "p1@example.com" });
     mockLoadProfile.mockResolvedValue(pendingTrainee);
 
     const res = await GET(makeRequest("2026-05-24", "Bearer jwt"));
     expect(res.status).toBe(403);
+  });
+
+  it("returns 403 for a deactivated trainee (coach revoked access)", async () => {
+    mockJwtSession.mockResolvedValue({ userId: "d1", email: "d1@example.com" });
+    mockLoadProfile.mockResolvedValue({
+      ...activeTrainee,
+      userId: "d1",
+      email: "d1@example.com",
+      status: "deactivated",
+    });
+
+    const res = await GET(makeRequest("2026-05-24", "Bearer jwt"));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe("FORBIDDEN_STATUS");
+  });
+
+  it("returns 403 for a rejected trainee", async () => {
+    mockJwtSession.mockResolvedValue({ userId: "r1", email: "r1@example.com" });
+    mockLoadProfile.mockResolvedValue({
+      ...activeTrainee,
+      userId: "r1",
+      email: "r1@example.com",
+      status: "rejected",
+    });
+
+    const res = await GET(makeRequest("2026-05-24", "Bearer jwt"));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe("FORBIDDEN_STATUS");
   });
 });
