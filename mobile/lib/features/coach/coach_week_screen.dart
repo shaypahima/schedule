@@ -85,6 +85,7 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
       body: Column(
         children: [
           _CoachDashboard(now: widget.now, selectedDate: _selectedDate),
+          const _InboxHero(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
@@ -289,6 +290,139 @@ class _DashSpacer extends StatelessWidget {
   const _DashSpacer();
   @override
   Widget build(BuildContext context) => const Expanded(child: SizedBox.shrink());
+}
+
+/// Glanceable inbox (#67): pending approvals + inside-24h change requests
+/// surfaced at the top with one-tap entry. When both are zero it shows a calm
+/// "all clear" — no fake urgency, just peace of mind (behavioral rule 1).
+class _InboxHero extends ConsumerWidget {
+  const _InboxHero();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboard = ref.watch(coachDashboardProvider).valueOrNull;
+    if (dashboard == null) return const SizedBox.shrink(); // dashboard hero covers loading
+    final approvals = dashboard.pendingApprovals;
+    final requests = dashboard.pendingChangeRequests;
+
+    if (approvals + requests == 0) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+        child: Row(
+          key: const Key('inbox-all-clear'),
+          children: [
+            const Icon(Icons.check_circle_outline,
+                size: 18, color: BrandColors.success),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              'אין משימות ממתינות',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: BrandColors.inkMuted,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding:
+          const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+      child: Container(
+        key: const Key('inbox-hero'),
+        decoration: BoxDecoration(
+          color: BrandColors.orange.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: const Border(
+            right: BorderSide(color: BrandColors.orange, width: 3),
+          ),
+        ),
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionHeader('תיבת נכנסים'),
+            if (approvals > 0)
+              _InboxRow(
+                rowKey: const Key('inbox-approvals'),
+                icon: Icons.how_to_reg_outlined,
+                label: 'אישורי מתאמנים ממתינים',
+                count: approvals,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (_) => const PendingApprovalsScreen()),
+                ),
+              ),
+            if (requests > 0)
+              _InboxRow(
+                rowKey: const Key('inbox-requests'),
+                icon: Icons.swap_horiz,
+                label: 'בקשות שינוי',
+                count: requests,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ChangeRequestsScreen()),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InboxRow extends StatelessWidget {
+  final Key rowKey;
+  final IconData icon;
+  final String label;
+  final int count;
+  final VoidCallback onTap;
+  const _InboxRow({
+    required this.rowKey,
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      key: rowKey,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: BrandColors.orange),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(label, style: theme.textTheme.bodyMedium),
+            ),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              decoration: BoxDecoration(
+                color: BrandColors.orange,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+              ),
+              child: Text(
+                '$count',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            const Icon(Icons.chevron_left, size: 18, color: BrandColors.inkMuted),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _DashStat extends StatelessWidget {
