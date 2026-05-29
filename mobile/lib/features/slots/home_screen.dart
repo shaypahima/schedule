@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/motion.dart';
 import '../../design/spacing.dart';
+import '../../design/success_burst.dart';
 import '../../design/widgets.dart';
 import '../../theme.dart';
 import '../../utils/haptics.dart';
@@ -82,6 +83,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await ref.read(bookingRepositoryProvider).book(slot.id);
       if (!mounted) return;
       Haptics.bookingSuccess();
+      showSuccessBurst(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('האימון נקבע')),
       );
