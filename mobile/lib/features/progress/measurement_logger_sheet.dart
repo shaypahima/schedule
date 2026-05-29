@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/spacing.dart';
+import '../../utils/haptics.dart';
 import 'progress.dart';
 import 'progress_repository.dart';
 
@@ -57,6 +58,7 @@ class _MeasurementLoggerSheetState
     try {
       await ref.read(progressRepositoryProvider).logMeasurement(input);
       if (!mounted) return;
+      Haptics.logSaved();
       ref.invalidate(progressProvider);
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(

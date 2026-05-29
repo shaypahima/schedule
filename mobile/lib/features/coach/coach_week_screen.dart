@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../design/spacing.dart';
 import '../../design/widgets.dart';
 import '../../theme.dart';
+import '../../utils/haptics.dart';
 import '../../utils/week_dates.dart';
 import '../profile/profile_screen.dart';
 import '../slots/slot.dart';
@@ -551,6 +552,7 @@ class _CoachSlotTile extends ConsumerWidget {
     try {
       await ref.read(adminRepositoryProvider).markNoShow(booking.id);
       if (!context.mounted) return;
+      Haptics.noShowMark();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('סומן כלא הופיע')),
       );
