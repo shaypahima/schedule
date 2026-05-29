@@ -125,7 +125,7 @@ function buildContainer(): Container {
   const notifier = getNotificationService();
   const bookings = makeBookings(store, calendar, notifier);
   const auth = getAuthService();
-  const coachRead = makeCoachReadModel(store, auth, bookings);
   const progress = getProgressStore();
+  const coachRead = makeCoachReadModel(store, auth, bookings, progress);
   return { store, bookings, auth, coachRead, progress };
 }

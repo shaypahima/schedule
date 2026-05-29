@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/spacing.dart';
 import '../../design/widgets.dart';
+import '../../theme.dart';
 import 'admin_repository.dart';
 import 'coach_trainee_detail_screen.dart';
 import 'notes_sheet.dart';
@@ -142,6 +143,7 @@ class _TraineeRow extends ConsumerWidget {
                 if (trainee.email != null)
                   Text(trainee.email!,
                       style: Theme.of(context).textTheme.bodySmall),
+                _ProgressChips(trainee: trainee),
               ],
             ),
           ),
@@ -192,6 +194,103 @@ class _TraineeRow extends ConsumerWidget {
             ),
         ],
         ),
+      ),
+    );
+  }
+}
+
+/// At-a-glance progress signals for a trainee row (#62): last weight + 14d
+/// trend arrow (teal, primary), and attendance % (muted, secondary). Each chip
+/// hides when its datum is absent, so never-logged / never-attended trainees
+/// show a clean row rather than a misleading placeholder.
+class _ProgressChips extends StatelessWidget {
+  final TraineeRecord trainee;
+  const _ProgressChips({required this.trainee});
+
+  @override
+  Widget build(BuildContext context) {
+    final showWeight = trainee.lastWeightKg != null;
+    final showAttendance = trainee.attendanceRate != null;
+    if (!showWeight && !showAttendance) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showWeight) ...[
+            _Chip(
+              key: Key('weight-chip-${trainee.id}'),
+              icon: _trendIcon(trainee.weightTrend14d),
+              label: '${trainee.lastWeightKg!.toStringAsFixed(1)} ק״ג',
+              color: BrandColors.teal,
+              bg: BrandColors.teal.withValues(alpha: 0.10),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+          ],
+          if (showAttendance)
+            _Chip(
+              key: Key('attendance-chip-${trainee.id}'),
+              icon: Icons.event_available,
+              label: '${(trainee.attendanceRate! * 100).round()}%',
+              color: BrandColors.inkMuted,
+              bg: Colors.transparent,
+            ),
+        ],
+      ),
+    );
+  }
+
+  static IconData? _trendIcon(String? trend) {
+    switch (trend) {
+      case 'up':
+        return Icons.north_east;
+      case 'down':
+        return Icons.south_east;
+      case 'flat':
+        return Icons.east;
+      default:
+        return null;
+    }
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final IconData? icon;
+  final String label;
+  final Color color;
+  final Color bg;
+  const _Chip({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.bg,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 2),
+          ],
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
       ),
     );
   }

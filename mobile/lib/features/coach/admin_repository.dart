@@ -44,6 +44,11 @@ class TraineeRecord {
   final bool isRecurring;
   final int? preferredDay;
   final String? preferredTime;
+  // Progress aggregates (#62) — null when the trainee hasn't logged / attended.
+  final double? lastWeightKg;
+  final String? weightTrend14d; // 'up' | 'flat' | 'down'
+  final DateTime? lastMeasurementAt;
+  final double? attendanceRate; // 0..1
 
   const TraineeRecord({
     required this.id,
@@ -53,6 +58,10 @@ class TraineeRecord {
     this.email,
     this.preferredDay,
     this.preferredTime,
+    this.lastWeightKg,
+    this.weightTrend14d,
+    this.lastMeasurementAt,
+    this.attendanceRate,
   });
 
   factory TraineeRecord.fromJson(Map<String, dynamic> json) => TraineeRecord(
@@ -64,6 +73,12 @@ class TraineeRecord {
         isRecurring: json['isRecurring'] as bool? ?? false,
         preferredDay: json['preferredDay'] as int?,
         preferredTime: json['preferredTime'] as String?,
+        lastWeightKg: (json['lastWeightKg'] as num?)?.toDouble(),
+        weightTrend14d: json['weightTrend14d'] as String?,
+        lastMeasurementAt: json['lastMeasurementAt'] == null
+            ? null
+            : DateTime.parse(json['lastMeasurementAt'] as String),
+        attendanceRate: (json['attendanceRate'] as num?)?.toDouble(),
       );
 }
 

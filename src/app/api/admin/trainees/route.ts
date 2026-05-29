@@ -29,6 +29,10 @@ export async function GET(request: NextRequest) {
       preferredTime: s.preferredTime,
       isActive: s.status !== "deactivated" && s.status !== "rejected",
       status: s.status,
+      lastWeightKg: s.lastWeightKg,
+      weightTrend14d: s.weightTrend14d,
+      lastMeasurementAt: s.lastMeasurementAt,
+      attendanceRate: s.attendanceRate,
     })),
   });
 }

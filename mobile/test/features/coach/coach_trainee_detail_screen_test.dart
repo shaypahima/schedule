@@ -3,13 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:velofit/features/coach/coach_progress_repository.dart';
 import 'package:velofit/features/coach/coach_trainee_detail_screen.dart';
 import 'package:velofit/features/coach/trainee_detail_repository.dart';
+import 'package:velofit/features/progress/progress.dart';
 
 class _FakeRepo extends Mock implements TraineeDetailRepository {}
 
-Widget _harness(TraineeDetailRepository repo) => ProviderScope(
-      overrides: [traineeDetailRepositoryProvider.overrideWithValue(repo)],
+class _FakeCoachProgressRepo extends Mock implements CoachProgressRepository {}
+
+Widget _harness(TraineeDetailRepository repo) {
+  final progress = _FakeCoachProgressRepo();
+  when(() => progress.fetch(any())).thenAnswer(
+    (_) async => const ProgressView(measurements: []),
+  );
+  return ProviderScope(
+      overrides: [
+        traineeDetailRepositoryProvider.overrideWithValue(repo),
+        coachProgressRepositoryProvider.overrideWithValue(progress),
+      ],
       child: MaterialApp(
         builder: (context, child) => Directionality(
           textDirection: TextDirection.rtl,
@@ -18,6 +30,7 @@ Widget _harness(TraineeDetailRepository repo) => ProviderScope(
         home: const CoachTraineeDetailScreen(traineeId: 't1'),
       ),
     );
+}
 
 TraineeDetailView _viewWith({TraineeBio? bio, List<TraineeSession>? sessions, bool active = true}) =>
     TraineeDetailView(
