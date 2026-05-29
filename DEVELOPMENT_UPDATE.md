@@ -212,11 +212,20 @@ ADR-0003 — Dev-mode uses real Supabase auth (no parallel auth path)
 ADR-0004 — Self-signups require coach approval (intro form → pending → active)
 ADR-0005 — 24h cancel window is the only gate; 3-edits/week removed
 ADR-0006 — Coach notes are v1 progress primitive (#52 graduates this to v2)
+ADR-0007 — Reschedule approval books new slot before cancelling old (race fix #55)
+ADR-0008 — Motion layer = flutter_animate + global infinite-motion gate (reduce-motion + test-safe); confetti/fl_chart stay rejected
 
 10. Next Immediate Actions
 Order (vertical slices, no parallelism):
 
-DONE this session: #62 coach progress visibility (PR #64), #66 searchable/sorted trainee list (PR #70), #67 coach inbox hero (PR #71), #69 haptics vocabulary (PR #72), #68 first-session CTA on trainee landing (PR #73).
+DONE earlier: #62 coach progress visibility (PR #64), #66 searchable/sorted trainee list (PR #70), #67 coach inbox hero (PR #71), #69 haptics vocabulary (PR #72), #68 first-session CTA (PR #73).
+
+DONE — Motion/UX overhaul (audit found app was static despite a solid palette/type system; colors+Heebo kept, motion added). 5 PRs, all gated for reduce-motion + tests (159 flutter tests, analyze clean):
+- #74 motion foundation — flutter_animate + AppMotion tokens + PressableScale + gated shimmer (ADR-0008)
+- #75 hero numbers — count-up HeroNumber + tabular figures app-wide (weekly count, progress weight)
+- #76 staggered entry reveals (Reveal) on coach trainee list, coach week slots, trainee home slots
+- #77 success burst — teal checkmark-draw + ripple on book/log (rule-3 reward, NOT confetti)
+- #78 micro-interactions — press-scale on chips/tiles, inbox badge pop, next-session pulse
 #61 progress photos — image_picker mobile plumbing + upload to progress-photos bucket + photo timeline. TOP remaining item, do WITH user present (native iOS Info.plist + Android manifest config). Doc rates photos the biggest retention driver. #65 roster photo cards blocked on this.
 #68 follow-up (optional, product call): broader new-user card reordering on HomeScreen (float slots above coach cards). The first-session CTA shipped; reorder deferred.
 #25 Firebase project setup (HITL) — unblocks #36.
