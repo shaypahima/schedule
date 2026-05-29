@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../theme.dart';
+import 'motion.dart';
 import 'spacing.dart';
 
 /// Small uppercase-ish caption used above a data block.
@@ -278,8 +280,10 @@ class EmptyState extends StatelessWidget {
 
 /// Loading skeleton — replaces bare CircularProgressIndicator.
 /// Renders N rounded rectangles sized to mirror the content that will resolve
-/// into place. Reduces layout shift on load. Static (no infinite animation) so
-/// widget tests don't hang on `pumpAndSettle`.
+/// into place, reducing layout shift on load. A soft shimmer sweeps across
+/// them to signal "loading, not frozen". The shimmer is gated by
+/// [AppMotion.infiniteMotionEnabled] so it honors reduce-motion and collapses
+/// to a static frame in widget tests (no `pumpAndSettle` hang).
 class SkeletonList extends StatelessWidget {
   final int count;
   final double itemHeight;
@@ -293,18 +297,31 @@ class SkeletonList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shimmer = AppMotion.infiniteMotionEnabled(context);
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: count,
       separatorBuilder: (_, _) => SizedBox(height: gap),
-      itemBuilder: (_, _) => Container(
-        height: itemHeight,
-        decoration: BoxDecoration(
-          color: BrandColors.line.withValues(alpha: 0.75),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        ),
-      ),
+      itemBuilder: (_, _) {
+        Widget box = Container(
+          key: const Key('skeleton-box'),
+          height: itemHeight,
+          decoration: BoxDecoration(
+            color: BrandColors.line.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          ),
+        );
+        if (shimmer) {
+          box = box
+              .animate(onPlay: (c) => c.repeat())
+              .shimmer(
+                duration: AppMotion.shimmerCycle,
+                color: BrandColors.surface.withValues(alpha: 0.65),
+              );
+        }
+        return box;
+      },
     );
   }
 }

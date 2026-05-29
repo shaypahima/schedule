@@ -27,6 +27,9 @@ dependencies:
   # Fonts
   google_fonts: ^6.2.1
 
+  # Motion layer (ADR-0008) — declarative, RTL-safe, tiny.
+  flutter_animate: ^4.5.0
+
   # i18n
   intl: ^0.20.2
 
