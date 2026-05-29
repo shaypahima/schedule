@@ -33,16 +33,88 @@ Color statusColor(BuildContext c, String status) {
   }
 }
 
-class CoachTraineesScreen extends ConsumerWidget {
+/// Sort modes for the coach trainees list (#66). `byName` keeps the
+/// as-fetched order (default); the others reuse the #62 progress aggregates.
+enum TraineeSort { byName, byAttendance, byActivity }
+
+/// Nulls always sort last regardless of direction.
+int _cmpNullableDesc<T extends Comparable<T>>(T? a, T? b) {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return b.compareTo(a);
+}
+
+class CoachTraineesScreen extends ConsumerStatefulWidget {
   const CoachTraineesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CoachTraineesScreen> createState() =>
+      _CoachTraineesScreenState();
+}
+
+class _CoachTraineesScreenState extends ConsumerState<CoachTraineesScreen> {
+  final _search = TextEditingController();
+  TraineeSort _sort = TraineeSort.byName;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<TraineeRecord> _filterAndSort(List<TraineeRecord> list) {
+    final q = _search.text.trim().toLowerCase();
+    var out = q.isEmpty
+        ? List<TraineeRecord>.from(list)
+        : list
+            .where((t) =>
+                t.name.toLowerCase().contains(q) ||
+                (t.email?.toLowerCase().contains(q) ?? false))
+            .toList();
+    switch (_sort) {
+      case TraineeSort.byName:
+        break; // preserve as-fetched order
+      case TraineeSort.byAttendance:
+        out.sort((a, b) => _cmpNullableDesc(a.attendanceRate, b.attendanceRate));
+      case TraineeSort.byActivity:
+        out.sort(
+            (a, b) => _cmpNullableDesc(a.lastMeasurementAt, b.lastMeasurementAt));
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(traineeRecordsProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('מתאמנים'),
         actions: [
+          PopupMenuButton<TraineeSort>(
+            key: const Key('sort-button'),
+            tooltip: 'מיון',
+            icon: const Icon(Icons.sort),
+            initialValue: _sort,
+            onSelected: (v) => setState(() => _sort = v),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                key: Key('sort-name'),
+                value: TraineeSort.byName,
+                child: Text('ברירת מחדל'),
+              ),
+              PopupMenuItem(
+                key: Key('sort-attendance'),
+                value: TraineeSort.byAttendance,
+                child: Text('נוכחות'),
+              ),
+              PopupMenuItem(
+                key: Key('sort-activity'),
+                value: TraineeSort.byActivity,
+                child: Text('פעילות אחרונה'),
+              ),
+            ],
+          ),
           IconButton(
             key: const Key('invite-trainee-button'),
             tooltip: 'הזמן מתאמן',
@@ -78,10 +150,38 @@ class CoachTraineesScreen extends ConsumerWidget {
               ),
             );
           }
-          return ListView.separated(
-            itemCount: trainees.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (_, i) => _TraineeRow(trainee: trainees[i]),
+          final filtered = _filterAndSort(trainees);
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs),
+                child: TextField(
+                  key: const Key('trainee-search'),
+                  controller: _search,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'חיפוש לפי שם או אימייל',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: filtered.isEmpty
+                    ? const EmptyState(
+                        key: Key('trainees-no-match'),
+                        icon: Icons.search_off,
+                        headline: 'לא נמצאו מתאמנים',
+                        helper: 'נסה חיפוש אחר',
+                      )
+                    : ListView.separated(
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (_, i) => _TraineeRow(trainee: filtered[i]),
+                      ),
+              ),
+            ],
           );
         },
       ),

@@ -135,6 +135,112 @@ void main() {
       expect(find.byKey(const Key('attendance-chip-t1')), findsNothing);
     });
 
+    TraineeRecord recOf(String id, String name,
+            {String? email, double? attendance, DateTime? lastMeasurement}) =>
+        TraineeRecord(
+          id: id,
+          name: name,
+          email: email,
+          status: 'active',
+          isRecurring: false,
+          attendanceRate: attendance,
+          lastMeasurementAt: lastMeasurement,
+        );
+
+    double rowDy(WidgetTester tester, String id) =>
+        tester.getCenter(find.byKey(Key('trainee-row-$id'))).dy;
+
+    testWidgets('search filters by name', (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees()).thenAnswer((_) async => [
+            recOf('t1', 'יעל כהן'),
+            recOf('t2', 'איתי לוי'),
+          ]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('trainee-search')), 'איתי');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('trainee-row-t2')), findsOneWidget);
+      expect(find.byKey(const Key('trainee-row-t1')), findsNothing);
+    });
+
+    testWidgets('search filters by email', (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees()).thenAnswer((_) async => [
+            recOf('t1', 'יעל', email: 'yael@example.com'),
+            recOf('t2', 'איתי', email: 'itai@example.com'),
+          ]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('trainee-search')), 'yael@');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('trainee-row-t1')), findsOneWidget);
+      expect(find.byKey(const Key('trainee-row-t2')), findsNothing);
+    });
+
+    testWidgets('no match shows empty state', (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees())
+          .thenAnswer((_) async => [recOf('t1', 'יעל')]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('trainee-search')), 'zzzzz');
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('trainees-no-match')), findsOneWidget);
+      expect(find.byKey(const Key('trainee-row-t1')), findsNothing);
+    });
+
+    testWidgets('sort by attendance orders highest first, null last',
+        (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees()).thenAnswer((_) async => [
+            recOf('t1', 'A', attendance: 0.5),
+            recOf('t2', 'B', attendance: 0.9),
+            recOf('t3', 'C'), // null attendance
+          ]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('sort-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('sort-attendance')));
+      await tester.pumpAndSettle();
+
+      expect(rowDy(tester, 't2'), lessThan(rowDy(tester, 't1')));
+      expect(rowDy(tester, 't1'), lessThan(rowDy(tester, 't3')));
+    });
+
+    testWidgets('sort by activity orders most-recent first, null last',
+        (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees()).thenAnswer((_) async => [
+            recOf('t1', 'A'), // null activity
+            recOf('t2', 'B', lastMeasurement: DateTime(2026, 5, 1)),
+            recOf('t3', 'C', lastMeasurement: DateTime(2026, 5, 20)),
+          ]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('sort-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('sort-activity')));
+      await tester.pumpAndSettle();
+
+      expect(rowDy(tester, 't3'), lessThan(rowDy(tester, 't2')));
+      expect(rowDy(tester, 't2'), lessThan(rowDy(tester, 't1')));
+    });
+
     testWidgets('invite form submits email + name', (tester) async {
       final admin = _FakeAdminRepo();
       when(() => admin.listTrainees()).thenAnswer((_) async => []);
