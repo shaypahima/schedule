@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../theme.dart';
 import 'auth_repository.dart';
 import 'role_router.dart';
 import '../dev/dev_login_panel.dart';
@@ -51,11 +52,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('כניסה')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Brand header.
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: BrandColors.peach.withValues(alpha: 0.55),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.fitness_center,
+                        size: 38, color: BrandColors.teal),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Velofit',
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                          color: BrandColors.teal,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'האימון הבא שלך מתחיל כאן',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: BrandColors.inkSoft,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 36),
             TextField(
               key: const Key('email-field'),
               controller: _emailController,
