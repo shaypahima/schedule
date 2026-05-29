@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/env.dart';
+import '../features/auth/dev_session.dart';
 
 /// Structured backend error matching the codes returned by the
 /// /lib/auth/require helpers in the Next.js backend (RFC #43).
@@ -24,10 +25,15 @@ class ApiException implements Exception {
 class AuthedHttpClient {
   final Dio _dio;
   final SupabaseClient _supabase;
+  final String? Function()? _devToken;
 
-  AuthedHttpClient(this._dio, this._supabase);
+  AuthedHttpClient(this._dio, this._supabase, {this._devToken});
 
   String _requireJwt() {
+    // Native-Postgres dev path: a backend-minted token takes precedence over
+    // the (unused) Supabase session.
+    final dev = _devToken?.call();
+    if (dev != null) return dev;
     final jwt = _supabase.auth.currentSession?.accessToken;
     if (jwt == null) {
       throw const ApiException('UNAUTHENTICATED', 401);
@@ -114,5 +120,9 @@ final dioProvider = Provider<Dio>((ref) {
 });
 
 final authedHttpProvider = Provider<AuthedHttpClient>((ref) {
-  return AuthedHttpClient(ref.watch(dioProvider), Supabase.instance.client);
+  return AuthedHttpClient(
+    ref.watch(dioProvider),
+    Supabase.instance.client,
+    devToken: () => ref.read(devSessionProvider)?.token,
+  );
 });

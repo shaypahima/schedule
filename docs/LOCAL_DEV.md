@@ -52,6 +52,26 @@ npm run dev   # http://localhost:3000 — loads .env.development.local (DB_DRIVE
 on subsequent requests. Seeded logins: `dev.coach@example.com` (coach) and the
 8 `*.example.com` trainees.
 
+## Mobile (Flutter) against local pg
+
+`mobile/dev-env.json` sets `PG_DEV: "true"` and `API_BASE_URL` to the local
+backend (`http://10.0.2.2:3000` for the Android emulator; use
+`http://localhost:3000` for iOS sim). With `PG_DEV` on, the app skips Supabase
+GoTrue entirely: the DEV-mode quick-login panel calls `/api/dev/login`, stores
+the returned HS256 token in `devSessionProvider`, and `AuthedHttpClient` sends
+it as the Bearer on every request. `auth_gate` keys off the dev session instead
+of the Supabase stream.
+
+```bash
+cd mobile && flutter run --dart-define-from-file=dev-env.json
+```
+
+Make sure the backend (`npm run dev`) and Postgres are running first. To go
+back to cloud auth, set `PG_DEV` to `"false"` (or remove it) in `dev-env.json`.
+
+Known gap: sign-out in `PG_DEV` mode is not yet wired to clear the dev session
+(hot-restart to switch users); full wiring is a follow-up.
+
 ## Architecture
 
 `DB_DRIVER=pg` flips three things, all behind the existing seams:

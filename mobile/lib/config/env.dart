@@ -8,6 +8,10 @@ class Env {
     defaultValue: 'http://localhost:3000',
   );
   static const devMode = bool.fromEnvironment('DEV_MODE');
+
+  /// When true, auth goes through the backend's /api/dev/login (native-Postgres
+  /// dev path, no Supabase GoTrue). See docs/LOCAL_DEV.md.
+  static const pgDev = bool.fromEnvironment('PG_DEV');
   static const devPassword = String.fromEnvironment('DEV_PASSWORD');
   static const devTraineeEmails = String.fromEnvironment('DEV_TRAINEE_EMAILS');
   static const devTraineeNames = String.fromEnvironment('DEV_TRAINEE_NAMES');
