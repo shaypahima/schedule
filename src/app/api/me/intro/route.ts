@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requirePendingTrainee } from "@/lib/auth/require";
+import { isPgDriver, pgQuery } from "@/lib/pg/client";
 
 const E164 = /^\+\d{8,15}$/;
 
@@ -36,6 +37,17 @@ export async function POST(request: NextRequest) {
       { error: "INTRO_TOO_SHORT", message: "introText must be at least 10 chars" },
       { status: 400 }
     );
+  }
+
+  if (isPgDriver()) {
+    await pgQuery(
+      `insert into trainee_profile (id, phone, intro_text, updated_at)
+         values ($1, $2, $3, now())
+         on conflict (id) do update set
+           phone = excluded.phone, intro_text = excluded.intro_text, updated_at = now()`,
+      [r.trainee.userId, body.phone, introText],
+    );
+    return NextResponse.json({ ok: true });
   }
 
   const { error } = await admin()

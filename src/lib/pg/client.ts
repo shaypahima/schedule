@@ -1,4 +1,11 @@
-import { Pool } from "pg";
+import { Pool, types } from "pg";
+
+// node-postgres parses DATE (oid 1082) into a JS Date at local midnight, which
+// then stringifies to "Thu Jun 01 2026 …". Supabase returns plain "2026-06-01"
+// strings, and the domain mappers expect that. Keep DATE as its raw string so
+// pg and Supabase behave identically. (TIME is already returned as a string;
+// timestamps stay Date objects, which the mappers wrap in `new Date(...)`.)
+types.setTypeParser(1082, (v) => v);
 
 /**
  * Native-Postgres connection pool for local development (no Docker, no

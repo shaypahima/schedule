@@ -13,6 +13,10 @@ import { SupabaseBookingStore } from "@/lib/supabase/booking-store";
 import { SupabaseProgressStore } from "@/lib/supabase/progress-store";
 import { SupabaseAuthService, MockAuthService } from "@/lib/supabase/auth-service";
 import { getSupabaseClient, getSupabaseAdminClient } from "@/lib/supabase/client";
+import { isPgDriver } from "@/lib/pg/client";
+import { PgBookingStore } from "@/lib/pg/booking-store";
+import { PgProgressStore } from "@/lib/pg/progress-store";
+import { PgAuthService } from "@/lib/pg/auth-service";
 
 function isFullMock() {
   return process.env.MOCK_SERVICES === "true";
@@ -56,7 +60,9 @@ export function getAuthService(): AuthService {
   if (!authService) {
     authService = isFullMock()
       ? new MockAuthService()
-      : new SupabaseAuthService(getSupabaseClient(), getSupabaseAdminClient());
+      : isPgDriver()
+        ? new PgAuthService()
+        : new SupabaseAuthService(getSupabaseClient(), getSupabaseAdminClient());
   }
   return authService;
 }
@@ -65,7 +71,9 @@ export function getBookingStore(): BookingStore {
   if (!bookingStore) {
     bookingStore = isFullMock()
       ? new MockBookingStore()
-      : new SupabaseBookingStore(getSupabaseAdminClient());
+      : isPgDriver()
+        ? new PgBookingStore()
+        : new SupabaseBookingStore(getSupabaseAdminClient());
   }
   return bookingStore;
 }
@@ -81,7 +89,9 @@ export function getProgressStore(): ProgressStore {
   if (!progressStore) {
     progressStore = isFullMock()
       ? new MockProgressStore()
-      : new SupabaseProgressStore(getSupabaseAdminClient());
+      : isPgDriver()
+        ? new PgProgressStore()
+        : new SupabaseProgressStore(getSupabaseAdminClient());
   }
   return progressStore;
 }
