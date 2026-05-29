@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/motion.dart';
@@ -320,7 +321,7 @@ class _NextSessionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final pill = Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
@@ -344,6 +345,17 @@ class _NextSessionPill extends StatelessWidget {
         ],
       ),
     );
+    if (!AppMotion.infiniteMotionEnabled(context)) return pill;
+    // Gentle breathing pulse draws the eye to the next session without
+    // shouting. Gated — static under reduce-motion / tests.
+    return pill
+        .animate(onPlay: (c) => c.repeat(reverse: true))
+        .scaleXY(
+          begin: 1.0,
+          end: 1.03,
+          duration: const Duration(milliseconds: 1400),
+          curve: Curves.easeInOut,
+        );
   }
 }
 
@@ -393,7 +405,8 @@ class _QuickActionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: InkWell(
+      child: PressableScale(
+        child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: Container(
@@ -420,6 +433,7 @@ class _QuickActionChip extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -971,7 +985,7 @@ class _SlotTile extends StatelessWidget {
             ? scheme.outline
             : scheme.secondary;
 
-    return Card(
+    final card = Card(
       key: Key('slot-${slot.startTime}'),
       child: InkWell(
         onTap: available ? onTap : null,
@@ -1013,5 +1027,7 @@ class _SlotTile extends StatelessWidget {
         ),
       ),
     );
+    // Press feedback only where the tile is actionable.
+    return available ? PressableScale(child: card) : card;
   }
 }

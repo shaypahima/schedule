@@ -43,6 +43,22 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('לחץ'), findsOneWidget);
     });
+
+    testWidgets('as a decorator (no onTap) it does not steal the inner tap',
+        (tester) async {
+      var inner = 0;
+      await tester.pumpWidget(
+        _host(PressableScale(
+          child: GestureDetector(
+            onTap: () => inner++,
+            child: const Text('לחץ'),
+          ),
+        )),
+      );
+      await tester.tap(find.text('לחץ'));
+      await tester.pumpAndSettle();
+      expect(inner, 1); // Listener-based press doesn't enter the gesture arena
+    });
   });
 
   group('SkeletonList', () {

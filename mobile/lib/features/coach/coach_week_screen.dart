@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/motion.dart';
@@ -406,27 +407,50 @@ class _InboxRow extends StatelessWidget {
             Expanded(
               child: Text(label, style: theme.textTheme.bodyMedium),
             ),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-              decoration: BoxDecoration(
-                color: BrandColors.orange,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-              ),
-              child: Text(
-                '$count',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
+            _CountBadge(count: count),
             const SizedBox(width: AppSpacing.xs),
             const Icon(Icons.chevron_left, size: 18, color: BrandColors.inkMuted),
           ],
         ),
       ),
     );
+  }
+}
+
+/// Orange count pill that pops (scales in) whenever [count] changes — a small
+/// "you have new work" cue. Finite + gated, so it's static under
+/// reduce-motion / tests.
+class _CountBadge extends StatelessWidget {
+  final int count;
+  const _CountBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      decoration: BoxDecoration(
+        color: BrandColors.orange,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+      ),
+      child: Text(
+        '$count',
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+    if (!AppMotion.enabled(context)) return badge;
+    // Re-keying on count replays the pop when the number changes.
+    return badge
+        .animate(key: ValueKey(count))
+        .scale(
+          begin: const Offset(0.6, 0.6),
+          end: const Offset(1, 1),
+          duration: AppMotion.standard,
+          curve: AppMotion.springy,
+        );
   }
 }
 

@@ -95,12 +95,17 @@ class Reveal extends StatelessWidget {
   }
 }
 
-/// Wraps [child] in a brief scale-down on press, with an optional [onTap].
+/// Wraps [child] in a brief scale-down on press.
 ///
 /// The everyday tactile primitive for buttons, cards, and tiles: primary
 /// affordances shrink to [pressedScale] on touch-down and spring back on
 /// release. Purely finite (a single `AnimatedScale`), so it is test-safe and
 /// never gated.
+///
+/// Press tracking uses a [Listener], which does NOT compete in the gesture
+/// arena — so it can decorate a widget that already has its own `InkWell` /
+/// `GestureDetector` without stealing taps. Pass [onTap] only when this widget
+/// should own the tap itself.
 class PressableScale extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -128,12 +133,10 @@ class _PressableScaleState extends State<PressableScale> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: widget.behavior,
-      onTap: widget.onTap,
-      onTapDown: (_) => _set(true),
-      onTapUp: (_) => _set(false),
-      onTapCancel: () => _set(false),
+    Widget result = Listener(
+      onPointerDown: (_) => _set(true),
+      onPointerUp: (_) => _set(false),
+      onPointerCancel: (_) => _set(false),
       child: AnimatedScale(
         scale: _pressed ? widget.pressedScale : 1.0,
         duration: AppMotion.micro,
@@ -141,5 +144,13 @@ class _PressableScaleState extends State<PressableScale> {
         child: widget.child,
       ),
     );
+    if (widget.onTap != null) {
+      result = GestureDetector(
+        behavior: widget.behavior,
+        onTap: widget.onTap,
+        child: result,
+      );
+    }
+    return result;
   }
 }
