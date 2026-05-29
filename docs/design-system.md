@@ -48,6 +48,26 @@ Heebo (Hebrew sans). Sizes through `Theme.of(context).textTheme.*` — never har
 | Body | `bodyMedium` (14) |
 | Meta / caption | `labelSmall` (12) |
 
+### Motion (`mobile/lib/design/motion.dart` → `AppMotion`, ADR-0008)
+
+`flutter_animate` for the declarative everyday layer; Flutter implicit `AnimatedX` for state. Tokens, never raw values.
+
+| Token | Value | Use |
+|---|---|---|
+| `micro` | 120ms | press / tap acknowledgement |
+| `fast` | 200ms | small state changes (chip, icon swap) |
+| `standard` | 250ms | entries, `AnimatedSwitcher` crossfades |
+| `emphasized` | 400ms | hero reveals, number count-ups |
+| `stagger` | 55ms | per-item delay in a list reveal |
+| `entry` / `exit` | `easeOutCubic` / `easeInCubic` | appearing / leaving |
+| `springy` | `easeOutBack` | press release, pops |
+
+**Rules:**
+- **Infinite/repeating** animations (shimmer, pulse, wiggle) MUST gate behind `AppMotion.infiniteMotionEnabled(context)` — honors OS reduce-motion and prevents `pumpAndSettle` hangs (tests set `disableInfiniteForTests`). Finite animations need no gate.
+- Press feedback on primary affordances via `PressableScale` (scale 0.97, `springy`).
+- Reward stays rule-3 compliant: checkmark-draw + haptic on success. **No confetti.** Charts stay custom-painter — **no `fl_chart`.**
+- Durations short (≤400ms); curves simple; test on mid-range Android.
+
 ## 2. Pattern library (shipped, in `mobile/lib/design/widgets.dart`)
 
 | Widget | Use | Notes |
