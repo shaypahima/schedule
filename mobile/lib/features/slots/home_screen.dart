@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../design/widgets.dart';
 import '../../theme.dart';
@@ -178,13 +179,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       return Column(
                         key: const Key('slots-list'),
                         children: [
-                          for (final slot in slots)
-                            _SlotTile(
-                              slot: slot,
-                              booked: bookedSlotIds.contains(slot.id),
-                              onTap: bookedSlotIds.contains(slot.id)
-                                  ? null
-                                  : () => _openBookingDialog(slot),
+                          for (var i = 0; i < slots.length; i++)
+                            Reveal(
+                              _SlotTile(
+                                slot: slots[i],
+                                booked: bookedSlotIds.contains(slots[i].id),
+                                onTap: bookedSlotIds.contains(slots[i].id)
+                                    ? null
+                                    : () => _openBookingDialog(slots[i]),
+                              ),
+                              index: i,
                             ),
                           const SizedBox(height: 24),
                         ],

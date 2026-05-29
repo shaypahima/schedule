@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../design/widgets.dart';
 import '../../theme.dart';
@@ -200,7 +201,10 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
                   itemBuilder: (_, i) {
                     final slot = slots[i];
                     final slotBookings = bySlot[slot.id] ?? const [];
-                    return _CoachSlotTile(slot: slot, bookings: slotBookings);
+                    return Reveal(
+                      _CoachSlotTile(slot: slot, bookings: slotBookings),
+                      index: i,
+                    );
                   },
                 );
               },

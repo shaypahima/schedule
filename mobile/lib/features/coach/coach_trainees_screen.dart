@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/motion.dart';
 import '../../design/spacing.dart';
 import '../../design/widgets.dart';
 import '../../theme.dart';
@@ -178,7 +179,8 @@ class _CoachTraineesScreenState extends ConsumerState<CoachTraineesScreen> {
                     : ListView.separated(
                         itemCount: filtered.length,
                         separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (_, i) => _TraineeRow(trainee: filtered[i]),
+                        itemBuilder: (_, i) =>
+                            Reveal(_TraineeRow(trainee: filtered[i]), index: i),
                       ),
               ),
             ],
