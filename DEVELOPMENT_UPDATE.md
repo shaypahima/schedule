@@ -50,7 +50,21 @@ Cancel/Reschedule → Outside 24h: trainee acts freely. Inside 24h: trainee subm
 All flows server-enforced via Bookings service. Spec-locked gate order (tests in bookings.test.ts): LOCKOUT (7h) → WEEKLY_LIMIT (2/wk) → SLOT_FULL (capacity) → ALREADY_BOOKED (duplicate). Bypass flag (coach manual add) skips first two.
 
 4. Build Status by Theme
-Latest merges (2026-05-27 AFK session):
+Latest merges (2026-05-29 AFK session):
+
+PR #64 — #62 coach progress visibility (CLOSES #62):
+  Backend: CoachReadModel.TraineeSummary gains lastWeightKg / weightTrend14d
+  ('up'|'flat'|'down') / lastMeasurementAt / attendanceRate. Trend = newest
+  weight vs >=14d-older point, 0.5kg flat band. attendanceRate nullable on the
+  summary (null = no past sessions) so the list chip hides instead of showing a
+  misleading 100%; detail view keeps its 1.0 default. progress threaded into the
+  single composed makeCoachReadModel (works mock+prod).
+  Mobile: coach trainee-detail progress card (reuses WeightChart + log rows via
+  existing /api/admin/trainees/:id/progress, no backend change) + trainees-list
+  rows gain teal weight+trend chip + muted attendance chip (hide when null).
+  No new chart dep (custom-painter WeightChart reused). 318 vitest, 124 flutter_test.
+  Adopted the fitness best-practices doc: confirmed habit-loop/streak/3-notif
+  rules; rejected confetti (rule 3) + fl_chart; filed 5 follow-ups (#65-#69).
 
 PR #60 — #52 progress tracking mobile:
   ProgressScreen w/ last-weight snapshot card + weekly-delta + custom-painted line chart + log list.
@@ -89,10 +103,11 @@ PR #51 (earlier) — phases 11-18 already on master:
 
 Open epics:
 
-#52 — Progress tracking. Backend + mobile core shipped (PRs #59 + #60). Open deferrals:
-  #61 — photo upload (image_picker native plumbing + photo timeline + side-by-side overlay)
-  #62 — coach progress tab + CoachReadModel aggregates (lastWeightKg, weightTrend14d)
+#52 — Progress tracking. Backend + mobile core + coach visibility shipped (PRs #59 + #60 + #64). Open deferrals:
+  #61 — photo upload (image_picker native plumbing + photo timeline + side-by-side overlay) — top with-user item
   post-session deep link blocked on #36
+  Best-practices follow-ups filed this session: #65 roster photo cards (blocked on #61),
+  #66 searchable/sorted trainee list, #67 coach inbox hero, #68 onboarding-shows-slots, #69 haptics map
 
 Open HITL:
 
@@ -201,8 +216,9 @@ ADR-0006 — Coach notes are v1 progress primitive (#52 graduates this to v2)
 10. Next Immediate Actions
 Order (vertical slices, no parallelism):
 
-#61 progress photos — image_picker mobile plumbing + upload to progress-photos bucket + photo timeline.
-#62 coach progress tab + CoachReadModel aggregates — reuses WeightChart + admin route from PR #60/#59.
+#61 progress photos — image_picker mobile plumbing + upload to progress-photos bucket + photo timeline. TOP item, do WITH user present (native iOS Info.plist + Android manifest config). Doc rates photos the biggest retention driver.
+#62 coach progress visibility — DONE (PR #64).
+Quick AFK wins (no native config, all afk-ready): #66 searchable/sorted trainee list (reuses #62 aggregates), #67 coach inbox hero, #68 onboarding-shows-slots, #69 haptics map. #65 roster photo cards blocked on #61.
 #25 Firebase project setup (HITL) — unblocks #36.
 #36 FCM scaffold + push fan-out — blocked on #25 (also blocks #52 post-session deep link).
 #41 Calendar OAuth callback (build from scratch) — email-match + state HMAC + redirect to mobile deep link.
