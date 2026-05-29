@@ -30,6 +30,21 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late int _selectedIndex;
   late List<DateTime> _weekDates;
+  final _slotsSectionKey = GlobalKey();
+
+  /// Bring the "available slots" section into view — the action behind the
+  /// first-session CTA (#68), so a newly-approved trainee gets to booking in
+  /// one tap instead of scrolling past the welcome cards.
+  void _scrollToSlots() {
+    final ctx = _slotsSectionKey.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+      alignment: 0.05,
+    );
+  }
 
   @override
   void initState() {
@@ -116,7 +131,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const _CoachNoteCard(),
                 const _UpcomingSessionsCard(),
                 const _MyBookingsSection(),
+                if (myBookingsView != null && bookedSlotIds.isEmpty)
+                  _FirstSessionCta(onFindSlot: _scrollToSlots),
                 Padding(
+                  key: _slotsSectionKey,
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
                   child: Text('מועדים פנויים',
                       style: Theme.of(context).textTheme.titleMedium),
@@ -508,6 +526,60 @@ class _UpcomingSessionsCard extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// First-session nudge (#68): shown on the active-trainee landing when there
+/// are no confirmed bookings yet — turns "you're approved" into immediate value
+/// with a one-tap jump to bookable slots. Positive framing, no fake urgency.
+class _FirstSessionCta extends StatelessWidget {
+  final VoidCallback onFindSlot;
+  const _FirstSessionCta({required this.onFindSlot});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Card(
+        key: const Key('first-session-cta'),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.fitness_center,
+                      size: 20, color: theme.colorScheme.primary),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text('זמן לאימון הראשון',
+                        style: theme.textTheme.titleSmall),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'בחר מועד שנוח לך וקבע את האימון הראשון — מכאן הכול מתחיל.',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: BrandColors.inkSoft),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: FilledButton.tonalIcon(
+                  key: const Key('find-slot-cta'),
+                  onPressed: onFindSlot,
+                  icon: const Icon(Icons.event_available, size: 18),
+                  label: const Text('מצא מועד פנוי'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
