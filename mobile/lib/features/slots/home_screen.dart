@@ -268,6 +268,14 @@ class _WelcomeHero extends ConsumerWidget {
               const SizedBox(width: AppSpacing.md),
               HeroStat(
                 value: '${confirmed.length}',
+                valueWidget: HeroNumber(
+                  value: confirmed.length,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        height: 1.05,
+                      ),
+                ),
                 label: 'אימונים השבוע',
                 accent: Colors.white,
               ),

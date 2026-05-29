@@ -109,10 +109,17 @@ class _LastSnapshot extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    w != null ? '${w.toStringAsFixed(1)} ק"ג' : '—',
-                    style: Theme.of(context).textTheme.displaySmall,
-                  ),
+                  w != null
+                      ? HeroNumber(
+                          value: w,
+                          fractionDigits: 1,
+                          suffix: ' ק"ג',
+                          style: Theme.of(context).textTheme.displaySmall,
+                        )
+                      : Text(
+                          '—',
+                          style: Theme.of(context).textTheme.displaySmall,
+                        ),
                   const SizedBox(height: 2),
                   Text(
                     'מדידה אחרונה ${_relativeTime(last.loggedAt)}',

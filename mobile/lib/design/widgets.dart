@@ -108,10 +108,58 @@ class DataGrid extends StatelessWidget {
   }
 }
 
+/// A large number that counts up to [value] on first appear and renders with
+/// tabular figures (digits don't jiggle as they change). The count-up is
+/// finite, but gated by [AppMotion.infiniteMotionEnabled] so reduce-motion
+/// users and widget tests see the final value immediately.
+///
+/// The emotional payload of a fitness app lives in its numbers (streak,
+/// weight, attendance) — this gives them a moment.
+class HeroNumber extends StatelessWidget {
+  final num value;
+  final int fractionDigits;
+  final String prefix;
+  final String suffix;
+  final TextStyle? style;
+
+  const HeroNumber({
+    super.key,
+    required this.value,
+    this.fractionDigits = 0,
+    this.prefix = '',
+    this.suffix = '',
+    this.style,
+  });
+
+  String _fmt(num v) => '$prefix${v.toStringAsFixed(fractionDigits)}$suffix';
+
+  @override
+  Widget build(BuildContext context) {
+    final base = (style ?? Theme.of(context).textTheme.headlineSmall)?.copyWith(
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final animate = AppMotion.infiniteMotionEnabled(context) && value != 0;
+    if (!animate) {
+      return Text(_fmt(value), style: base);
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: value.toDouble()),
+      duration: AppMotion.emphasized,
+      curve: AppMotion.entry,
+      builder: (context, v, _) => Text(
+        _fmt(fractionDigits == 0 ? v.round() : v),
+        style: base,
+      ),
+    );
+  }
+}
+
 /// Soft, brand-tinted container — replaces the heavy translucent glass on hero stats.
-/// Use over the gradient hero only.
+/// Use over the gradient hero only. Pass [valueWidget] (e.g. a [HeroNumber])
+/// to render an animated number instead of the plain [value] string.
 class HeroStat extends StatelessWidget {
   final String value;
+  final Widget? valueWidget;
   final String label;
   final IconData? icon;
   final Color? accent;
@@ -119,6 +167,7 @@ class HeroStat extends StatelessWidget {
   const HeroStat({
     super.key,
     required this.value,
+    this.valueWidget,
     required this.label,
     this.icon,
     this.accent,
@@ -149,14 +198,16 @@ class HeroStat extends StatelessWidget {
               Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.85)),
               const SizedBox(height: AppSpacing.xxs),
             ],
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    height: 1.05,
-                  ),
-            ),
+            valueWidget ??
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        height: 1.05,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                ),
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
