@@ -65,7 +65,8 @@ Heebo (Hebrew sans). Sizes through `Theme.of(context).textTheme.*` — never har
 **Rules:**
 - **Infinite/repeating** animations (shimmer, pulse, wiggle) MUST gate behind `AppMotion.infiniteMotionEnabled(context)` — honors OS reduce-motion and prevents `pumpAndSettle` hangs (tests set `disableInfiniteForTests`). Finite animations need no gate.
 - Press feedback on primary affordances via `PressableScale` (scale 0.97, `springy`).
-- Reward stays rule-3 compliant: checkmark-draw + haptic on success. **No confetti.** Charts stay custom-painter — **no `fl_chart`.**
+- Staggered list entrances via `Reveal(child, index:)` (fadeIn + slideY).
+- Success reward = `showSuccessBurst(context)`: a teal disc + white checkmark-draw + one ripple ring, paired with a haptic. This **is** rule-3's reward. **No confetti** (never particles). Charts stay custom-painter — **no `fl_chart`.**
 - Durations short (≤400ms); curves simple; test on mid-range Android.
 
 ## 2. Pattern library (shipped, in `mobile/lib/design/widgets.dart`)

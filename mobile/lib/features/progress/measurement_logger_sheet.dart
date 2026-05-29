@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/spacing.dart';
+import '../../design/success_burst.dart';
 import '../../utils/haptics.dart';
 import 'progress.dart';
 import 'progress_repository.dart';
@@ -59,6 +60,8 @@ class _MeasurementLoggerSheetState
       await ref.read(progressRepositoryProvider).logMeasurement(input);
       if (!mounted) return;
       Haptics.logSaved();
+      // Root overlay → the burst survives the sheet popping below it.
+      showSuccessBurst(context);
       ref.invalidate(progressProvider);
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
