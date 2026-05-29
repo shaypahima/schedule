@@ -1,25 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Velofit brand palette — "athletic energy".
-/// Teal primary, orange accent. Hue-shifted neutrals (warm grays).
+/// Velofit brand palette — "warm studio". Muted teal anchor + a warm
+/// peach→amber→terracotta family (teal↔orange are complementary). Sourced from
+/// the user's chosen swatch: #588B8B #FFFFFF #FFD5C2 #F28F3B #C8553D.
 class BrandColors {
-  static const teal = Color(0xFF0EA89A);
-  static const tealDark = Color(0xFF076B61);
-  static const orange = Color(0xFFFF6B35);
-  static const orangeDark = Color(0xFFD94F1F);
+  static const teal = Color(0xFF588B8B); // primary — muted, grounded
+  static const tealDark = Color(0xFF3F6766); // pressed / gradient end
+  static const orange = Color(0xFFF28F3B); // accent — warm amber
+  static const orangeDark = Color(0xFFC8553D); // accent pressed — terracotta
+  static const peach = Color(0xFFFFD5C2); // soft fill — chips, hero tiles, highlights
+  static const terracotta = Color(0xFFC8553D); // strong accent (alias of orangeDark)
 
-  // Warm neutrals (slight orange hue-shift)
-  static const bg = Color(0xFFFAF8F5);
+  // Warm neutrals (peach-leaning warm grays)
+  static const bg = Color(0xFFFAF5F1); // warm off-white page
   static const surface = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF1F2421);
-  static const inkSoft = Color(0xFF5B6260);
-  static const inkMuted = Color(0xFF9BA29F);
-  static const line = Color(0xFFE6E2DC);
+  static const ink = Color(0xFF2E2A27); // warm near-black
+  static const inkSoft = Color(0xFF6F655E);
+  static const inkMuted = Color(0xFFA99E96);
+  static const line = Color(0xFFECE3DB); // warm hairline
 
-  static const success = Color(0xFF1F9D55);
+  static const success = Color(0xFF2F8F6B); // teal-leaning green (harmonized)
   static const warning = Color(0xFFB45309); // amber-700; legible on light bg
-  static const error = Color(0xFFC53030);
+  static const error = Color(0xFFC8553D); // terracotta reads as a warm red
 
   /// Canonical hero gradient — teal→tealDark, RTL-aware topRight→bottomLeft.
   /// Every full-bleed hero (trainee home, coach dashboard) uses this exact
@@ -28,8 +31,11 @@ class BrandColors {
     colors: [teal, tealDark],
     begin: Alignment.topRight,
     end: Alignment.bottomLeft,
-    stops: [0.2, 1.0],
+    stops: [0.1, 1.0],
   );
+
+  /// Brand-tinted soft shadow for card depth (never pure black).
+  static final cardShadow = teal.withValues(alpha: 0.10);
 }
 
 ThemeData buildBrandTheme() {
@@ -41,14 +47,14 @@ ThemeData buildBrandTheme() {
     onPrimaryContainer: BrandColors.tealDark,
     secondary: BrandColors.orange,
     onSecondary: Colors.white,
-    secondaryContainer: BrandColors.orange.withValues(alpha: 0.15),
+    secondaryContainer: BrandColors.peach,
     onSecondaryContainer: BrandColors.orangeDark,
-    tertiary: BrandColors.tealDark,
+    tertiary: BrandColors.terracotta,
     onTertiary: Colors.white,
     surface: BrandColors.surface,
     onSurface: BrandColors.ink,
     surfaceContainerHighest: BrandColors.bg,
-    surfaceContainerHigh: const Color(0xFFF2EFEA),
+    surfaceContainerHigh: const Color(0xFFF2EBE4),
     onSurfaceVariant: BrandColors.inkSoft,
     outline: BrandColors.line,
     outlineVariant: BrandColors.line.withValues(alpha: 0.5),
@@ -119,12 +125,15 @@ ThemeData buildBrandTheme() {
       iconTheme: const IconThemeData(color: BrandColors.ink),
     ),
     cardTheme: CardThemeData(
-      elevation: 0,
+      // Soft brand-tinted lift for depth instead of a hard hairline. Premium,
+      // and warm (never pure-black shadow).
+      elevation: 3,
       color: BrandColors.surface,
       surfaceTintColor: Colors.transparent,
+      shadowColor: BrandColors.cardShadow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: BrandColors.line),
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: BrandColors.line.withValues(alpha: 0.7)),
       ),
       margin: const EdgeInsets.symmetric(vertical: 6),
     ),
@@ -133,8 +142,8 @@ ThemeData buildBrandTheme() {
         backgroundColor: BrandColors.teal,
         foregroundColor: Colors.white,
         textStyle: textTheme.labelLarge,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -142,8 +151,8 @@ ThemeData buildBrandTheme() {
         foregroundColor: BrandColors.teal,
         side: const BorderSide(color: BrandColors.teal, width: 1.5),
         textStyle: textTheme.labelLarge,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
     dividerTheme: const DividerThemeData(

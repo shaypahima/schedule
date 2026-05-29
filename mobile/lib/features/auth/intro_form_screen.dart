@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../theme.dart';
 import '../profile/profile_repository.dart';
 import 'intro_repository.dart';
 import 'role_router.dart';
@@ -132,7 +133,7 @@ class _IntroFormScreenState extends ConsumerState<IntroFormScreen> {
                   const SizedBox(height: 12),
                   Text(
                     _error!,
-                    style: const TextStyle(color: Colors.red),
+                    style: const TextStyle(color: BrandColors.error),
                     textAlign: TextAlign.right,
                   ),
                 ],
