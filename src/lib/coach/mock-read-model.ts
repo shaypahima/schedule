@@ -11,9 +11,50 @@ import {
 import { BookingStore } from "@/lib/services/booking-store";
 import { AuthService } from "@/lib/services/auth";
 import { Bookings } from "@/lib/services/bookings";
+import { ProgressStore } from "@/lib/services/progress-store";
 import { loadProfile } from "@/lib/auth/profile-repo";
-import { Profile } from "@/lib/types";
+import { MeasurementLog, Profile } from "@/lib/types";
 import { todayIL, weekStartForDate, israelSlotToUTC } from "@/lib/services/israel-time";
+
+const FOURTEEN_DAYS_MS = 14 * 86_400_000;
+const TREND_FLAT_THRESHOLD_KG = 0.5;
+
+/**
+ * Weight trend over the trailing 14d: compares the newest weight to the newest
+ * weight that is at least 14 days older. `null` if there are fewer than two
+ * weight points, or no point old enough to compare against.
+ * `measurements` is newest-first (as ProgressStore.listMeasurements returns).
+ */
+function computeWeightTrend14d(
+  measurements: MeasurementLog[]
+): "up" | "flat" | "down" | null {
+  const points = measurements.filter((m) => m.weightKg != null);
+  if (points.length < 2) return null;
+  const newest = points[0];
+  const cutoff = newest.loggedAt.getTime() - FOURTEEN_DAYS_MS;
+  const older = points.find((m) => m.loggedAt.getTime() <= cutoff);
+  if (!older) return null;
+  const delta = newest.weightKg! - older.weightKg!;
+  if (Math.abs(delta) < TREND_FLAT_THRESHOLD_KG) return "flat";
+  return delta > 0 ? "up" : "down";
+}
+
+/**
+ * Attendance over the given roster entries: past-confirmed / (past-confirmed +
+ * no_show). `null` when there are no past sessions yet (so callers can hide a
+ * "100%" badge that would otherwise mislead for never-attended trainees).
+ */
+function computeAttendanceRate(entries: RosterEntry[]): number | null {
+  const now = Date.now();
+  const pastConfirmed = entries.filter(
+    (e) =>
+      e.status === "confirmed" &&
+      israelSlotToUTC(e.slotDate, e.slotTime).getTime() < now
+  ).length;
+  const noShows = entries.filter((e) => e.status === "no_show").length;
+  const total = pastConfirmed + noShows;
+  return total > 0 ? pastConfirmed / total : null;
+}
 
 /**
  * Composes BookingStore + AuthService + Bookings into the read-model.
@@ -24,8 +65,54 @@ import { todayIL, weekStartForDate, israelSlotToUTC } from "@/lib/services/israe
 export function makeCoachReadModel(
   store: BookingStore,
   auth: AuthService,
-  bookings: Bookings
+  bookings: Bookings,
+  progress: ProgressStore
 ): CoachReadModel {
+  /**
+   * Per-trainee progress aggregates for list/detail views. One measurement
+   * query per trainee (30d window — enough span to find a >=14d-older point
+   * for the trend). N+1 across the roster; acceptable at single-coach scale.
+   * If the roster grows large, add a batch ProgressStore.listLastMeasurements.
+   */
+  async function progressAggregates(traineeId: string): Promise<{
+    lastWeightKg: number | null;
+    weightTrend14d: "up" | "flat" | "down" | null;
+    lastMeasurementAt: string | null;
+  }> {
+    const ms = await progress.listMeasurements(traineeId, { sinceDays: 30 });
+    const lastWeight = ms.find((m) => m.weightKg != null);
+    return {
+      lastWeightKg: lastWeight?.weightKg ?? null,
+      weightTrend14d: computeWeightTrend14d(ms),
+      lastMeasurementAt: ms[0]?.loggedAt.toISOString() ?? null,
+    };
+  }
+
+  /**
+   * Overall attendance for a trainee (not capped to recent-10 like the detail
+   * view): builds roster entries from all their bookings, then applies the
+   * shared formula.
+   */
+  async function attendanceForTrainee(
+    traineeId: string,
+    byId: Map<string, Profile>
+  ): Promise<number | null> {
+    const all = await store.getTraineeBookings(traineeId);
+    const entries: RosterEntry[] = [];
+    for (const b of all) {
+      const entry = await buildRosterEntry(
+        b.id,
+        b.slotId,
+        b.traineeId,
+        b.isAutoBooked,
+        b.status,
+        byId
+      );
+      if (entry) entries.push(entry);
+    }
+    return computeAttendanceRate(entries);
+  }
+
   async function traineesByStatus(): Promise<{
     trainees: Profile[];
     byId: Map<string, Profile>;
@@ -120,7 +207,7 @@ export function makeCoachReadModel(
     },
 
     async getTraineesList(filter: TraineesFilter = "all"): Promise<TraineeSummary[]> {
-      const { trainees } = await traineesByStatus();
+      const { trainees, byId } = await traineesByStatus();
       const today = todayIL();
       const weekStart = weekStartForDate(today);
 
@@ -138,6 +225,7 @@ export function makeCoachReadModel(
 
         if (filter === "unbooked-this-week" && (bookedThisWeek || !t.isActive)) continue;
 
+        const agg = await progressAggregates(t.id);
         summaries.push({
           id: t.id,
           name: t.name,
@@ -148,6 +236,10 @@ export function makeCoachReadModel(
           preferredTime: t.preferredTime,
           bookedThisWeek,
           lastSessionAt: await lastSessionAt(t.id),
+          lastWeightKg: agg.lastWeightKg,
+          weightTrend14d: agg.weightTrend14d,
+          lastMeasurementAt: agg.lastMeasurementAt,
+          attendanceRate: await attendanceForTrainee(t.id, byId),
         });
       }
 
@@ -186,16 +278,12 @@ export function makeCoachReadModel(
 
       // Attendance rate: confirmed-past / (confirmed-past + no_show). Today the
       // only past terminal state is `confirmed` (auto-attended). Until Phase 16
-      // wires `no_show`, attendanceRate is always 1.0 for trainees with past bookings.
-      const now = Date.now();
-      const pastConfirmed = recentBookings.filter(
-        (e) =>
-          e.status === "confirmed" &&
-          israelSlotToUTC(e.slotDate, e.slotTime).getTime() < now
-      ).length;
-      const noShows = recentBookings.filter((e) => e.status === "no_show").length;
-      const attendanceRate =
-        pastConfirmed + noShows > 0 ? pastConfirmed / (pastConfirmed + noShows) : 1;
+      // wires `no_show`, attendanceRate is always 1.0 for trainees with past
+      // bookings. The detail view defaults a no-session trainee to 1.0 (legacy
+      // behavior); the list summary keeps it null so the chip can hide.
+      const rate = computeAttendanceRate(recentBookings);
+      const attendanceRate = rate ?? 1;
+      const agg = await progressAggregates(traineeId);
 
       return {
         trainee: {
@@ -210,6 +298,10 @@ export function makeCoachReadModel(
           preferredTime: t.preferredTime,
           bookedThisWeek: weekBookings.length > 0,
           lastSessionAt: await lastSessionAt(traineeId),
+          lastWeightKg: agg.lastWeightKg,
+          weightTrend14d: agg.weightTrend14d,
+          lastMeasurementAt: agg.lastMeasurementAt,
+          attendanceRate: rate,
         },
         recentBookings,
         attendanceRate,

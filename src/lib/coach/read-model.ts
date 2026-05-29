@@ -34,6 +34,10 @@ export type TraineeSummary = {
   preferredTime: string | null;
   bookedThisWeek: boolean;
   lastSessionAt: string | null; // ISO of most-recent confirmed past slot
+  lastWeightKg: number | null; // most-recent logged weight, null if never logged
+  weightTrend14d: "up" | "flat" | "down" | null; // vs a >=14d-older point; null if insufficient data
+  lastMeasurementAt: string | null; // ISO of most-recent measurement (any kind)
+  attendanceRate: number | null; // 0..1 over past bookings; null if no past sessions yet
 };
 
 export type TraineeDetailView = {

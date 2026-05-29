@@ -63,6 +63,78 @@ void main() {
       expect(find.byKey(const Key('deactivate-t3')), findsNothing);
     });
 
+    testWidgets('shows weight chip with trend arrow + attendance chip', (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees()).thenAnswer((_) async => [
+            const TraineeRecord(
+              id: 't1',
+              name: 'יעל כהן',
+              status: 'active',
+              isRecurring: false,
+              lastWeightKg: 68.0,
+              weightTrend14d: 'down',
+              attendanceRate: 0.8,
+            ),
+          ]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('weight-chip-t1')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('weight-chip-t1')),
+          matching: find.byIcon(Icons.south_east),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('68.0 ק״ג'), findsOneWidget);
+      expect(find.byKey(const Key('attendance-chip-t1')), findsOneWidget);
+      expect(find.text('80%'), findsOneWidget);
+    });
+
+    testWidgets('weight chip uses up/flat arrows per trend', (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees()).thenAnswer((_) async => [
+            const TraineeRecord(
+                id: 't1', name: 'A', status: 'active', isRecurring: false,
+                lastWeightKg: 70, weightTrend14d: 'up'),
+            const TraineeRecord(
+                id: 't2', name: 'B', status: 'active', isRecurring: false,
+                lastWeightKg: 70, weightTrend14d: 'flat'),
+          ]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+            of: find.byKey(const Key('weight-chip-t1')),
+            matching: find.byIcon(Icons.north_east)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+            of: find.byKey(const Key('weight-chip-t2')),
+            matching: find.byIcon(Icons.east)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('chips hidden when aggregates are null', (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees()).thenAnswer((_) async => [
+            const TraineeRecord(
+                id: 't1', name: 'יעל', status: 'active', isRecurring: false),
+          ]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('weight-chip-t1')), findsNothing);
+      expect(find.byKey(const Key('attendance-chip-t1')), findsNothing);
+    });
+
     testWidgets('invite form submits email + name', (tester) async {
       final admin = _FakeAdminRepo();
       when(() => admin.listTrainees()).thenAnswer((_) async => []);

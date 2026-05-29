@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../design/spacing.dart';
 import '../../design/widgets.dart';
 import '../../theme.dart';
+import '../progress/progress.dart';
+import '../progress/weight_chart.dart';
+import 'coach_progress_repository.dart';
 import 'notes_sheet.dart';
 import 'trainee_detail_repository.dart';
 
@@ -40,6 +43,8 @@ class CoachTraineeDetailScreen extends ConsumerWidget {
             _BioCard(bio: v.bio),
             const SizedBox(height: AppSpacing.lg),
             _SessionsCard(sessions: v.sessions),
+            const SizedBox(height: AppSpacing.lg),
+            _ProgressCard(traineeId: v.id),
             const SizedBox(height: AppSpacing.lg),
             FilledButton.tonalIcon(
               key: const Key('open-notes-button'),
@@ -288,6 +293,100 @@ class _SessionRow extends StatelessWidget {
           Text(
             '$day.$mon',
             style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressCard extends ConsumerWidget {
+  final String traineeId;
+  const _ProgressCard({required this.traineeId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(coachProgressProvider(traineeId));
+    return Container(
+      decoration: BoxDecoration(
+        color: BrandColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: BrandColors.line),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader('התקדמות'),
+          async.when(
+            loading: () => const SkeletonList(count: 2),
+            error: (_, _) => ErrorCard(
+              key: const Key('progress-error'),
+              message: 'שגיאה בטעינת ההתקדמות',
+              onRetry: () => ref.invalidate(coachProgressProvider(traineeId)),
+            ),
+            data: (view) {
+              if (view.measurements.isEmpty) {
+                return const EmptyState(
+                  key: Key('progress-empty'),
+                  icon: Icons.monitor_weight_outlined,
+                  headline: 'אין מדידות עדיין',
+                  helper: 'מדידות משקל של המתאמן יופיעו כאן',
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  WeightChart(measurements: view.measurements, height: 160),
+                  const SizedBox(height: AppSpacing.sm),
+                  for (final m in view.measurements.take(5))
+                    _MeasurementRow(log: m),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MeasurementRow extends StatelessWidget {
+  final MeasurementLog log;
+  const _MeasurementRow({required this.log});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final w = log.weightKg;
+    final label = w != null
+        ? '${w.toStringAsFixed(1)} ק״ג'
+        : (log.note?.isNotEmpty == true ? log.note! : 'מדידה');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(
+              color: BrandColors.teal,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: BrandColors.ink,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            '${log.loggedAt.day}.${log.loggedAt.month}',
+            style: theme.textTheme.bodySmall,
           ),
         ],
       ),
