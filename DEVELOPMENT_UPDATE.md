@@ -216,9 +216,9 @@ ADR-0006 — Coach notes are v1 progress primitive (#52 graduates this to v2)
 10. Next Immediate Actions
 Order (vertical slices, no parallelism):
 
-DONE this session: #62 coach progress visibility (PR #64), #66 searchable/sorted trainee list (PR #70), #67 coach inbox hero (PR #71), #69 haptics vocabulary (PR #72).
+DONE this session: #62 coach progress visibility (PR #64), #66 searchable/sorted trainee list (PR #70), #67 coach inbox hero (PR #71), #69 haptics vocabulary (PR #72), #68 first-session CTA on trainee landing (PR #73).
 #61 progress photos — image_picker mobile plumbing + upload to progress-photos bucket + photo timeline. TOP remaining item, do WITH user present (native iOS Info.plist + Android manifest config). Doc rates photos the biggest retention driver. #65 roster photo cards blocked on this.
-#68 onboarding-shows-slots-after-approval — needs a product call: trainee active-landing (HomeScreen) may already surface slots; clarify what "immediately" means before building. Left for user.
+#68 follow-up (optional, product call): broader new-user card reordering on HomeScreen (float slots above coach cards). The first-session CTA shipped; reorder deferred.
 #25 Firebase project setup (HITL) — unblocks #36.
 #36 FCM scaffold + push fan-out — blocked on #25 (also blocks #52 post-session deep link).
 #41 Calendar OAuth callback (build from scratch) — email-match + state HMAC + redirect to mobile deep link.
