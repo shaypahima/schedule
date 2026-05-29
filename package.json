@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "db:pg:reset": "tsx scripts/pg/reset.ts",
+    "db:pg:seed": "tsx scripts/pg/seed.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
@@ -16,13 +18,17 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "googleapis": "^171.4.0",
+    "jsonwebtoken": "^9.0.3",
     "next": "^16.2.3",
+    "pg": "^8.21.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
