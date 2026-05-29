@@ -240,7 +240,10 @@ class _CoachDashboard extends ConsumerWidget {
         AppSpacing.lg,
         AppSpacing.lg,
       ),
-      decoration: const BoxDecoration(gradient: BrandColors.gradientHero),
+      decoration: const BoxDecoration(
+        gradient: BrandColors.gradientHero,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
