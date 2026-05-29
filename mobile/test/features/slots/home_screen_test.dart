@@ -626,6 +626,7 @@ void main() {
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('slot-10:00')));
       await tester.tap(find.byKey(const Key('slot-10:00')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('אישור'));
@@ -649,6 +650,7 @@ void main() {
       // initial fetch
       verify(() => repo.fetchSlots(any())).called(1);
 
+      await tester.ensureVisible(find.byKey(const Key('slot-10:00')));
       await tester.tap(find.byKey(const Key('slot-10:00')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('אישור'));
@@ -684,6 +686,7 @@ void main() {
       ), findsOneWidget);
 
       // Tapping the booked slot should NOT open the dialog.
+      await tester.ensureVisible(find.byKey(const Key('slot-10:00')));
       await tester.tap(find.byKey(const Key('slot-10:00')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('booking-confirm-dialog')), findsNothing);
@@ -741,6 +744,7 @@ void main() {
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('slot-10:00')));
       await tester.tap(find.byKey(const Key('slot-10:00')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('אישור'));
@@ -759,6 +763,7 @@ void main() {
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('slot-10:00')));
       await tester.tap(find.byKey(const Key('slot-10:00')));
       await tester.pumpAndSettle();
 
@@ -766,6 +771,60 @@ void main() {
       expect(find.text('לקבוע אימון לשעה 10:00?'), findsOneWidget);
       expect(find.text('אישור'), findsOneWidget);
       expect(find.text('ביטול'), findsOneWidget);
+    });
+
+    testWidgets('first-session CTA shows when trainee has no confirmed bookings (#68)',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async =>
+          const MyBookingsView(remainingEdits: 3, bookings: []));
+
+      await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('first-session-cta')), findsOneWidget);
+      expect(find.byKey(const Key('find-slot-cta')), findsOneWidget);
+    });
+
+    testWidgets('first-session CTA hidden when a confirmed booking exists (#68)',
+        (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async =>
+          const MyBookingsView(remainingEdits: 3, bookings: [
+            Booking(
+              id: 'b1',
+              slotId: 's1',
+              traineeId: 't1',
+              status: 'confirmed',
+              slotDate: '2026-05-20',
+              slotStartTime: '10:00',
+            ),
+          ]));
+
+      await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('first-session-cta')), findsNothing);
+    });
+
+    testWidgets('tapping find-slot CTA does not throw (#68)', (tester) async {
+      final repo = _FakeSlotRepo();
+      final bookings = _FakeBookingRepo();
+      when(() => repo.fetchSlots(any())).thenAnswer((_) async => [_aSlot]);
+      when(() => bookings.fetchMyBookings()).thenAnswer((_) async =>
+          const MyBookingsView(remainingEdits: 3, bookings: []));
+
+      await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('find-slot-cta')));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
     });
   });
 }
