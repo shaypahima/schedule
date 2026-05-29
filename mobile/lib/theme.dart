@@ -70,19 +70,23 @@ ThemeData buildBrandTheme() {
     scaffoldBackgroundColor: BrandColors.bg,
   );
 
+  // Tabular figures on every large/number-bearing style: digits share one
+  // width, so stats, weights, countdowns, and counts never reflow as they
+  // change. The premium "scoreboard" feel for free across the whole app.
+  const tnum = [FontFeature.tabularFigures()];
   final textTheme = GoogleFonts.heeboTextTheme(base.textTheme).copyWith(
     displayLarge: GoogleFonts.heebo(
-        fontSize: 50, fontWeight: FontWeight.w800, color: BrandColors.ink, height: 1.05),
+        fontSize: 50, fontWeight: FontWeight.w800, color: BrandColors.ink, height: 1.05, fontFeatures: tnum),
     displayMedium: GoogleFonts.heebo(
-        fontSize: 37, fontWeight: FontWeight.w800, color: BrandColors.ink),
+        fontSize: 37, fontWeight: FontWeight.w800, color: BrandColors.ink, fontFeatures: tnum),
     displaySmall: GoogleFonts.heebo(
-        fontSize: 28, fontWeight: FontWeight.w800, color: BrandColors.ink),
+        fontSize: 28, fontWeight: FontWeight.w800, color: BrandColors.ink, fontFeatures: tnum),
     headlineLarge: GoogleFonts.heebo(
-        fontSize: 28, fontWeight: FontWeight.w700, color: BrandColors.ink),
+        fontSize: 28, fontWeight: FontWeight.w700, color: BrandColors.ink, fontFeatures: tnum),
     headlineMedium: GoogleFonts.heebo(
-        fontSize: 21, fontWeight: FontWeight.w700, color: BrandColors.ink),
+        fontSize: 21, fontWeight: FontWeight.w700, color: BrandColors.ink, fontFeatures: tnum),
     headlineSmall: GoogleFonts.heebo(
-        fontSize: 19, fontWeight: FontWeight.w700, color: BrandColors.ink),
+        fontSize: 19, fontWeight: FontWeight.w700, color: BrandColors.ink, fontFeatures: tnum),
     titleLarge: GoogleFonts.heebo(
         fontSize: 17, fontWeight: FontWeight.w700, color: BrandColors.ink),
     titleMedium: GoogleFonts.heebo(
