@@ -479,7 +479,7 @@ class _DashStat extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         border: Border(
           top: BorderSide(
-            color: highlight ? BrandColors.orange : Colors.white,
+            color: highlight ? BrandColors.peach : Colors.white,
             width: 3,
           ),
         ),

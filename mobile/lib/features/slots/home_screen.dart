@@ -270,7 +270,7 @@ class _WelcomeHero extends ConsumerWidget {
               HeroStat(
                 value: streak,
                 label: 'רצף',
-                accent: BrandColors.orange,
+                accent: BrandColors.peach, // pops on the warm hero (was orange)
               ),
               const SizedBox(width: AppSpacing.md),
               HeroStat(

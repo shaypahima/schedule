@@ -24,14 +24,15 @@ class BrandColors {
   static const warning = Color(0xFFB45309); // amber-700; legible on light bg
   static const error = Color(0xFFC8553D); // terracotta reads as a warm red
 
-  /// Canonical hero gradient — teal→tealDark, RTL-aware topRight→bottomLeft.
-  /// Every full-bleed hero (trainee home, coach dashboard) uses this exact
-  /// gradient. Don't invent new ones.
+  /// Canonical hero gradient — warm amber→terracotta, RTL-aware
+  /// topRight→bottomLeft. Every full-bleed hero (trainee home, coach
+  /// dashboard) uses this exact gradient. Don't invent new ones. White hero
+  /// text/tiles ride on top — terracotta is weighted to keep contrast.
   static const gradientHero = LinearGradient(
-    colors: [teal, tealDark],
+    colors: [orange, terracotta],
     begin: Alignment.topRight,
     end: Alignment.bottomLeft,
-    stops: [0.1, 1.0],
+    stops: [0.0, 0.85],
   );
 
   /// Brand-tinted soft shadow for card depth (never pure black).
