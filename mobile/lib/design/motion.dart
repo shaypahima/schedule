@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 /// Velofit motion tokens + gate.
 ///
@@ -52,15 +53,45 @@ class AppMotion {
 
   // ── Gate ───────────────────────────────────────────────────────────────
   /// Flipped true by the test harness (`flutter_test_config.dart`) so
-  /// repeating animations render a single static frame instead of looping.
+  /// animations render their final frame instead of playing (loops would hang
+  /// `pumpAndSettle`; entrances/count-ups would add flaky mid-flight frames).
   static bool disableInfiniteForTests = false;
 
-  /// True when looping animations should actually run: not under test, and
-  /// the user hasn't asked the OS to reduce motion.
-  static bool infiniteMotionEnabled(BuildContext context) {
+  /// True when *any* non-essential animation should play (entrances, count-ups,
+  /// loops): not under test, and the user hasn't asked the OS to reduce motion.
+  static bool enabled(BuildContext context) {
     if (disableInfiniteForTests) return false;
     final mq = MediaQuery.maybeOf(context);
     return !(mq?.disableAnimations ?? false);
+  }
+
+  /// Alias kept for call sites that specifically gate looping animations.
+  static bool infiniteMotionEnabled(BuildContext context) => enabled(context);
+}
+
+/// Staggered entrance: fades + lifts [child] into place, delayed by its
+/// position so a list reveals top-to-bottom. Finite, but skipped entirely when
+/// motion is off (reduce-motion / tests) — returns the child untouched so
+/// hit-testing and `find` work without a `pumpAndSettle`.
+class Reveal extends StatelessWidget {
+  final Widget child;
+  final int index;
+  final double offsetY;
+
+  const Reveal(this.child, {super.key, this.index = 0, this.offsetY = 0.08});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!AppMotion.enabled(context)) return child;
+    return child
+        .animate(delay: AppMotion.stagger * index)
+        .fadeIn(duration: AppMotion.standard, curve: AppMotion.entry)
+        .slideY(
+          begin: offsetY,
+          end: 0,
+          duration: AppMotion.standard,
+          curve: AppMotion.entry,
+        );
   }
 }
 
