@@ -165,7 +165,64 @@ ThemeData buildBrandTheme() {
       backgroundColor: BrandColors.ink,
       contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    // Amber FAB — the one energetic "act now" affordance.
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: BrandColors.orange,
+      foregroundColor: Colors.white,
+      elevation: 4,
+      focusElevation: 4,
+      hoverElevation: 6,
+      highlightElevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+    ),
+    // Filled, soft, rounded inputs with a teal focus ring.
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: BrandColors.bg,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      hintStyle: textTheme.bodyMedium?.copyWith(color: BrandColors.inkMuted),
+      labelStyle: textTheme.bodyMedium?.copyWith(color: BrandColors.inkSoft),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: BrandColors.line),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: BrandColors.line),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: BrandColors.teal, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: BrandColors.error, width: 1.5),
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: BrandColors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      titleTextStyle: textTheme.titleLarge,
+      contentTextStyle: textTheme.bodyMedium,
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: BrandColors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      showDragHandle: true,
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: BrandColors.peach.withValues(alpha: 0.45),
+      selectedColor: BrandColors.teal,
+      side: BorderSide.none,
+      labelStyle: textTheme.labelMedium?.copyWith(color: BrandColors.ink),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
     ),
   );
 }

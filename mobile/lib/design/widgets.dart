@@ -15,13 +15,29 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: BrandColors.inkSoft,
-              letterSpacing: 0.4,
-              fontWeight: FontWeight.w700,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Leading accent tick (start-aligned, RTL-aware).
+          Container(
+            width: 3,
+            height: 14,
+            decoration: BoxDecoration(
+              color: BrandColors.teal,
+              borderRadius: BorderRadius.circular(2),
             ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            text,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: BrandColors.inkSoft,
+                  letterSpacing: 0.4,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -185,10 +201,10 @@ class HeroStat extends StatelessWidget {
           AppSpacing.sm,
         ),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           border: Border(
-            top: BorderSide(color: accentColor.withValues(alpha: 0.8), width: 3),
+            top: BorderSide(color: accentColor.withValues(alpha: 0.9), width: 3),
           ),
         ),
         child: Column(
@@ -298,11 +314,21 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 40, color: BrandColors.inkSoft),
+          // Icon in a soft peach disc — friendlier than a bare glyph.
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: BrandColors.peach.withValues(alpha: 0.5),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 28, color: BrandColors.orangeDark),
+          ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             headline,
