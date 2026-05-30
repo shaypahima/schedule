@@ -412,6 +412,7 @@ void main() {
 
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('reschedule-booking-b1')));
       await tester.tap(find.byKey(const Key('reschedule-booking-b1')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('picker-slot-2026-05-17-10:00')));
@@ -449,6 +450,7 @@ void main() {
 
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('reschedule-booking-b1')));
       await tester.tap(find.byKey(const Key('reschedule-booking-b1')));
       await tester.pumpAndSettle();
 
@@ -482,6 +484,7 @@ void main() {
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('reschedule-booking-b1')));
       await tester.tap(find.byKey(const Key('reschedule-booking-b1')));
       await tester.pumpAndSettle();
 
@@ -512,6 +515,7 @@ void main() {
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('cancel-booking-b1')));
       await tester.tap(find.byKey(const Key('cancel-booking-b1')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('כן, בטל'));
@@ -543,6 +547,7 @@ void main() {
       await tester.pumpWidget(_harness(repo: repo, bookings: bookings));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('cancel-booking-b1')));
       await tester.tap(find.byKey(const Key('cancel-booking-b1')));
       await tester.pumpAndSettle();
 
