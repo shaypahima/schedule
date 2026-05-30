@@ -68,7 +68,7 @@ class DevLoginPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('DEV MODE — לוגין מהיר', textAlign: TextAlign.center),
+          const Text('DEV MODE — התחברות מהירה', textAlign: TextAlign.center),
           const SizedBox(height: 8),
           for (final acc in accounts)
             Padding(

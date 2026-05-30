@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../config/env.dart';
 import '../../theme.dart';
 import 'auth_repository.dart';
 import 'role_router.dart';
@@ -91,50 +92,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
             const SizedBox(height: 36),
-            TextField(
-              key: const Key('email-field'),
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'אימייל'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              key: const Key('password-field'),
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'סיסמה'),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              key: const Key('submit-button'),
-              onPressed: _submitting ? null : _submit,
-              child: Text(_submitting ? 'מתחבר...' : 'התחבר'),
-            ),
-            if (_error != null) ...[
+            // Supabase-based auth (email + Google) is unavailable on the local
+            // native-Postgres path (no GoTrue) — use the dev quick-login below.
+            if (!Env.pgDev) ...[
+              TextField(
+                key: const Key('email-field'),
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'אימייל'),
+              ),
               const SizedBox(height: 16),
-              Text(
-                _error!,
-                key: const Key('login-error'),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-                textAlign: TextAlign.center,
+              TextField(
+                key: const Key('password-field'),
+                controller: _passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'סיסמה'),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                key: const Key('submit-button'),
+                onPressed: _submitting ? null : _submit,
+                child: Text(_submitting ? 'מתחבר...' : 'התחבר'),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  _error!,
+                  key: const Key('login-error'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                key: const Key('google-signin-button'),
+                icon: const Icon(Icons.g_mobiledata, size: 28),
+                label: const Text('המשך עם Google'),
+                onPressed: () async {
+                  try {
+                    await ref.read(authRepositoryProvider).signInWithGoogle();
+                  } on AuthFailure catch (e) {
+                    if (!mounted) return;
+                    setState(() => _error = e.message);
+                  }
+                },
               ),
             ],
-            const SizedBox(height: 24),
-            const Divider(),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              key: const Key('google-signin-button'),
-              icon: const Icon(Icons.g_mobiledata, size: 28),
-              label: const Text('המשך עם Google'),
-              onPressed: () async {
-                try {
-                  await ref.read(authRepositoryProvider).signInWithGoogle();
-                } on AuthFailure catch (e) {
-                  if (!mounted) return;
-                  setState(() => _error = e.message);
-                }
-              },
-            ),
             devLoginPanelFromEnv(),
           ],
         ),
