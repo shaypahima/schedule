@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/env.dart';
 import '../../theme.dart';
 import 'auth_repository.dart';
+import 'google_sign_in_button.dart';
 import 'role_router.dart';
 import '../dev/dev_login_panel.dart';
 
@@ -126,10 +127,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 16),
-              OutlinedButton.icon(
-                key: const Key('google-signin-button'),
-                icon: const Icon(Icons.g_mobiledata, size: 28),
-                label: const Text('המשך עם Google'),
+              GoogleSignInButton(
                 onPressed: () async {
                   try {
                     await ref.read(authRepositoryProvider).signInWithGoogle();
