@@ -126,14 +126,14 @@ ThemeData buildBrandTheme() {
       iconTheme: const IconThemeData(color: BrandColors.ink),
     ),
     cardTheme: CardThemeData(
-      // Soft brand-tinted lift for depth instead of a hard hairline. Premium,
-      // and warm (never pure-black shadow).
-      elevation: 3,
+      // Crisp, lightly-lifted card. Subtle shadow + hairline, moderate radius
+      // (not over-rounded) for a designed, premium feel.
+      elevation: 2,
       color: BrandColors.surface,
       surfaceTintColor: Colors.transparent,
       shadowColor: BrandColors.cardShadow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: BrandColors.line.withValues(alpha: 0.7)),
       ),
       margin: const EdgeInsets.symmetric(vertical: 6),

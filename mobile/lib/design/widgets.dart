@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -456,6 +458,132 @@ class StatusStripeTile extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// One cell in a [StatGroupCard]: a big number over a muted label.
+class StatItem {
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final VoidCallback? onTap;
+  final Key? cellKey;
+
+  const StatItem({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.onTap,
+    this.cellKey,
+  });
+}
+
+/// Clean stats card — big bold numbers laid out in a grid with thin dividers,
+/// under an optional title row (with a chevron when tappable). The "designed,
+/// not generated" dashboard pattern: restrained, white, number-forward.
+class StatGroupCard extends StatelessWidget {
+  final String? title;
+  final VoidCallback? onTitleTap;
+  final List<StatItem> stats;
+  final int columns;
+
+  const StatGroupCard({
+    super.key,
+    this.title,
+    this.onTitleTap,
+    required this.stats,
+    this.columns = 3,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final rows = <List<StatItem>>[];
+    for (var i = 0; i < stats.length; i += columns) {
+      rows.add(stats.sublist(i, math.min(i + columns, stats.length)));
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (title != null) ...[
+              InkWell(
+                onTap: onTitleTap,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(title!, style: theme.textTheme.titleMedium),
+                      ),
+                      if (onTitleTap != null)
+                        const Icon(Icons.chevron_left,
+                            size: 20, color: BrandColors.inkMuted),
+                    ],
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: BrandColors.line),
+            ],
+            for (var r = 0; r < rows.length; r++) ...[
+              if (r > 0) Divider(height: 1, color: BrandColors.line),
+              IntrinsicHeight(
+                child: Row(
+                  children: [
+                    for (var c = 0; c < columns; c++) ...[
+                      if (c > 0)
+                        VerticalDivider(
+                            width: 1, color: BrandColors.line, indent: 8, endIndent: 8),
+                      Expanded(
+                        child: c < rows[r].length
+                            ? _cell(context, rows[r][c])
+                            : const SizedBox(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(BuildContext context, StatItem s) {
+    final theme = Theme.of(context);
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Column(
+        key: s.cellKey,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            s.value,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: s.valueColor ?? BrandColors.ink,
+              fontWeight: FontWeight.w800,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            s.label,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(color: BrandColors.inkSoft),
+          ),
+        ],
+      ),
+    );
+    if (s.onTap == null) return content;
+    return InkWell(
+      onTap: s.onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: content,
     );
   }
 }
