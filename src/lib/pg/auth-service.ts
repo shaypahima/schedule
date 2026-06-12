@@ -1,5 +1,6 @@
 import { AuthService } from "@/lib/services/auth";
-import { Profile, UserRole } from "@/lib/types";
+import { Profile } from "@/lib/types";
+import { mapProfileRow } from "@/lib/services/row-mappers";
 import { pgQuery } from "./client";
 
 /**
@@ -20,7 +21,7 @@ export class PgAuthService implements AuthService {
     const rows = await pgQuery<Record<string, unknown>>(
       "select * from profiles where role = 'trainee' order by name",
     );
-    return rows.map((p) => this.mapProfile(p));
+    return rows.map((p) => mapProfileRow(p));
   }
 
   async deleteTrainee(id: string): Promise<void> {
@@ -53,7 +54,7 @@ export class PgAuthService implements AuthService {
     if (sets.length === 0) {
       const cur = await pgQuery<Record<string, unknown>>("select * from profiles where id = $1", [id]);
       if (cur.length === 0) throw new Error("Trainee not found");
-      return this.mapProfile(cur[0]);
+      return mapProfileRow(cur[0]);
     }
     params.push(id);
     const rows = await pgQuery<Record<string, unknown>>(
@@ -61,21 +62,7 @@ export class PgAuthService implements AuthService {
       params,
     );
     if (rows.length === 0) throw new Error("Trainee not found");
-    return this.mapProfile(rows[0]);
+    return mapProfileRow(rows[0]);
   }
 
-  private mapProfile(row: Record<string, unknown>): Profile & { email?: string | null; status?: string } {
-    return {
-      id: row.id as string,
-      name: row.name as string,
-      role: row.role as UserRole,
-      isRecurring: (row.is_recurring as boolean) ?? false,
-      preferredDay: row.preferred_day as number | null,
-      preferredTime: row.preferred_time ? String(row.preferred_time).slice(0, 5) : null,
-      isActive: (row.is_active as boolean) ?? true,
-      createdAt: new Date(row.created_at as string),
-      email: (row.email as string | null) ?? null,
-      status: (row.status as string) ?? ((row.is_active as boolean) ? "active" : "deactivated"),
-    };
-  }
 }

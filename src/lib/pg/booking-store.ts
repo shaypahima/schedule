@@ -1,6 +1,12 @@
 import { Booking, Slot, EditLog, ChangeRequest, ReminderKind } from "@/lib/types";
 import { BookingStore, REMINDER_DB_COLUMN } from "@/lib/services/booking-store";
 import { israelSlotToUTC } from "@/lib/services/israel-time";
+import {
+  mapSlotRow,
+  mapBookingRow,
+  mapEditLogRow,
+  mapChangeRequestRow,
+} from "@/lib/services/row-mappers";
 import { pgQuery } from "./client";
 
 /**
@@ -19,7 +25,7 @@ export class PgBookingStore implements BookingStore {
       "select count(*)::int as n from bookings where slot_id = $1 and status = 'confirmed'",
       [slotId],
     );
-    return this.mapSlot(slots[0], Number(counts[0]?.n ?? 0));
+    return mapSlotRow(slots[0], Number(counts[0]?.n ?? 0));
   }
 
   async updateSlot(slot: Slot): Promise<void> {
@@ -54,7 +60,7 @@ export class PgBookingStore implements BookingStore {
       [ids],
     );
     const countMap = new Map(counts.map((c) => [c.slot_id, Number(c.n)]));
-    return slots.map((s) => this.mapSlot(s, countMap.get((s as { id: string }).id) ?? 0));
+    return slots.map((s) => mapSlotRow(s, countMap.get((s as { id: string }).id) ?? 0));
   }
 
   // --- Booking methods ---
@@ -76,7 +82,7 @@ export class PgBookingStore implements BookingStore {
 
   async getBooking(bookingId: string): Promise<Booking | undefined> {
     const rows = await pgQuery("select * from bookings where id = $1", [bookingId]);
-    return rows[0] ? this.mapBooking(rows[0]) : undefined;
+    return rows[0] ? mapBookingRow(rows[0]) : undefined;
   }
 
   async updateBooking(booking: Booking): Promise<void> {
@@ -91,7 +97,7 @@ export class PgBookingStore implements BookingStore {
       "select * from bookings where slot_id = $1 and status = 'confirmed'",
       [slotId],
     );
-    return rows.map((b) => this.mapBooking(b));
+    return rows.map((b) => mapBookingRow(b));
   }
 
   async getTraineeBookings(traineeId: string): Promise<Booking[]> {
@@ -99,7 +105,7 @@ export class PgBookingStore implements BookingStore {
       "select * from bookings where trainee_id = $1 and status = 'confirmed'",
       [traineeId],
     );
-    return rows.map((b) => this.mapBooking(b));
+    return rows.map((b) => mapBookingRow(b));
   }
 
   async getTraineeBookingsForWeek(traineeId: string, weekStart: string): Promise<Booking[]> {
@@ -114,12 +120,12 @@ export class PgBookingStore implements BookingStore {
            and s.date >= $2 and s.date <= $3`,
       [traineeId, weekStart, endStr],
     );
-    return rows.map((b) => this.mapBooking(b));
+    return rows.map((b) => mapBookingRow(b));
   }
 
   async getAllBookings(): Promise<Booking[]> {
     const rows = await pgQuery("select * from bookings order by created_at desc");
-    return rows.map((b) => this.mapBooking(b));
+    return rows.map((b) => mapBookingRow(b));
   }
 
   // --- Edit log methods ---
@@ -129,7 +135,7 @@ export class PgBookingStore implements BookingStore {
       "select * from edit_log where trainee_id = $1 and week_start = $2",
       [traineeId, weekStart],
     );
-    return rows[0] ? this.mapEditLog(rows[0]) : undefined;
+    return rows[0] ? mapEditLogRow(rows[0]) : undefined;
   }
 
   async incrementEditCount(traineeId: string, weekStart: string): Promise<void> {
@@ -165,10 +171,10 @@ export class PgBookingStore implements BookingStore {
     for (const row of rows) {
       const slotRow = (row as Record<string, unknown>).slot as Record<string, unknown>;
       if (!slotRow) continue;
-      const slot = this.mapSlot(slotRow, 0);
+      const slot = mapSlotRow(slotRow, 0);
       const slotMs = israelSlotToUTC(slot.date, slot.startTime).getTime();
       if (slotMs < startMs || slotMs >= endMs) continue;
-      out.push({ booking: this.mapBooking(row), slot });
+      out.push({ booking: mapBookingRow(row), slot });
     }
     return out;
   }
@@ -193,12 +199,12 @@ export class PgBookingStore implements BookingStore {
          values ($1, $2, $3) returning *`,
       [input.bookingId, input.requestedNewSlotId, input.reason],
     );
-    return this.mapChangeRequest(rows[0]);
+    return mapChangeRequestRow(rows[0]);
   }
 
   async getChangeRequest(id: string): Promise<ChangeRequest | undefined> {
     const rows = await pgQuery("select * from booking_change_request where id = $1", [id]);
-    return rows[0] ? this.mapChangeRequest(rows[0]) : undefined;
+    return rows[0] ? mapChangeRequestRow(rows[0]) : undefined;
   }
 
   async getPendingRequestForBooking(bookingId: string): Promise<ChangeRequest | undefined> {
@@ -206,14 +212,14 @@ export class PgBookingStore implements BookingStore {
       "select * from booking_change_request where booking_id = $1 and status = 'pending'",
       [bookingId],
     );
-    return rows[0] ? this.mapChangeRequest(rows[0]) : undefined;
+    return rows[0] ? mapChangeRequestRow(rows[0]) : undefined;
   }
 
   async listPendingRequests(): Promise<ChangeRequest[]> {
     const rows = await pgQuery(
       "select * from booking_change_request where status = 'pending' order by requested_at asc",
     );
-    return rows.map((r) => this.mapChangeRequest(r));
+    return rows.map((r) => mapChangeRequestRow(r));
   }
 
   async updateChangeRequest(
@@ -241,61 +247,4 @@ export class PgBookingStore implements BookingStore {
     );
   }
 
-  // --- Mappers (identical to SupabaseBookingStore) ---
-
-  private mapSlot(row: Record<string, unknown>, currentBookings: number): Slot {
-    return {
-      id: row.id as string,
-      date: String(row.date).slice(0, 10),
-      startTime: String(row.start_time).slice(0, 5),
-      capacity: row.capacity as number,
-      lockoutOverride: row.lockout_override as boolean,
-      currentBookings,
-      version: row.version as number | undefined,
-    };
-  }
-
-  private mapBooking(row: Record<string, unknown>): Booking {
-    return {
-      id: row.id as string,
-      slotId: row.slot_id as string,
-      traineeId: row.trainee_id as string,
-      googleEventId: (row.google_event_id as string) ?? null,
-      isAutoBooked: row.is_auto_booked as boolean,
-      status: row.status as Booking["status"],
-      createdAt: new Date(row.created_at as string),
-      reminder24hSentAt: row.reminder_24h_sent_at
-        ? new Date(row.reminder_24h_sent_at as string)
-        : null,
-      reminder2hSentAt: row.reminder_2h_sent_at
-        ? new Date(row.reminder_2h_sent_at as string)
-        : null,
-      postSessionPromptSentAt: row.postsession_prompt_sent_at
-        ? new Date(row.postsession_prompt_sent_at as string)
-        : null,
-    };
-  }
-
-  private mapEditLog(row: Record<string, unknown>): EditLog {
-    return {
-      id: row.id as string,
-      traineeId: row.trainee_id as string,
-      weekStart: String(row.week_start).slice(0, 10),
-      editCount: row.edit_count as number,
-    };
-  }
-
-  private mapChangeRequest(row: Record<string, unknown>): ChangeRequest {
-    return {
-      id: row.id as string,
-      bookingId: row.booking_id as string,
-      requestedNewSlotId: (row.requested_new_slot_id as string) ?? null,
-      reason: row.reason as string,
-      status: row.status as ChangeRequest["status"],
-      decisionNote: (row.decision_note as string) ?? null,
-      requestedAt: new Date(row.requested_at as string),
-      decidedAt: row.decided_at ? new Date(row.decided_at as string) : null,
-      decidedBy: (row.decided_by as string) ?? null,
-    };
-  }
 }
