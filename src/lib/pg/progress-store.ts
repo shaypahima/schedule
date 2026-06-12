@@ -50,6 +50,22 @@ export class PgProgressStore implements ProgressStore {
     return rows[0];
   }
 
+  async listMeasurementsForTrainees(
+    traineeIds: string[],
+    opts: { sinceDays?: number } = {},
+  ): Promise<MeasurementLog[]> {
+    if (traineeIds.length === 0) return [];
+    const params: unknown[] = [traineeIds];
+    let sql = "select * from measurement_logs where trainee_id = any($1)";
+    if (opts.sinceDays) {
+      const cutoff = new Date(Date.now() - opts.sinceDays * 86_400_000).toISOString();
+      sql += ` and logged_at >= $${params.push(cutoff)}`;
+    }
+    sql += " order by logged_at desc";
+    const rows = await pgQuery<Record<string, unknown>>(sql, params);
+    return rows.map((r) => mapMeasurementRow(r));
+  }
+
   async upsertSessionLog(bookingId: string, input: SessionLogInput): Promise<SessionLog> {
     const rows = await pgQuery<Record<string, unknown>>(
       `insert into session_logs (booking_id, feedback, coach_notes, updated_at)

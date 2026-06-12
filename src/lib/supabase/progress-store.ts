@@ -58,6 +58,24 @@ export class SupabaseProgressStore implements ProgressStore {
     return rows[0];
   }
 
+  async listMeasurementsForTrainees(
+    traineeIds: string[],
+    opts: { sinceDays?: number } = {}
+  ): Promise<MeasurementLog[]> {
+    if (traineeIds.length === 0) return [];
+    let q = this.db
+      .from("measurement_logs")
+      .select("*")
+      .in("trainee_id", traineeIds)
+      .order("logged_at", { ascending: false });
+    if (opts.sinceDays) {
+      const cutoff = new Date(Date.now() - opts.sinceDays * 86_400_000).toISOString();
+      q = q.gte("logged_at", cutoff);
+    }
+    const { data } = await q;
+    return (data ?? []).map((r: Record<string, unknown>) => mapMeasurementRow(r));
+  }
+
   async upsertSessionLog(
     bookingId: string,
     input: SessionLogInput

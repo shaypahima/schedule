@@ -33,6 +33,10 @@ export interface BookingStore {
   updateBooking(booking: Booking): Promise<void> | void;
   getConfirmedBookingsForSlot(slotId: string): Promise<Booking[]> | Booking[];
   getTraineeBookings(traineeId: string): Promise<Booking[]> | Booking[];
+  /** Batch form of getTraineeBookings — confirmed bookings for many trainees in one query. */
+  getConfirmedBookingsForTrainees(traineeIds: string[]): Promise<Booking[]> | Booking[];
+  /** Slots by id. currentBookings is NOT computed (always 0) — for date/time lookups only. */
+  getSlotsByIds(slotIds: string[]): Promise<Slot[]> | Slot[];
   getTraineeBookingsForWeek(traineeId: string, weekStart: string): Promise<Booking[]> | Booking[];
   getAllSlotsForDate(date: string): Promise<Slot[]> | Slot[];
   getAllBookings(): Promise<Booking[]> | Booking[];
@@ -114,6 +118,22 @@ export class MockBookingStore implements BookingStore {
     return Array.from(this.bookings.values()).filter(
       (b) => b.traineeId === traineeId && b.status === "confirmed"
     );
+  }
+
+  getConfirmedBookingsForTrainees(traineeIds: string[]): Booking[] {
+    const ids = new Set(traineeIds);
+    return Array.from(this.bookings.values()).filter(
+      (b) => ids.has(b.traineeId) && b.status === "confirmed"
+    );
+  }
+
+  getSlotsByIds(slotIds: string[]): Slot[] {
+    const out: Slot[] = [];
+    for (const id of slotIds) {
+      const s = this.slots.get(id);
+      if (s) out.push({ ...s });
+    }
+    return out;
   }
 
   getTraineeBookingsForWeek(traineeId: string, weekStart: string): Booking[] {

@@ -107,6 +107,21 @@ export class PgBookingStore implements BookingStore {
     return rows.map((b) => mapBookingRow(b));
   }
 
+  async getConfirmedBookingsForTrainees(traineeIds: string[]): Promise<Booking[]> {
+    if (traineeIds.length === 0) return [];
+    const rows = await pgQuery(
+      "select * from bookings where trainee_id = any($1) and status = 'confirmed'",
+      [traineeIds],
+    );
+    return rows.map((b) => mapBookingRow(b));
+  }
+
+  async getSlotsByIds(slotIds: string[]): Promise<Slot[]> {
+    if (slotIds.length === 0) return [];
+    const rows = await pgQuery("select * from slots where id = any($1)", [slotIds]);
+    return rows.map((s) => mapSlotRow(s, 0));
+  }
+
   async getTraineeBookingsForWeek(traineeId: string, weekStart: string): Promise<Booking[]> {
     const start = new Date(weekStart + "T00:00:00Z");
     const end = new Date(start);
