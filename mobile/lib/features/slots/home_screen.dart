@@ -16,6 +16,7 @@ import '../coach/coach_about_card.dart';
 import '../coach/contact_coach_card.dart';
 import '../dashboard/dashboard_repository.dart';
 import '../history/history_screen.dart';
+import '../profile/profile_nudge_card.dart';
 import '../profile/profile_repository.dart';
 import '../profile/profile_screen.dart';
 import '../progress/progress_screen.dart';
@@ -160,6 +161,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                 _WelcomeHero(now: widget.now),
+                const ProfileNudgeCard(),
                 const CoachAboutCard(),
                 const _CoachNoteCard(),
                 const _UpcomingSessionsCard(),
