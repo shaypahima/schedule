@@ -7,6 +7,7 @@ import type {
   SessionLog,
   Profile,
   UserRole,
+  CoachNote,
 } from "@/lib/types";
 
 /**
@@ -88,6 +89,17 @@ export function mapSessionLogRow(row: Record<string, unknown>): SessionLog {
     bookingId: row.booking_id as string,
     feedback: (row.feedback as Record<string, unknown> | null) ?? null,
     coachNotes: (row.coach_notes as string) ?? null,
+    createdAt: new Date(row.created_at as string),
+    updatedAt: new Date(row.updated_at as string),
+  };
+}
+
+export function mapCoachNoteRow(row: Record<string, unknown>): CoachNote {
+  return {
+    id: row.id as string,
+    traineeId: row.trainee_id as string,
+    body: row.body as string,
+    visibleToTrainee: row.visible_to_trainee as boolean,
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
   };
