@@ -9,12 +9,22 @@ import type {
   UserRole,
   CoachNote,
 } from "@/lib/types";
+import type { WaitlistEntry } from "./waitlist";
 
 /**
  * Row→domain mappers shared by every storage adapter (Supabase + pg).
  * Pure snake_case→camelCase translation — nothing here may depend on which
  * driver produced the row.
  */
+
+export function mapWaitlistRow(row: Record<string, unknown>): WaitlistEntry {
+  return {
+    id: row.id as string,
+    slotId: row.slot_id as string,
+    traineeId: row.trainee_id as string,
+    createdAt: new Date(row.created_at as string),
+  };
+}
 
 export function mapSlotRow(row: Record<string, unknown>, currentBookings: number): Slot {
   return {

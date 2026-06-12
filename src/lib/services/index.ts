@@ -7,6 +7,9 @@ import { BookingStore, MockBookingStore } from "./booking-store";
 import { NotificationService, MockNotificationService } from "./notification";
 import { Bookings, makeBookings } from "./bookings";
 import { ProgressStore, MockProgressStore } from "./progress-store";
+import { Waitlist, WaitlistStore, MockWaitlistStore, makeWaitlist } from "./waitlist";
+import { PgWaitlistStore } from "@/lib/pg/waitlist-store";
+import { SupabaseWaitlistStore } from "@/lib/supabase/waitlist-store";
 import { CoachReadModel } from "@/lib/coach/read-model";
 import { makeCoachReadModel } from "@/lib/coach/mock-read-model";
 import { SupabaseBookingStore } from "@/lib/supabase/booking-store";
@@ -33,6 +36,7 @@ let authService: AuthService;
 let bookingStore: BookingStore;
 let notificationService: NotificationService;
 let progressStore: ProgressStore;
+let waitlistStore: WaitlistStore;
 
 export function getTokenStore(): TokenStore {
   if (!tokenStore) tokenStore = new InMemoryTokenStore();
@@ -85,6 +89,17 @@ export function getNotificationService(): NotificationService {
   return notificationService;
 }
 
+export function getWaitlistStore(): WaitlistStore {
+  if (!waitlistStore) {
+    waitlistStore = isFullMock()
+      ? new MockWaitlistStore()
+      : isPgDriver()
+        ? new PgWaitlistStore()
+        : new SupabaseWaitlistStore();
+  }
+  return waitlistStore;
+}
+
 export function getProgressStore(): ProgressStore {
   if (!progressStore) {
     progressStore = isFullMock()
@@ -108,6 +123,7 @@ export interface Container {
   auth: AuthService;
   coachRead: CoachReadModel;
   progress: ProgressStore;
+  waitlist: Waitlist;
 }
 
 let _container: Container | null = null;
@@ -127,15 +143,17 @@ export function resetContainer(): void {
   bookingStore = undefined!;
   notificationService = undefined!;
   progressStore = undefined!;
+  waitlistStore = undefined!;
 }
 
 function buildContainer(): Container {
   const store = getBookingStore();
   const calendar = isMockCalendar() ? null : getCalendarService();
   const notifier = getNotificationService();
-  const bookings = makeBookings(store, calendar, notifier);
+  const waitlist = makeWaitlist(getWaitlistStore(), store, notifier);
+  const bookings = makeBookings(store, calendar, notifier, waitlist);
   const auth = getAuthService();
   const progress = getProgressStore();
   const coachRead = makeCoachReadModel(store, auth, bookings, progress);
-  return { store, bookings, auth, coachRead, progress };
+  return { store, bookings, auth, coachRead, progress, waitlist };
 }
