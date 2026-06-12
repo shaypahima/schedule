@@ -134,6 +134,33 @@ void main() {
       expect(find.byKey(const Key('week-error-retry')), findsOneWidget);
     });
 
+    testWidgets('full slot with waitlisted trainees shows ממתינים count',
+        (tester) async {
+      final slots = _FakeSlotRepo();
+      final admin = _FakeAdminRepo();
+      when(() => slots.fetchSlots(any())).thenAnswer((_) async => [
+            const Slot(
+              id: 's-full',
+              date: '2026-05-20',
+              startTime: '10:00',
+              capacity: 2,
+              currentBookings: 2,
+              remainingCapacity: 0,
+              lockoutOverride: false,
+              lockedOut: false,
+            )
+          ]);
+      when(() => admin.fetchBookings(date: any(named: 'date')))
+          .thenAnswer((_) async => []);
+      when(() => admin.fetchWaitlistCounts(any()))
+          .thenAnswer((_) async => {'s-full': 2});
+
+      await tester.pumpWidget(_harness(slots: slots, admin: admin));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('ממתינים 2'), findsOneWidget);
+    });
+
     testWidgets('remove booking → confirm dialog → admin.removeBooking',
         (tester) async {
       final slots = _FakeSlotRepo();

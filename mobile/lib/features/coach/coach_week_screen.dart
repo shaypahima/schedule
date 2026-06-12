@@ -193,6 +193,11 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
               ),
               data: (slots) {
                 final bookings = bookingsAsync.valueOrNull ?? [];
+                // Missing counts (older backend, fetch error) degrade to 0 —
+                // the count is a hint, never load-bearing.
+                final waitlistCounts =
+                    ref.watch(waitlistCountsProvider(_selectedDate)).valueOrNull ??
+                        const <String, int>{};
                 final bySlot = <String, List<AdminBooking>>{};
                 for (final b in bookings) {
                   bySlot.putIfAbsent(b.slotId, () => []).add(b);
@@ -219,7 +224,11 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
                     final slot = slots[i];
                     final slotBookings = bySlot[slot.id] ?? const [];
                     return Reveal(
-                      _CoachSlotTile(slot: slot, bookings: slotBookings),
+                      _CoachSlotTile(
+                        slot: slot,
+                        bookings: slotBookings,
+                        waitlistCount: waitlistCounts[slot.id] ?? 0,
+                      ),
                       index: i,
                     );
                   },
@@ -427,7 +436,12 @@ class _CountBadge extends StatelessWidget {
 class _CoachSlotTile extends ConsumerWidget {
   final Slot slot;
   final List<AdminBooking> bookings;
-  const _CoachSlotTile({required this.slot, required this.bookings});
+  final int waitlistCount;
+  const _CoachSlotTile({
+    required this.slot,
+    required this.bookings,
+    this.waitlistCount = 0,
+  });
 
   Future<void> _openOverridesSheet(BuildContext context, WidgetRef ref) async {
     await showModalBottomSheet<void>(
@@ -532,11 +546,12 @@ class _CoachSlotTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final full = bookings.length >= slot.capacity;
-    final capacityLabel = full
+    var capacityLabel = full
         ? 'מלא'
         : bookings.isEmpty
             ? 'פנוי · ${slot.capacity} מקומות'
             : 'נותר מקום ${slot.capacity - bookings.length}';
+    if (waitlistCount > 0) capacityLabel = '$capacityLabel · ממתינים $waitlistCount';
 
     // Card anatomy — data on the reading side (time, occupancy, names),
     // actions on the far side in teal (add / no-show / remove). The fill bar

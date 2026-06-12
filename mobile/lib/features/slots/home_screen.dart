@@ -21,6 +21,7 @@ import '../profile/profile_screen.dart';
 import '../progress/progress_screen.dart';
 import 'slot.dart';
 import 'slot_repository.dart';
+import 'waitlist_repository.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final DateTime now;
@@ -99,10 +100,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  Future<void> _toggleWaitlist(Slot slot, bool waitlisted) async {
+    final repo = ref.read(waitlistRepositoryProvider);
+    try {
+      if (waitlisted) {
+        await repo.leave(slot.id);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('הוסרת מרשימת ההמתנה')),
+        );
+      } else {
+        await repo.join(slot.id);
+        if (!mounted) return;
+        Haptics.select();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('נרשמת — נעדכן אותך כשיתפנה מקום')),
+        );
+      }
+      ref.invalidate(myWaitlistProvider);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('הפעולה נכשלה, נסה שוב')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final slotsAsync = ref.watch(slotsForDateProvider(_selectedDate));
     final myBookingsView = ref.watch(myBookingsProvider).valueOrNull;
+    final waitlistedIds =
+        ref.watch(myWaitlistProvider).valueOrNull ?? <String>{};
     final bookedSlotIds = (myBookingsView?.bookings ?? [])
         .where((b) => b.isConfirmed)
         .map((b) => b.slotId)
@@ -187,9 +216,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               _SlotTile(
                                 slot: slots[i],
                                 booked: bookedSlotIds.contains(slots[i].id),
+                                waitlisted:
+                                    waitlistedIds.contains(slots[i].id),
                                 onTap: bookedSlotIds.contains(slots[i].id)
                                     ? null
                                     : () => _openBookingDialog(slots[i]),
+                                onWaitlistTap: slots[i].isFull &&
+                                        !slots[i].lockedOut &&
+                                        !bookedSlotIds.contains(slots[i].id)
+                                    ? () => _toggleWaitlist(
+                                          slots[i],
+                                          waitlistedIds
+                                              .contains(slots[i].id),
+                                        )
+                                    : null,
                               ),
                               index: i,
                             ),
@@ -964,8 +1004,16 @@ class _DayChip extends StatelessWidget {
 class _SlotTile extends StatelessWidget {
   final Slot slot;
   final bool booked;
+  final bool waitlisted;
   final VoidCallback? onTap;
-  const _SlotTile({required this.slot, this.booked = false, this.onTap});
+  final VoidCallback? onWaitlistTap;
+  const _SlotTile({
+    required this.slot,
+    this.booked = false,
+    this.waitlisted = false,
+    this.onTap,
+    this.onWaitlistTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -974,7 +1022,7 @@ class _SlotTile extends StatelessWidget {
     final label = booked
         ? 'מוזמן'
         : slot.isFull
-            ? 'מלא'
+            ? (waitlisted ? 'מלא · נעדכן כשיתפנה מקום' : 'מלא')
             : 'נשאר מקום ${slot.remainingCapacity}';
     final accentColor = booked
         ? scheme.primary
@@ -1017,6 +1065,24 @@ class _SlotTile extends StatelessWidget {
                 Icon(Icons.chevron_left, color: scheme.primary)
               else if (booked)
                 Icon(Icons.check_circle, color: scheme.primary, size: 22)
+              else if (onWaitlistTap != null && !waitlisted)
+                // Full slot with a live waitlist: joining is the action.
+                TextButton(
+                  key: Key('waitlist-join-${slot.id}'),
+                  onPressed: onWaitlistTap,
+                  child: const Text('רשימת המתנה'),
+                )
+              else if (onWaitlistTap != null && waitlisted)
+                TextButton.icon(
+                  key: Key('waitlist-leave-${slot.id}'),
+                  onPressed: onWaitlistTap,
+                  style: TextButton.styleFrom(
+                    foregroundColor: BrandColors.inkSoft,
+                  ),
+                  icon: const Icon(Icons.notifications_active_outlined,
+                      size: 16),
+                  label: const Text('ברשימת ההמתנה'),
+                )
               else
                 Icon(Icons.lock_outline, color: scheme.outline, size: 20),
             ],

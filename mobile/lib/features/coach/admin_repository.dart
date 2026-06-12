@@ -107,6 +107,9 @@ abstract class AdminRepository {
     bool? lockoutOverride,
   });
   Future<void> resetEdits(String traineeId);
+
+  /// Waitlist size per slot id for a date (slots without entries omitted).
+  Future<Map<String, int>> fetchWaitlistCounts(String date);
 }
 
 class HttpAdminRepository implements AdminRepository {
@@ -149,6 +152,16 @@ class HttpAdminRepository implements AdminRepository {
   @override
   Future<void> markNoShow(String bookingId) async {
     await _http.post<void>('/api/admin/bookings/$bookingId/no-show');
+  }
+
+  @override
+  Future<Map<String, int>> fetchWaitlistCounts(String date) async {
+    final json = await _http.get<Map<String, dynamic>>(
+      '/api/admin/waitlist',
+      queryParameters: {'date': date},
+    );
+    return (json['counts'] as Map<String, dynamic>)
+        .map((k, v) => MapEntry(k, v as int));
   }
 
   @override
@@ -232,4 +245,9 @@ final adminTraineesProvider = FutureProvider<List<TraineeOption>>((ref) {
 
 final traineeRecordsProvider = FutureProvider<List<TraineeRecord>>((ref) {
   return ref.watch(adminRepositoryProvider).listTrainees();
+});
+
+final waitlistCountsProvider =
+    FutureProvider.family<Map<String, int>, String>((ref, date) {
+  return ref.watch(adminRepositoryProvider).fetchWaitlistCounts(date);
 });
