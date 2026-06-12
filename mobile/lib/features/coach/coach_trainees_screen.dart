@@ -309,17 +309,46 @@ class _ProgressChips extends StatelessWidget {
   final TraineeRecord trainee;
   const _ProgressChips({required this.trainee});
 
+  /// Quiet at-risk wording (#83) — data, not shame: a fact the coach can act
+  /// on with a phone call, never a red alarm.
+  String? get _atRiskLabel {
+    switch (trainee.atRisk) {
+      case 'inactive':
+        final last = trainee.lastSessionAt;
+        if (last == null) return 'עוד לא התאמן';
+        final days = DateTime.now().difference(last).inDays;
+        return 'לא נראה $days ימים';
+      case 'no_shows':
+        return 'אי-הגעות לאחרונה';
+      default:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final showWeight = trainee.lastWeightKg != null;
     final showAttendance = trainee.attendanceRate != null;
-    if (!showWeight && !showAttendance) return const SizedBox.shrink();
+    final atRiskLabel = _atRiskLabel;
+    if (!showWeight && !showAttendance && atRiskLabel == null) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (atRiskLabel != null) ...[
+            _Chip(
+              key: Key('at-risk-chip-${trainee.id}'),
+              icon: Icons.waving_hand_outlined,
+              label: atRiskLabel,
+              color: BrandColors.error.withValues(alpha: 0.85),
+              bg: BrandColors.error.withValues(alpha: 0.08),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+          ],
           if (showWeight) ...[
             _Chip(
               key: Key('weight-chip-${trainee.id}'),

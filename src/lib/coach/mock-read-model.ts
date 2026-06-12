@@ -1,6 +1,7 @@
 import {
   CoachReadModel,
   DashboardView,
+  MonthlyStats,
   RosterEntry,
   TraineeDetailView,
   TraineeSummary,
@@ -181,6 +182,37 @@ export function makeCoachReadModel(
     return count;
   }
 
+  /**
+   * Held/no-show aggregates for slots in [fromDate, toDate) that already
+   * started. One pass over all bookings; slots resolved from a prefetched map.
+   */
+  async function monthlyStats(fromDate: string, toDate: string): Promise<MonthlyStats> {
+    const all = await store.getAllBookings();
+    const slots = await store.getSlotsByIds([...new Set(all.map((b) => b.slotId))]);
+    const slotById = new Map(slots.map((s) => [s.id, s]));
+    const now = Date.now();
+
+    let sessionsHeld = 0;
+    let noShows = 0;
+    const traineeIds = new Set<string>();
+    for (const b of all) {
+      if (b.status !== "confirmed" && b.status !== "no_show") continue;
+      const slot = slotById.get(b.slotId);
+      if (!slot || slot.date < fromDate || slot.date >= toDate) continue;
+      if (israelSlotToUTC(slot.date, slot.startTime).getTime() > now) continue;
+      if (b.status === "no_show") noShows++;
+      else sessionsHeld++;
+      traineeIds.add(b.traineeId);
+    }
+    const total = sessionsHeld + noShows;
+    return {
+      sessionsHeld,
+      noShows,
+      attendanceRate: total > 0 ? sessionsHeld / total : null,
+      activeTrainees: traineeIds.size,
+    };
+  }
+
   return {
     async getCoachDashboard(): Promise<DashboardView> {
       const today = todayIL();
@@ -188,10 +220,23 @@ export function makeCoachReadModel(
       const pendingRequests = await this.getPendingChangeRequests();
       const weekStart = weekStartForDate(today);
       const noShowsThisWeek = await countNoShowsForWeek(weekStart);
+
+      const [y, m] = today.split("-").map(Number);
+      const fmt = (yy: number, mm: number) =>
+        `${mm > 12 ? yy + 1 : yy}-${String(mm > 12 ? 1 : mm).padStart(2, "0")}-01`;
+      const monthStart = fmt(y, m);
+      const nextMonthStart = fmt(y, m + 1);
+      const prevMonthStart = m === 1 ? fmt(y - 1, 12) : fmt(y, m - 1);
+
+      const current = await monthlyStats(monthStart, nextMonthStart);
+      const prev = await monthlyStats(prevMonthStart, monthStart);
+      const prevEmpty = prev.sessionsHeld + prev.noShows === 0;
+
       return {
         pendingApprovals: await pendingApprovalsCount(),
         pendingChangeRequests: pendingRequests.length,
         noShowsThisWeek,
+        monthly: { ...current, prev: prevEmpty ? null : prev },
         todayRoster,
         urgentRequests: pendingRequests.slice(0, 3),
       };
@@ -214,10 +259,13 @@ export function makeCoachReadModel(
         return true;
       });
 
-      // Three batch reads for the whole roster instead of ~4 reads per trainee.
+      // Four batch reads for the whole roster instead of ~4 reads per trainee.
       const ids = candidates.map((t) => t.id);
       const allBookings = await store.getConfirmedBookingsForTrainees(ids);
-      const slots = await store.getSlotsByIds([...new Set(allBookings.map((b) => b.slotId))]);
+      const noShowBookings = await store.getNoShowBookingsForTrainees(ids);
+      const slots = await store.getSlotsByIds([
+        ...new Set([...allBookings, ...noShowBookings].map((b) => b.slotId)),
+      ]);
       const slotById = new Map(slots.map((s) => [s.id, s]));
       const measurements = await progress.listMeasurementsForTrainees(ids, { sinceDays: 30 });
 
@@ -226,6 +274,12 @@ export function makeCoachReadModel(
         const list = bookingsByTrainee.get(b.traineeId);
         if (list) list.push(b);
         else bookingsByTrainee.set(b.traineeId, [b]);
+      }
+      const noShowsByTrainee = new Map<string, Booking[]>();
+      for (const b of noShowBookings) {
+        const list = noShowsByTrainee.get(b.traineeId);
+        if (list) list.push(b);
+        else noShowsByTrainee.set(b.traineeId, [b]);
       }
       const measurementsByTrainee = new Map<string, MeasurementLog[]>();
       for (const ml of measurements) {
@@ -252,10 +306,34 @@ export function makeCoachReadModel(
         if (filter === "unbooked-this-week" && (bookedThisWeek || !t.isActive)) continue;
 
         let latestPastMs = -Infinity;
+        let hasUpcoming = false;
         for (const x of mySlots) {
           const ms = israelSlotToUTC(x.slot.date, x.slot.startTime).getTime();
           if (ms <= now && ms > latestPastMs) latestPastMs = ms;
+          if (ms > now) hasUpcoming = true;
         }
+
+        // At-risk (#83): no_shows beats inactive — an upcoming booking proves
+        // engagement but not attendance.
+        const fourWeeksAgo = now - 28 * 86_400_000;
+        let recentNoShows = 0;
+        for (const b of noShowsByTrainee.get(t.id) ?? []) {
+          const slot = slotById.get(b.slotId);
+          if (!slot) continue;
+          const ms = israelSlotToUTC(slot.date, slot.startTime).getTime();
+          if (ms > fourWeeksAgo && ms <= now) recentNoShows++;
+        }
+        const inactive =
+          !hasUpcoming &&
+          (latestPastMs === -Infinity || now - latestPastMs >= FOURTEEN_DAYS_MS);
+        const atRisk: TraineeSummary["atRisk"] =
+          status !== "active"
+            ? null
+            : recentNoShows >= 2
+              ? "no_shows"
+              : inactive
+                ? "inactive"
+                : null;
 
         const entries = mySlots.map((x) =>
           rosterEntryFromSlot(x.booking, x.booking.status, x.slot, byId)
@@ -276,6 +354,7 @@ export function makeCoachReadModel(
           weightTrend14d: agg.weightTrend14d,
           lastMeasurementAt: agg.lastMeasurementAt,
           attendanceRate: computeAttendanceRate(entries),
+          atRisk,
         });
       }
 
@@ -338,6 +417,8 @@ export function makeCoachReadModel(
           weightTrend14d: agg.weightTrend14d,
           lastMeasurementAt: agg.lastMeasurementAt,
           attendanceRate: rate,
+          // Detail view doesn't render the flag; the list computes it batched.
+          atRisk: null,
         },
         recentBookings,
         attendanceRate,

@@ -403,12 +403,17 @@ class StatItem {
   final VoidCallback? onTap;
   final Key? cellKey;
 
+  /// Optional change vs a previous period, rendered as a quiet "+3"/"-2"
+  /// beside the value. Neutral ink — the number is data, not judgment.
+  final int? delta;
+
   const StatItem({
     required this.label,
     required this.value,
     this.valueColor,
     this.onTap,
     this.cellKey,
+    this.delta,
   });
 }
 
@@ -495,13 +500,30 @@ class StatGroupCard extends StatelessWidget {
         key: s.cellKey,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            s.value,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              color: s.valueColor ?? BrandColors.ink,
-              fontWeight: FontWeight.w800,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                s.value,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: s.valueColor ?? BrandColors.ink,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              if (s.delta != null && s.delta != 0) ...[
+                const SizedBox(width: 4),
+                Text(
+                  '${s.delta! > 0 ? '+' : ''}${s.delta}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: BrandColors.inkMuted,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 2),
           Text(

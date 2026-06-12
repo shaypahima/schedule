@@ -63,6 +63,65 @@ void main() {
       expect(find.byKey(const Key('deactivate-t3')), findsNothing);
     });
 
+    testWidgets('inactive at-risk trainee shows a quiet days-since chip',
+        (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees()).thenAnswer((_) async => [
+            TraineeRecord(
+              id: 't1',
+              name: 'יעל כהן',
+              status: 'active',
+              isRecurring: false,
+              atRisk: 'inactive',
+              lastSessionAt:
+                  DateTime.now().subtract(const Duration(days: 17)),
+            ),
+          ]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('at-risk-chip-t1')), findsOneWidget);
+      expect(find.text('לא נראה 17 ימים'), findsOneWidget);
+    });
+
+    testWidgets('no_shows at-risk trainee shows the no-shows chip',
+        (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees()).thenAnswer((_) async => [
+            const TraineeRecord(
+              id: 't1',
+              name: 'יעל כהן',
+              status: 'active',
+              isRecurring: false,
+              atRisk: 'no_shows',
+            ),
+          ]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('at-risk-chip-t1')), findsOneWidget);
+      expect(find.text('אי-הגעות לאחרונה'), findsOneWidget);
+    });
+
+    testWidgets('healthy trainee shows no at-risk chip', (tester) async {
+      final admin = _FakeAdminRepo();
+      when(() => admin.listTrainees()).thenAnswer((_) async => [
+            const TraineeRecord(
+              id: 't1',
+              name: 'יעל כהן',
+              status: 'active',
+              isRecurring: false,
+            ),
+          ]);
+
+      await tester.pumpWidget(_harness(admin: admin));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('at-risk-chip-t1')), findsNothing);
+    });
+
     testWidgets('shows weight chip with trend arrow + attendance chip', (tester) async {
       final admin = _FakeAdminRepo();
       when(() => admin.listTrainees()).thenAnswer((_) async => [

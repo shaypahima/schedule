@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:velofit/features/coach/admin_repository.dart';
+import 'package:velofit/features/coach/coach_dashboard_repository.dart';
 import 'package:velofit/features/coach/coach_week_screen.dart';
 import 'package:velofit/features/slots/slot.dart';
 import 'package:velofit/features/slots/slot_repository.dart';
@@ -12,15 +13,20 @@ class _FakeSlotRepo extends Mock implements SlotRepository {}
 
 class _FakeAdminRepo extends Mock implements AdminRepository {}
 
+class _FakeDashboardRepo extends Mock implements CoachDashboardRepository {}
+
 Widget _harness({
   required SlotRepository slots,
   required AdminRepository admin,
+  CoachDashboardRepository? dashboard,
   DateTime? now,
 }) =>
     ProviderScope(
       overrides: [
         slotRepositoryProvider.overrideWithValue(slots),
         adminRepositoryProvider.overrideWithValue(admin),
+        if (dashboard != null)
+          coachDashboardRepositoryProvider.overrideWithValue(dashboard),
       ],
       child: MaterialApp(
         builder: (context, child) => Directionality(
@@ -132,6 +138,68 @@ void main() {
       expect(find.byKey(const Key('week-error')), findsOneWidget);
       expect(find.text('שגיאה בטעינת המועדים'), findsOneWidget);
       expect(find.byKey(const Key('week-error-retry')), findsOneWidget);
+    });
+
+    testWidgets('monthly overview card shows month stats with deltas (#84)',
+        (tester) async {
+      final slots = _FakeSlotRepo();
+      final admin = _FakeAdminRepo();
+      final dashboard = _FakeDashboardRepo();
+      when(() => slots.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => admin.fetchBookings(date: any(named: 'date')))
+          .thenAnswer((_) async => []);
+      when(() => dashboard.fetch()).thenAnswer((_) async =>
+          const CoachDashboardView(
+            pendingApprovals: 0,
+            pendingChangeRequests: 0,
+            noShowsThisWeek: 0,
+            todayRosterCount: 0,
+            monthly: MonthlyStats(
+              sessionsHeld: 12,
+              noShows: 1,
+              attendanceRate: 0.92,
+              activeTrainees: 7,
+              prev: MonthlyStats(
+                sessionsHeld: 9,
+                noShows: 3,
+                attendanceRate: 0.75,
+                activeTrainees: 6,
+              ),
+            ),
+          ));
+
+      await tester.pumpWidget(
+          _harness(slots: slots, admin: admin, dashboard: dashboard));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('monthly-overview')), findsOneWidget);
+      expect(find.text('החודש'), findsOneWidget);
+      expect(find.text('12'), findsOneWidget); // sessions held
+      expect(find.text('92%'), findsOneWidget); // attendance
+      expect(find.text('+3'), findsOneWidget); // sessions delta vs prev
+    });
+
+    testWidgets('monthly card hidden when backend has no monthly data',
+        (tester) async {
+      final slots = _FakeSlotRepo();
+      final admin = _FakeAdminRepo();
+      final dashboard = _FakeDashboardRepo();
+      when(() => slots.fetchSlots(any())).thenAnswer((_) async => []);
+      when(() => admin.fetchBookings(date: any(named: 'date')))
+          .thenAnswer((_) async => []);
+      when(() => dashboard.fetch()).thenAnswer((_) async =>
+          const CoachDashboardView(
+            pendingApprovals: 0,
+            pendingChangeRequests: 0,
+            noShowsThisWeek: 0,
+            todayRosterCount: 0,
+          ));
+
+      await tester.pumpWidget(
+          _harness(slots: slots, admin: admin, dashboard: dashboard));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('monthly-overview')), findsNothing);
     });
 
     testWidgets('full slot with waitlisted trainees shows ממתינים count',

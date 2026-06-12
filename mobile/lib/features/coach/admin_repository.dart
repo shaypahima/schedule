@@ -49,6 +49,9 @@ class TraineeRecord {
   final String? weightTrend14d; // 'up' | 'flat' | 'down'
   final DateTime? lastMeasurementAt;
   final double? attendanceRate; // 0..1
+  // At-risk signal (#83): 'inactive' | 'no_shows' | null (healthy).
+  final String? atRisk;
+  final DateTime? lastSessionAt;
 
   const TraineeRecord({
     required this.id,
@@ -62,6 +65,8 @@ class TraineeRecord {
     this.weightTrend14d,
     this.lastMeasurementAt,
     this.attendanceRate,
+    this.atRisk,
+    this.lastSessionAt,
   });
 
   factory TraineeRecord.fromJson(Map<String, dynamic> json) => TraineeRecord(
@@ -79,6 +84,10 @@ class TraineeRecord {
             ? null
             : DateTime.parse(json['lastMeasurementAt'] as String),
         attendanceRate: (json['attendanceRate'] as num?)?.toDouble(),
+        atRisk: json['atRisk'] as String?,
+        lastSessionAt: json['lastSessionAt'] == null
+            ? null
+            : DateTime.parse(json['lastSessionAt'] as String),
       );
 }
 

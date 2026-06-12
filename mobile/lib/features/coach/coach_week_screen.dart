@@ -257,21 +257,73 @@ class _CoachDashboard extends ConsumerWidget {
 
     // Read-only numbers live here; anything requiring the coach to act lives
     // in the inbox below. Data is quiet, actions are teal — never mixed.
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-      child: StatGroupCard(
-        stats: [
-          StatItem(label: 'אימונים היום', value: '${bookings.length}'),
-          StatItem(label: 'מתאמנים פעילים', value: '$activeCount'),
-          StatItem(
-            cellKey: const Key('no-shows-stat'),
-            label: 'אי-הגעה השבוע',
-            value: '$noShowsThisWeek',
-            valueColor: noShowsThisWeek > 0 ? BrandColors.error : null,
+    final monthly = dashboard?.monthly;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+          child: StatGroupCard(
+            stats: [
+              StatItem(label: 'אימונים היום', value: '${bookings.length}'),
+              StatItem(label: 'מתאמנים פעילים', value: '$activeCount'),
+              StatItem(
+                cellKey: const Key('no-shows-stat'),
+                label: 'אי-הגעה השבוע',
+                value: '$noShowsThisWeek',
+                valueColor: noShowsThisWeek > 0 ? BrandColors.error : null,
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        if (monthly != null)
+          Padding(
+            key: const Key('monthly-overview'),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.xs, AppSpacing.md, 0),
+            child: StatGroupCard(
+              title: 'החודש',
+              columns: 4,
+              stats: [
+                StatItem(
+                  label: 'אימונים',
+                  value: '${monthly.sessionsHeld}',
+                  delta: monthly.prev == null
+                      ? null
+                      : monthly.sessionsHeld - monthly.prev!.sessionsHeld,
+                ),
+                StatItem(
+                  label: 'נוכחות',
+                  value: monthly.attendanceRate == null
+                      ? '—'
+                      : '${(monthly.attendanceRate! * 100).round()}%',
+                  delta: (monthly.attendanceRate == null ||
+                          monthly.prev?.attendanceRate == null)
+                      ? null
+                      : ((monthly.attendanceRate! -
+                                  monthly.prev!.attendanceRate!) *
+                              100)
+                          .round(),
+                ),
+                StatItem(
+                  label: 'אי-הגעה',
+                  value: '${monthly.noShows}',
+                  delta: monthly.prev == null
+                      ? null
+                      : monthly.noShows - monthly.prev!.noShows,
+                ),
+                StatItem(
+                  label: 'התאמנו',
+                  value: '${monthly.activeTrainees}',
+                  delta: monthly.prev == null
+                      ? null
+                      : monthly.activeTrainees -
+                          monthly.prev!.activeTrainees,
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

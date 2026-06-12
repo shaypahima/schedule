@@ -167,6 +167,16 @@ export class SupabaseBookingStore implements BookingStore {
     return (data ?? []).map((b: Record<string, unknown>) => mapBookingRow(b));
   }
 
+  async getNoShowBookingsForTrainees(traineeIds: string[]): Promise<Booking[]> {
+    if (traineeIds.length === 0) return [];
+    const { data } = await this.db
+      .from("bookings")
+      .select("*")
+      .in("trainee_id", traineeIds)
+      .eq("status", "no_show");
+    return (data ?? []).map((b: Record<string, unknown>) => mapBookingRow(b));
+  }
+
   async getSlotsByIds(slotIds: string[]): Promise<Slot[]> {
     if (slotIds.length === 0) return [];
     const { data } = await this.db.from("slots").select("*").in("id", slotIds);
