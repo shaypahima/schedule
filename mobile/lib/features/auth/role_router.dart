@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/widgets.dart';
+import '../../theme.dart';
 import '../coach/coach_week_screen.dart';
 import '../profile/profile_repository.dart';
 import '../slots/home_screen.dart';
@@ -22,9 +24,43 @@ class RoleRouter extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(profileProvider);
     return async.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (err, _) => Scaffold(body: Center(child: Text('שגיאה: $err'))),
+      // Branded splash beat, not a spinner — resolves in well under a second.
+      loading: () => Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: BrandColors.cream,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.fitness_center,
+                    size: 34, color: BrandColors.teal),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Velofit',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: BrandColors.teal,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      error: (err, _) => Scaffold(
+        body: Center(
+          child: ErrorCard(
+            message: 'שגיאה בטעינת הפרופיל',
+            onRetry: () => ref.invalidate(profileProvider),
+          ),
+        ),
+      ),
       data: (profile) {
         if (profile.role == 'coach') return CoachWeekScreen();
         switch (profile.status) {

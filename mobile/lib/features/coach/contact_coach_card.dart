@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/widgets.dart';
 import '../../utils/url_opener.dart';
 import 'coach_info_repository.dart';
 
@@ -18,10 +19,7 @@ class ContactCoachCard extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: async.maybeWhen(
-          orElse: () => const SizedBox(
-            height: 24,
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
+          orElse: () => const SkeletonList(count: 1, itemHeight: 24),
           data: (info) {
             if (info == null || !info.hasContact) {
               return const Text(

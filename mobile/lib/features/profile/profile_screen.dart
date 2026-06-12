@@ -216,10 +216,8 @@ class _CoachCalendarStatus extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(calendarStatusProvider).valueOrNull;
     if (status == null) {
-      return const SizedBox(
-        height: 24,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
+      // Shape-matched placeholder, not a spinner (design-system §3 loading).
+      return const SkeletonList(count: 1, itemHeight: 24);
     }
     if (status.mock) {
       return Container(
