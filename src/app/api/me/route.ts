@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getJwtSession } from "@/lib/services/jwt-session";
 import { loadProfile, createProfile } from "@/lib/auth/profile-repo";
+import { isPgDriver, pgQuery } from "@/lib/pg/client";
 
 function coachEmails(): string[] {
   return (process.env.COACH_EMAIL ?? "")
@@ -20,6 +21,10 @@ async function provisionSelfSignup(
   email: string,
   status: "active" | "pending"
 ): Promise<void> {
+  if (isPgDriver()) {
+    await pgQuery("update profiles set status = $1 where id = $2", [status, userId]);
+    return;
+  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return;

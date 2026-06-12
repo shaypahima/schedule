@@ -214,6 +214,7 @@ ADR-0005 — 24h cancel window is the only gate; 3-edits/week removed
 ADR-0006 — Coach notes are v1 progress primitive (#52 graduates this to v2)
 ADR-0007 — Reschedule approval books new slot before cancelling old (race fix #55)
 ADR-0008 — Motion layer = flutter_animate + global infinite-motion gate (reduce-motion + test-safe); confetti/fl_chart stay rejected
+ADR-0009 — Warm-studio palette (muted teal #588B8B + peach/amber/terracotta), warm curved hero, card depth; supersedes "don't re-open colors" — user-chosen swatch
 
 10. Next Immediate Actions
 Order (vertical slices, no parallelism):

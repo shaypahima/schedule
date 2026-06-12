@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/env.dart';
 import '../auth/auth_repository.dart';
+import '../auth/dev_session.dart';
 import '../auth/role_router.dart';
+import '../profile/profile_repository.dart';
 
 class DevAccount {
   final String email;
@@ -66,7 +68,7 @@ class DevLoginPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('DEV MODE — לוגין מהיר', textAlign: TextAlign.center),
+          const Text('DEV MODE — התחברות מהירה', textAlign: TextAlign.center),
           const SizedBox(height: 8),
           for (final acc in accounts)
             Padding(
@@ -74,10 +76,17 @@ class DevLoginPanel extends ConsumerWidget {
               child: OutlinedButton(
                 key: Key('dev-login-${acc.email}'),
                 onPressed: () async {
-                  await ref.read(authRepositoryProvider).signInWithPassword(
-                        email: acc.email,
-                        password: password,
-                      );
+                  if (Env.pgDev) {
+                    await ref
+                        .read(devSessionProvider.notifier)
+                        .login(acc.email, password);
+                    ref.invalidate(profileProvider);
+                  } else {
+                    await ref.read(authRepositoryProvider).signInWithPassword(
+                          email: acc.email,
+                          password: password,
+                        );
+                  }
                   if (!context.mounted) return;
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(builder: (_) => const RoleRouter()),

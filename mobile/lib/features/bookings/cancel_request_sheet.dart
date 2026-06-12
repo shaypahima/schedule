@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../theme.dart';
 import 'booking.dart';
 import 'booking_repository.dart';
 
@@ -108,7 +109,7 @@ class _CancelRequestSheetState extends ConsumerState<CancelRequestSheet> {
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(_error!, style: const TextStyle(color: BrandColors.error)),
           ],
           const SizedBox(height: 16),
           Row(

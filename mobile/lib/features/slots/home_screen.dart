@@ -221,81 +221,83 @@ class _WelcomeHero extends ConsumerWidget {
     final confirmed =
         (view?.bookings ?? []).where((b) => b.isConfirmed).toList();
     final next = _nextSession(confirmed, now);
-    final streak = dashboard != null && dashboard.currentStreak > 0
-        ? '🔥 ${dashboard.currentStreak}'
-        : '—';
+    final streakActive = dashboard != null && dashboard.currentStreak > 0;
+    final streakValue = streakActive ? '${dashboard.currentStreak}' : '—';
     final monthsSince = dashboard?.memberSinceMonths ?? 0;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.lg,
-      ),
-      decoration: const BoxDecoration(gradient: BrandColors.gradientHero),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${hebrewGreeting(now)}${profile != null ? ', ${profile.name.split(' ').first}' : ''}',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontWeight: FontWeight.w500,
-                ),
+    return Column(
+      children: [
+        // Slim warm greeting band.
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
           ),
-          const SizedBox(height: 2),
-          Text(
-            hebrewDayHeader(now),
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Colors.white,
-                ),
+          decoration: const BoxDecoration(
+            gradient: BrandColors.gradientHero,
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
           ),
-          if (monthsSince > 0) ...[
-            const SizedBox(height: 4),
-            Text(
-              monthsSince == 1
-                  ? 'חבר/ה כבר חודש'
-                  : 'חבר/ה כבר $monthsSince חודשים',
-              key: const Key('member-since'),
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85),
-                  ),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.md),
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              HeroStat(
-                value: streak,
-                label: 'רצף',
-                accent: BrandColors.orange,
+              Text(
+                '${hebrewGreeting(now)}${profile != null ? ', ${profile.name.split(' ').first}' : ''}',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w500,
+                    ),
               ),
-              const SizedBox(width: AppSpacing.md),
-              HeroStat(
-                value: '${confirmed.length}',
-                valueWidget: HeroNumber(
-                  value: confirmed.length,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        height: 1.05,
+              const SizedBox(height: 2),
+              Text(
+                hebrewDayHeader(now),
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
+                    ),
+              ),
+              if (monthsSince > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  monthsSince == 1
+                      ? 'חבר/ה כבר חודש'
+                      : 'חבר/ה כבר $monthsSince חודשים',
+                  key: const Key('member-since'),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.85),
                       ),
                 ),
+              ],
+              if (next != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                _NextSessionPill(label: next),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              _QuickActions(),
+            ],
+          ),
+        ),
+        // Clean stats card (ref-style: big numbers + divider).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+          child: StatGroupCard(
+            columns: 2,
+            stats: [
+              StatItem(
+                label: 'רצף',
+                value: streakValue,
+                valueColor: streakActive ? BrandColors.orange : null,
+              ),
+              StatItem(
                 label: 'אימונים השבוע',
-                accent: Colors.white,
+                value: '${confirmed.length}',
               ),
             ],
           ),
-          if (next != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _NextSessionPill(label: next),
-          ],
-          const SizedBox(height: AppSpacing.md),
-          _QuickActions(),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

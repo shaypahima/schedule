@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../config/env.dart';
 import '../profile/profile_repository.dart';
+import 'dev_session.dart';
 import 'login_screen.dart';
 import 'role_router.dart';
 
@@ -55,6 +57,12 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    // Native-Postgres dev path: auth state lives in devSessionProvider, not
+    // Supabase. The Supabase listener stays wired but is dormant.
+    if (Env.pgDev) {
+      final dev = ref.watch(devSessionProvider);
+      return dev == null ? const LoginScreen() : const RoleRouter();
+    }
     return _session == null ? const LoginScreen() : const RoleRouter();
   }
 }

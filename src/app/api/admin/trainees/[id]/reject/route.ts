@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireCoach } from "@/lib/auth/require";
 import { loadProfile } from "@/lib/auth/profile-repo";
+import { isPgDriver, pgQuery } from "@/lib/pg/client";
 
 function admin() {
   return createClient(
@@ -31,6 +32,11 @@ export async function POST(
       { error: "NOT_PENDING", message: `status is ${target.status}` },
       { status: 409 }
     );
+  }
+
+  if (isPgDriver()) {
+    await pgQuery("update profiles set status = 'rejected' where id = $1", [id]);
+    return NextResponse.json({ ok: true });
   }
 
   const { error } = await admin()

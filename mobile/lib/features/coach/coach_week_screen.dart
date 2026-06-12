@@ -184,13 +184,15 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
                   bySlot.putIfAbsent(b.slotId, () => []).add(b);
                 }
                 if (slots.isEmpty) {
-                  return const Padding(
-                    key: Key('week-empty'),
-                    padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                    child: EmptyState(
-                      icon: Icons.event_busy_outlined,
-                      headline: 'אין שעות פנויות ביום זה',
-                      helper: 'בחר יום אחר או עבור לשבוע אחר',
+                  return SingleChildScrollView(
+                    child: const Padding(
+                      key: Key('week-empty'),
+                      padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                      child: EmptyState(
+                        icon: Icons.event_busy_outlined,
+                        headline: 'אין שעות פנויות ביום זה',
+                        helper: 'בחר יום אחר או עבור לשבוע אחר',
+                      ),
                     ),
                   );
                 }
@@ -232,71 +234,67 @@ class _CoachDashboard extends ConsumerWidget {
     final changeRequestsCount = dashboard?.pendingChangeRequests ?? 0;
     final noShowsThisWeek = dashboard?.noShowsThisWeek ?? 0;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.md,
-        AppSpacing.lg,
-        AppSpacing.lg,
-      ),
-      decoration: const BoxDecoration(gradient: BrandColors.gradientHero),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            hebrewDayHeader(now),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
-                ),
+    return Column(
+      children: [
+        // Warm greeting band.
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.lg,
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              _DashStat(value: '${bookings.length}', label: 'אימונים היום'),
-              const SizedBox(width: AppSpacing.sm),
-              _DashStat(value: '$activeCount', label: 'מתאמנים פעילים'),
-              const SizedBox(width: AppSpacing.sm),
-              _DashStat(
-                value: '$pendingCount',
+          decoration: const BoxDecoration(
+            gradient: BrandColors.gradientHero,
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+          ),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              hebrewDayHeader(now),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                  ),
+            ),
+          ),
+        ),
+        // Clean stats card (ref-style: big numbers + dividers).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+          child: StatGroupCard(
+            stats: [
+              StatItem(label: 'אימונים היום', value: '${bookings.length}'),
+              StatItem(label: 'מתאמנים פעילים', value: '$activeCount'),
+              StatItem(
                 label: 'אישורים',
-                highlight: pendingCount > 0,
+                value: '$pendingCount',
+                valueColor: pendingCount > 0 ? BrandColors.orange : null,
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              _DashStat(
-                key: const Key('change-requests-stat'),
-                value: '$changeRequestsCount',
+              StatItem(
+                cellKey: const Key('change-requests-stat'),
                 label: 'בקשות שינוי',
-                highlight: changeRequestsCount > 0,
+                value: '$changeRequestsCount',
+                valueColor:
+                    changeRequestsCount > 0 ? BrandColors.terracotta : null,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ChangeRequestsScreen()),
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              _DashStat(
-                key: const Key('no-shows-stat'),
-                value: '$noShowsThisWeek',
+              StatItem(
+                cellKey: const Key('no-shows-stat'),
                 label: 'אי-הגעה השבוע',
+                value: '$noShowsThisWeek',
               ),
-              const SizedBox(width: AppSpacing.sm),
-              const _DashSpacer(),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _DashSpacer extends StatelessWidget {
-  const _DashSpacer();
-  @override
-  Widget build(BuildContext context) => const Expanded(child: SizedBox.shrink());
-}
 
 /// Glanceable inbox (#67): pending approvals + inside-24h change requests
 /// surfaced at the top with one-tap entry. When both are zero it shows a calm
@@ -451,64 +449,6 @@ class _CountBadge extends StatelessWidget {
           duration: AppMotion.standard,
           curve: AppMotion.springy,
         );
-  }
-}
-
-class _DashStat extends StatelessWidget {
-  final String value;
-  final String label;
-  final bool highlight;
-  final VoidCallback? onTap;
-  const _DashStat({
-    super.key,
-    required this.value,
-    required this.label,
-    this.highlight = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final inner = Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border(
-          top: BorderSide(
-            color: highlight ? BrandColors.orange : Colors.white,
-            width: 3,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    height: 1.05,
-                  )),
-          Text(label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85),
-                  )),
-        ],
-      ),
-    );
-    return Expanded(
-      child: onTap == null
-          ? inner
-          : InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              child: inner,
-            ),
-    );
   }
 }
 

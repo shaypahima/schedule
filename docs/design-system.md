@@ -6,26 +6,30 @@ Canonical reference for visual + interaction patterns. Behavioral rules live in 
 
 ### Color (`mobile/lib/theme.dart` → `BrandColors`)
 
+Palette: "warm studio" — muted teal anchor + warm peach→amber→terracotta family (teal↔orange complementary). Source swatch: `#588B8B #FFFFFF #FFD5C2 #F28F3B #C8553D`.
+
 | Token         | Hex       | Role |
 |---------------|-----------|------|
-| `teal`        | `#0EA89A` | Primary. CTAs, links, focus, dominant brand element. |
-| `tealDark`    | `#076B61` | Primary-pressed, gradients, dark fill on light bg. |
-| `orange`      | `#FF6B35` | Accent only. Streak fire, single hero stat, FAB. **Never** dominant. |
-| `orangeDark`  | `#D94F1F` | Orange pressed/active. |
-| `bg`          | `#FAF8F5` | Page background. Warm neutral — never pure white. |
+| `teal`        | `#588B8B` | Primary. CTAs, links, focus, dominant brand element. |
+| `tealDark`    | `#3F6766` | Primary-pressed, hero gradient end. |
+| `orange`      | `#F28F3B` | Accent only. Streak, single hero stat, FAB. **Never** dominant. |
+| `orangeDark`  | `#C8553D` | Orange pressed (terracotta). |
+| `terracotta`  | `#C8553D` | Strong accent (alias of `orangeDark`). |
+| `peach`       | `#FFD5C2` | Soft fill — chips, hero-stat tiles, highlight pills. |
+| `bg`          | `#FAF5F1` | Page background. Warm off-white — never pure white. |
 | `surface`     | `#FFFFFF` | Card surface on top of `bg`. |
-| `ink`         | `#1F2421` | Primary text. Near-black with green undertone. |
-| `inkSoft`     | `#5B6260` | Secondary text, labels, meta. |
-| `inkMuted`    | `#9BA29F` | Tertiary text, placeholders, "חסר". |
-| `line`        | `#E6E2DC` | Hairlines, dividers, inactive borders. |
-| `success`     | `#1F9D55` | Confirmed, approved, attended. |
-| `error`       | `#C53030` | Rejected, no-show, validation errors. |
+| `ink`         | `#2E2A27` | Primary text. Warm near-black. |
+| `inkSoft`     | `#6F655E` | Secondary text, labels, meta. |
+| `inkMuted`    | `#A99E96` | Tertiary text, placeholders, "חסר". |
+| `line`        | `#ECE3DB` | Hairlines, dividers, inactive borders. |
+| `success`     | `#2F8F6B` | Confirmed, approved, attended (harmonized green). |
+| `error`       | `#C8553D` | Rejected, no-show, validation errors (terracotta). |
 
 **Rules:**
 - Never `Colors.*` (Material defaults). Always `BrandColors`.
-- Orange is accent — appears once per screen max. Teal is dominant.
+- Orange/amber is accent — appears once per screen max. Teal is dominant. Peach is a soft fill, not a CTA.
 - Status colors (success/error) carry semantics; never use for decoration.
-- All shadows hue-shifted (`teal.withValues(alpha: 0.08)`), not pure black.
+- Cards lift on a brand-tinted soft shadow (`BrandColors.cardShadow`, teal α0.10), radius 20. Shadows hue-shifted, never pure black.
 
 ### Spacing (`mobile/lib/design/spacing.dart` → `AppSpacing`)
 
