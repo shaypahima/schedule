@@ -66,7 +66,8 @@ void main() {
       await tester.pumpWidget(_harness(slots: slots, admin: admin));
       await tester.pumpAndSettle();
 
-      expect(find.text('10:00  (1/2)'), findsOneWidget);
+      expect(find.text('10:00'), findsOneWidget);
+      expect(find.text('נותר מקום 1'), findsOneWidget);
       expect(find.text('יעל כהן'), findsOneWidget);
       // Add-trainee button visible because slot has remaining capacity
       expect(find.byKey(const Key('add-trainee-s1')), findsOneWidget);
@@ -84,16 +85,16 @@ void main() {
       await tester.pumpAndSettle();
 
       // 2026-05-20 is Wed → Sun=2026-05-17, Fri=2026-05-22
-      expect(find.text('2026-05-17 – 2026-05-22'), findsOneWidget);
+      expect(find.text('17.5 – 22.5'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('week-next')));
       await tester.pumpAndSettle();
-      expect(find.text('2026-05-24 – 2026-05-29'), findsOneWidget);
+      expect(find.text('24.5 – 29.5'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('week-prev')));
       await tester.tap(find.byKey(const Key('week-prev')));
       await tester.pumpAndSettle();
-      expect(find.text('2026-05-10 – 2026-05-15'), findsOneWidget);
+      expect(find.text('10.5 – 15.5'), findsOneWidget);
     });
 
     testWidgets('empty day renders EmptyState pattern (R18)', (tester) async {

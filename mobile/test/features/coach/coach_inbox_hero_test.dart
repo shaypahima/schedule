@@ -66,7 +66,7 @@ void main() {
       expect(find.byKey(const Key('inbox-hero')), findsOneWidget);
       expect(find.byKey(const Key('inbox-approvals')), findsOneWidget);
       expect(find.byKey(const Key('inbox-requests')), findsOneWidget);
-      expect(find.text('תיבת נכנסים'), findsOneWidget);
+      expect(find.text('ממתין לטיפולך'), findsOneWidget);
       expect(find.text('2'), findsWidgets); // approvals badge
     });
 

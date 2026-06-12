@@ -1,42 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Velofit brand palette — "warm studio". Muted teal anchor + a warm
-/// peach→amber→terracotta family (teal↔orange are complementary). Sourced from
-/// the user's chosen swatch: #588B8B #FFFFFF #FFD5C2 #F28F3B #C8553D.
+/// Velofit brand palette — "cream editorial". Warm paper neutrals + ink
+/// typography; teal appears only on actions (CTAs, links, focus, badges).
+/// Flat surfaces, hairline sand borders, no gradients, no decorative color.
+/// Anything colored is tappable or semantic — color == meaning.
 class BrandColors {
-  static const teal = Color(0xFF588B8B); // primary — muted, grounded
-  static const tealDark = Color(0xFF3F6766); // pressed / gradient end
-  static const orange = Color(0xFFF28F3B); // accent — warm amber
-  static const orangeDark = Color(0xFFC8553D); // accent pressed — terracotta
-  static const peach = Color(0xFFFFD5C2); // soft fill — chips, hero tiles, highlights
-  static const terracotta = Color(0xFFC8553D); // strong accent (alias of orangeDark)
+  static const teal = Color(0xFF4F7E7E); // action color — CTAs, links, badges
+  static const tealDark = Color(0xFF3A6160); // pressed / emphasis text
 
-  // Warm neutrals (peach-leaning warm grays)
-  static const bg = Color(0xFFFAF5F1); // warm off-white page
-  static const surface = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF2E2A27); // warm near-black
-  static const inkSoft = Color(0xFF6F655E);
-  static const inkMuted = Color(0xFFA99E96);
-  static const line = Color(0xFFECE3DB); // warm hairline
+  // Paper neutrals
+  static const bg = Color(0xFFF7F2EA); // cream paper page
+  static const surface = Color(0xFFFFFDF8); // ivory card
+  static const cream = Color(0xFFEFE6D8); // soft fill — discs, banners, chips
+  static const sand = Color(0xFFD9CBB4); // strong hairline, chip borders
+  static const sandDeep = Color(0xFFA08B66); // warm taupe — quiet data accents
+  static const ink = Color(0xFF2B2723); // primary text
+  static const inkSoft = Color(0xFF6B6258); // secondary text, labels
+  static const inkMuted = Color(0xFFA1968A); // tertiary text, placeholders
+  static const line = Color(0xFFE9E0D2); // default hairline / divider
 
-  static const success = Color(0xFF2F8F6B); // teal-leaning green (harmonized)
-  static const warning = Color(0xFFB45309); // amber-700; legible on light bg
-  static const error = Color(0xFFC8553D); // terracotta reads as a warm red
-
-  /// Canonical hero gradient — warm amber→terracotta, RTL-aware
-  /// topRight→bottomLeft. Every full-bleed hero (trainee home, coach
-  /// dashboard) uses this exact gradient. Don't invent new ones. White hero
-  /// text/tiles ride on top — terracotta is weighted to keep contrast.
-  static const gradientHero = LinearGradient(
-    colors: [orange, terracotta],
-    begin: Alignment.topRight,
-    end: Alignment.bottomLeft,
-    stops: [0.0, 0.85],
-  );
-
-  /// Brand-tinted soft shadow for card depth (never pure black).
-  static final cardShadow = teal.withValues(alpha: 0.10);
+  static const success = Color(0xFF2F8F6B); // confirmed, approved, attended
+  static const warning = Color(0xFFB45309); // legible amber-700 on light bg
+  static const error = Color(0xFFB3503C); // warm clay red — errors, no-show
 }
 
 ThemeData buildBrandTheme() {
@@ -44,29 +30,29 @@ ThemeData buildBrandTheme() {
     brightness: Brightness.light,
     primary: BrandColors.teal,
     onPrimary: Colors.white,
-    primaryContainer: BrandColors.teal.withValues(alpha: 0.15),
+    primaryContainer: BrandColors.teal.withValues(alpha: 0.12),
     onPrimaryContainer: BrandColors.tealDark,
-    secondary: BrandColors.orange,
+    secondary: BrandColors.sandDeep,
     onSecondary: Colors.white,
-    secondaryContainer: BrandColors.peach,
-    onSecondaryContainer: BrandColors.orangeDark,
-    tertiary: BrandColors.terracotta,
+    secondaryContainer: BrandColors.cream,
+    onSecondaryContainer: BrandColors.ink,
+    tertiary: BrandColors.tealDark,
     onTertiary: Colors.white,
     surface: BrandColors.surface,
     onSurface: BrandColors.ink,
     surfaceContainerHighest: BrandColors.bg,
-    surfaceContainerHigh: const Color(0xFFF2EBE4),
+    surfaceContainerHigh: const Color(0xFFF1EADE),
     onSurfaceVariant: BrandColors.inkSoft,
     outline: BrandColors.line,
     outlineVariant: BrandColors.line.withValues(alpha: 0.5),
     error: BrandColors.error,
     onError: Colors.white,
-    errorContainer: BrandColors.error.withValues(alpha: 0.15),
+    errorContainer: BrandColors.error.withValues(alpha: 0.12),
     onErrorContainer: BrandColors.error,
     inverseSurface: BrandColors.ink,
     onInverseSurface: BrandColors.bg,
     inversePrimary: BrandColors.teal.withValues(alpha: 0.6),
-    shadow: Colors.black.withValues(alpha: 0.1),
+    shadow: Colors.black.withValues(alpha: 0.08),
     scrim: Colors.black.withValues(alpha: 0.5),
   );
 
@@ -117,24 +103,23 @@ ThemeData buildBrandTheme() {
   return base.copyWith(
     textTheme: textTheme,
     appBarTheme: AppBarTheme(
-      backgroundColor: BrandColors.surface,
+      backgroundColor: BrandColors.bg,
       foregroundColor: BrandColors.ink,
       elevation: 0,
-      scrolledUnderElevation: 0.5,
-      shadowColor: BrandColors.line,
+      scrolledUnderElevation: 0,
       titleTextStyle: textTheme.titleLarge,
       iconTheme: const IconThemeData(color: BrandColors.ink),
     ),
     cardTheme: CardThemeData(
-      // Crisp, lightly-lifted card. Subtle shadow + hairline, moderate radius
-      // (not over-rounded) for a designed, premium feel.
-      elevation: 2,
+      // Flat editorial card: ivory paper + sand hairline. No shadow — depth
+      // comes from the surface/bg contrast, not elevation.
+      elevation: 0,
       color: BrandColors.surface,
       surfaceTintColor: Colors.transparent,
-      shadowColor: BrandColors.cardShadow,
+      shadowColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: BrandColors.line.withValues(alpha: 0.7)),
+        side: const BorderSide(color: BrandColors.line),
       ),
       margin: const EdgeInsets.symmetric(vertical: 6),
     ),
@@ -167,31 +152,31 @@ ThemeData buildBrandTheme() {
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
-    // Amber FAB — the one energetic "act now" affordance.
+    // Teal FAB — actions are teal, everywhere, no exceptions.
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: BrandColors.orange,
+      backgroundColor: BrandColors.teal,
       foregroundColor: Colors.white,
-      elevation: 4,
-      focusElevation: 4,
-      hoverElevation: 6,
-      highlightElevation: 2,
+      elevation: 1,
+      focusElevation: 1,
+      hoverElevation: 2,
+      highlightElevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     ),
     // Filled, soft, rounded inputs with a teal focus ring.
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: BrandColors.bg,
+      fillColor: BrandColors.surface,
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       hintStyle: textTheme.bodyMedium?.copyWith(color: BrandColors.inkMuted),
       labelStyle: textTheme.bodyMedium?.copyWith(color: BrandColors.inkSoft),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: BrandColors.line),
+        borderSide: const BorderSide(color: BrandColors.sand),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: BrandColors.line),
+        borderSide: const BorderSide(color: BrandColors.sand),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -218,9 +203,9 @@ ThemeData buildBrandTheme() {
       showDragHandle: true,
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: BrandColors.peach.withValues(alpha: 0.45),
+      backgroundColor: BrandColors.cream.withValues(alpha: 0.6),
       selectedColor: BrandColors.teal,
-      side: BorderSide.none,
+      side: const BorderSide(color: BrandColors.sand),
       labelStyle: textTheme.labelMedium?.copyWith(color: BrandColors.ink),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
     ),

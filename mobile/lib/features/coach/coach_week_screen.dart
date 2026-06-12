@@ -45,6 +45,10 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
 
   String get _selectedDate => formatDate(_weekDates[_selectedIndex]);
 
+  /// Human date for the week-range label ("17.5"), vs ISO [formatDate] which
+  /// is the API wire format and reads raw on screen.
+  static String _displayDate(DateTime d) => '${d.day}.${d.month}';
+
   @override
   Widget build(BuildContext context) {
     final slotsAsync = ref.watch(slotsForDateProvider(_selectedDate));
@@ -91,24 +95,34 @@ class _CoachWeekScreenState extends ConsumerState<CoachWeekScreen> {
           const _InboxHero(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  key: const Key('week-prev'),
-                  icon: const Icon(Icons.chevron_right), // RTL: right = previous
-                  onPressed: () => setState(() => _weekOffset--),
-                ),
-                Text(
-                  '${formatDate(_weekDates.first)} – ${formatDate(_weekDates.last)}',
-                  key: const Key('week-range'),
-                ),
-                IconButton(
-                  key: const Key('week-next'),
-                  icon: const Icon(Icons.chevron_left), // RTL: left = next
-                  onPressed: () => setState(() => _weekOffset++),
-                ),
-              ],
+            // Chronological navigation stays LTR even in a Hebrew UI — dates
+            // and timelines read left→right, so back is left, forward is right.
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    key: const Key('week-prev'),
+                    tooltip: 'שבוע קודם',
+                    icon: const Icon(Icons.chevron_left,
+                        color: BrandColors.inkSoft),
+                    onPressed: () => setState(() => _weekOffset--),
+                  ),
+                  Text(
+                    '${_displayDate(_weekDates.first)} – ${_displayDate(_weekDates.last)}',
+                    key: const Key('week-range'),
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  IconButton(
+                    key: const Key('week-next'),
+                    tooltip: 'שבוע הבא',
+                    icon: const Icon(Icons.chevron_right,
+                        color: BrandColors.inkSoft),
+                    onPressed: () => setState(() => _weekOffset++),
+                  ),
+                ],
+              ),
             ),
           ),
           Padding(
@@ -229,68 +243,26 @@ class _CoachDashboard extends ConsumerWidget {
     final bookings = ref.watch(adminBookingsForDateProvider(selectedDate)).valueOrNull ?? [];
     final trainees = ref.watch(traineeRecordsProvider).valueOrNull ?? [];
     final dashboard = ref.watch(coachDashboardProvider).valueOrNull;
-    final pendingCount = trainees.where((t) => t.status == 'pending').length;
     final activeCount = trainees.where((t) => t.status == 'active').length;
-    final changeRequestsCount = dashboard?.pendingChangeRequests ?? 0;
     final noShowsThisWeek = dashboard?.noShowsThisWeek ?? 0;
 
-    return Column(
-      children: [
-        // Warm greeting band.
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.md,
-            AppSpacing.lg,
-            AppSpacing.lg,
+    // Read-only numbers live here; anything requiring the coach to act lives
+    // in the inbox below. Data is quiet, actions are teal — never mixed.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+      child: StatGroupCard(
+        stats: [
+          StatItem(label: 'אימונים היום', value: '${bookings.length}'),
+          StatItem(label: 'מתאמנים פעילים', value: '$activeCount'),
+          StatItem(
+            cellKey: const Key('no-shows-stat'),
+            label: 'אי-הגעה השבוע',
+            value: '$noShowsThisWeek',
+            valueColor: noShowsThisWeek > 0 ? BrandColors.error : null,
           ),
-          decoration: const BoxDecoration(
-            gradient: BrandColors.gradientHero,
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-          ),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              hebrewDayHeader(now),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                  ),
-            ),
-          ),
-        ),
-        // Clean stats card (ref-style: big numbers + dividers).
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
-          child: StatGroupCard(
-            stats: [
-              StatItem(label: 'אימונים היום', value: '${bookings.length}'),
-              StatItem(label: 'מתאמנים פעילים', value: '$activeCount'),
-              StatItem(
-                label: 'אישורים',
-                value: '$pendingCount',
-                valueColor: pendingCount > 0 ? BrandColors.orange : null,
-              ),
-              StatItem(
-                cellKey: const Key('change-requests-stat'),
-                label: 'בקשות שינוי',
-                value: '$changeRequestsCount',
-                valueColor:
-                    changeRequestsCount > 0 ? BrandColors.terracotta : null,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ChangeRequestsScreen()),
-                ),
-              ),
-              StatItem(
-                cellKey: const Key('no-shows-stat'),
-                label: 'אי-הגעה השבוע',
-                value: '$noShowsThisWeek',
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -336,17 +308,17 @@ class _InboxHero extends ConsumerWidget {
       child: Container(
         key: const Key('inbox-hero'),
         decoration: BoxDecoration(
-          color: BrandColors.orange.withValues(alpha: 0.06),
+          color: BrandColors.teal.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           border: const Border(
-            right: BorderSide(color: BrandColors.orange, width: 3),
+            right: BorderSide(color: BrandColors.teal, width: 3),
           ),
         ),
         padding: const EdgeInsets.all(AppSpacing.sm),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SectionHeader('תיבת נכנסים'),
+            const SectionHeader('ממתין לטיפולך'),
             if (approvals > 0)
               _InboxRow(
                 rowKey: const Key('inbox-approvals'),
@@ -400,7 +372,7 @@ class _InboxRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: BrandColors.orange),
+            Icon(icon, size: 20, color: BrandColors.teal),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(label, style: theme.textTheme.bodyMedium),
@@ -415,7 +387,7 @@ class _InboxRow extends StatelessWidget {
   }
 }
 
-/// Orange count pill that pops (scales in) whenever [count] changes — a small
+/// Teal count pill that pops (scales in) whenever [count] changes — a small
 /// "you have new work" cue. Finite + gated, so it's static under
 /// reduce-motion / tests.
 class _CountBadge extends StatelessWidget {
@@ -428,7 +400,7 @@ class _CountBadge extends StatelessWidget {
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       decoration: BoxDecoration(
-        color: BrandColors.orange,
+        color: BrandColors.teal,
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
       ),
       child: Text(
@@ -558,59 +530,145 @@ class _CoachSlotTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final full = bookings.length >= slot.capacity;
+    final capacityLabel = full
+        ? 'מלא'
+        : bookings.isEmpty
+            ? 'פנוי · ${slot.capacity} מקומות'
+            : 'נותר מקום ${slot.capacity - bookings.length}';
+
+    // Card anatomy — data on the reading side (time, occupancy, names),
+    // actions on the far side in teal (add / no-show / remove). The fill bar
+    // under the header makes occupancy scannable without reading "1/2".
     return GestureDetector(
       key: Key('coach-slot-${slot.startTime}'),
       onLongPress: () => _openOverridesSheet(context, ref),
       behavior: HitTestBehavior.opaque,
       child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${slot.startTime}  (${bookings.length}/${slot.capacity})'
-                  '${slot.lockoutOverride ? "  🔓" : ""}',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              if (bookings.length < slot.capacity)
-                IconButton(
-                  key: Key('add-trainee-${slot.id}'),
-                  icon: const Icon(Icons.person_add),
-                  tooltip: 'הוסף מתאמן',
-                  onPressed: () => _openAddTraineeSheet(context, ref),
-                ),
-            ],
-          ),
-          for (final b in bookings)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(b.traineeName ?? b.traineeId,
-                        key: Key('booking-name-${b.id}')),
-                  ),
-                  if (_slotIsPast())
-                    IconButton(
-                      key: Key('no-show-${b.id}'),
-                      tooltip: 'סמן כלא הופיע',
-                      icon: const Icon(Icons.person_off_outlined),
-                      onPressed: () => _markNoShow(context, ref, b),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(slot.startTime,
+                                  style: theme.textTheme.titleLarge),
+                              if (slot.lockoutOverride) ...[
+                                const SizedBox(width: AppSpacing.xs),
+                                const Icon(Icons.lock_open,
+                                    size: 14, color: BrandColors.sandDeep),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            capacityLabel,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: full
+                                  ? BrandColors.inkMuted
+                                  : BrandColors.inkSoft,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  IconButton(
-                    key: Key('remove-booking-${b.id}'),
-                    icon: const Icon(Icons.remove_circle_outline),
-                    onPressed: () => _confirmRemove(context, ref, b),
+                    if (!full)
+                      IconButton.outlined(
+                        key: Key('add-trainee-${slot.id}'),
+                        icon: const Icon(Icons.person_add_alt_1, size: 20),
+                        tooltip: 'הוסף מתאמן',
+                        style: IconButton.styleFrom(
+                          foregroundColor: BrandColors.teal,
+                          side: BorderSide(
+                              color: BrandColors.teal.withValues(alpha: 0.4)),
+                        ),
+                        onPressed: () => _openAddTraineeSheet(context, ref),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                // Occupancy bar: teal fill over a sand track.
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: SizedBox(
+                    height: 3,
+                    child: Row(
+                      children: [
+                        if (bookings.isNotEmpty)
+                          Expanded(
+                            flex: bookings.length,
+                            child: const ColoredBox(color: BrandColors.teal),
+                          ),
+                        if (slot.capacity - bookings.length > 0)
+                          Expanded(
+                            flex: slot.capacity - bookings.length,
+                            child: const ColoredBox(color: BrandColors.line),
+                          ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+                if (bookings.isNotEmpty) const SizedBox(height: AppSpacing.xs),
+                for (final b in bookings)
+                  Row(
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: BrandColors.cream,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          (b.traineeName?.isNotEmpty ?? false)
+                              ? b.traineeName![0]
+                              : '?',
+                          style: theme.textTheme.labelMedium
+                              ?.copyWith(color: BrandColors.ink),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(b.traineeName ?? b.traineeId,
+                            key: Key('booking-name-${b.id}'),
+                            style: theme.textTheme.bodyMedium),
+                      ),
+                      if (_slotIsPast())
+                        IconButton(
+                          key: Key('no-show-${b.id}'),
+                          tooltip: 'סמן כלא הופיע',
+                          iconSize: 20,
+                          color: BrandColors.inkSoft,
+                          icon: const Icon(Icons.person_off_outlined),
+                          onPressed: () => _markNoShow(context, ref, b),
+                        ),
+                      IconButton(
+                        key: Key('remove-booking-${b.id}'),
+                        tooltip: 'הסר מהשעה',
+                        iconSize: 20,
+                        color: BrandColors.inkSoft,
+                        icon: const Icon(Icons.remove_circle_outline),
+                        onPressed: () => _confirmRemove(context, ref, b),
+                      ),
+                    ],
+                  ),
+              ],
             ),
-        ],
-      ),
+          ),
+        ),
       ),
     );
   }
@@ -771,7 +829,7 @@ class _PendingApprovalsButton extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
-                color: BrandColors.orange,
+                color: BrandColors.teal,
                 borderRadius: BorderRadius.circular(8),
               ),
               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
