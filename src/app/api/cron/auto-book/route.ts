@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContainer } from "@/lib/services";
 import { autoBookRecurring, RecurringTrainee } from "@/lib/services/auto-book";
-import { requireCron } from "@/lib/route-guard";
+import { requireCron } from "@/lib/auth/require";
 import { todayIL, weekStartForDate } from "@/lib/services/israel-time";
 
 export async function GET(request: NextRequest) {
