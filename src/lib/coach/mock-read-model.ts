@@ -13,7 +13,7 @@ import { AuthService } from "@/lib/services/auth";
 import { Bookings } from "@/lib/services/bookings";
 import { ProgressStore } from "@/lib/services/progress-store";
 import { loadProfile } from "@/lib/auth/profile-repo";
-import { MeasurementLog, Profile } from "@/lib/types";
+import { Booking, MeasurementLog, Profile, Slot } from "@/lib/types";
 import { todayIL, weekStartForDate, israelSlotToUTC } from "@/lib/services/israel-time";
 
 const FOURTEEN_DAYS_MS = 14 * 86_400_000;
@@ -68,18 +68,12 @@ export function makeCoachReadModel(
   bookings: Bookings,
   progress: ProgressStore
 ): CoachReadModel {
-  /**
-   * Per-trainee progress aggregates for list/detail views. One measurement
-   * query per trainee (30d window — enough span to find a >=14d-older point
-   * for the trend). N+1 across the roster; acceptable at single-coach scale.
-   * If the roster grows large, add a batch ProgressStore.listLastMeasurements.
-   */
-  async function progressAggregates(traineeId: string): Promise<{
+  /** Progress aggregates from a preloaded newest-first measurement list (30d window). */
+  function aggregatesFromMeasurements(ms: MeasurementLog[]): {
     lastWeightKg: number | null;
     weightTrend14d: "up" | "flat" | "down" | null;
     lastMeasurementAt: string | null;
-  }> {
-    const ms = await progress.listMeasurements(traineeId, { sinceDays: 30 });
+  } {
     const lastWeight = ms.find((m) => m.weightKg != null);
     return {
       lastWeightKg: lastWeight?.weightKg ?? null,
@@ -89,28 +83,16 @@ export function makeCoachReadModel(
   }
 
   /**
-   * Overall attendance for a trainee (not capped to recent-10 like the detail
-   * view): builds roster entries from all their bookings, then applies the
-   * shared formula.
+   * Per-trainee progress aggregates for the detail view (single-trainee fetch;
+   * the list view batches via listMeasurementsForTrainees instead).
    */
-  async function attendanceForTrainee(
-    traineeId: string,
-    byId: Map<string, Profile>
-  ): Promise<number | null> {
-    const all = await store.getTraineeBookings(traineeId);
-    const entries: RosterEntry[] = [];
-    for (const b of all) {
-      const entry = await buildRosterEntry(
-        b.id,
-        b.slotId,
-        b.traineeId,
-        b.isAutoBooked,
-        b.status,
-        byId
-      );
-      if (entry) entries.push(entry);
-    }
-    return computeAttendanceRate(entries);
+  async function progressAggregates(traineeId: string): Promise<{
+    lastWeightKg: number | null;
+    weightTrend14d: "up" | "flat" | "down" | null;
+    lastMeasurementAt: string | null;
+  }> {
+    const ms = await progress.listMeasurements(traineeId, { sinceDays: 30 });
+    return aggregatesFromMeasurements(ms);
   }
 
   async function traineesByStatus(): Promise<{
@@ -145,6 +127,25 @@ export function makeCoachReadModel(
       : null;
   }
 
+  function rosterEntryFromSlot(
+    booking: Pick<Booking, "id" | "slotId" | "traineeId" | "isAutoBooked">,
+    status: RosterEntry["status"],
+    slot: Slot,
+    byId: Map<string, Profile>
+  ): RosterEntry {
+    const t = byId.get(booking.traineeId);
+    return {
+      bookingId: booking.id,
+      slotId: booking.slotId,
+      startsAt: israelSlotToUTC(slot.date, slot.startTime).toISOString(),
+      slotDate: slot.date,
+      slotTime: slot.startTime,
+      trainee: { id: booking.traineeId, name: t?.name ?? "" },
+      status,
+      isAutoBooked: booking.isAutoBooked,
+    };
+  }
+
   async function buildRosterEntry(
     bookingId: string,
     slotId: string,
@@ -155,17 +156,7 @@ export function makeCoachReadModel(
   ): Promise<RosterEntry | null> {
     const slot = await store.getSlot(slotId);
     if (!slot) return null;
-    const t = byId.get(traineeId);
-    return {
-      bookingId,
-      slotId,
-      startsAt: israelSlotToUTC(slot.date, slot.startTime).toISOString(),
-      slotDate: slot.date,
-      slotTime: slot.startTime,
-      trainee: { id: traineeId, name: t?.name ?? "" },
-      status,
-      isAutoBooked,
-    };
+    return rosterEntryFromSlot({ id: bookingId, slotId, traineeId, isAutoBooked }, status, slot, byId);
   }
 
   async function pendingApprovalsCount(): Promise<number> {
@@ -210,22 +201,67 @@ export function makeCoachReadModel(
       const { trainees, byId } = await traineesByStatus();
       const today = todayIL();
       const weekStart = weekStartForDate(today);
+      const [y, m, d] = weekStart.split("-").map(Number);
+      const weekEnd = new Date(y, m - 1, d + 7);
+      const weekEndStr = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, "0")}-${String(weekEnd.getDate()).padStart(2, "0")}`;
 
+      const candidates = trainees.filter((t) => {
+        const tt = t as Profile & { status?: string };
+        const status = (tt.status as TraineeSummary["status"] | undefined) ??
+          (t.isActive ? "active" : "deactivated");
+        if (filter === "pending" && status !== "pending") return false;
+        if (filter === "active" && status !== "active") return false;
+        return true;
+      });
+
+      // Three batch reads for the whole roster instead of ~4 reads per trainee.
+      const ids = candidates.map((t) => t.id);
+      const allBookings = await store.getConfirmedBookingsForTrainees(ids);
+      const slots = await store.getSlotsByIds([...new Set(allBookings.map((b) => b.slotId))]);
+      const slotById = new Map(slots.map((s) => [s.id, s]));
+      const measurements = await progress.listMeasurementsForTrainees(ids, { sinceDays: 30 });
+
+      const bookingsByTrainee = new Map<string, Booking[]>();
+      for (const b of allBookings) {
+        const list = bookingsByTrainee.get(b.traineeId);
+        if (list) list.push(b);
+        else bookingsByTrainee.set(b.traineeId, [b]);
+      }
+      const measurementsByTrainee = new Map<string, MeasurementLog[]>();
+      for (const ml of measurements) {
+        const list = measurementsByTrainee.get(ml.traineeId);
+        if (list) list.push(ml);
+        else measurementsByTrainee.set(ml.traineeId, [ml]);
+      }
+
+      const now = Date.now();
       const summaries: TraineeSummary[] = [];
-      for (const t of trainees) {
+      for (const t of candidates) {
         const tt = t as Profile & { status?: string; email?: string };
         const status = (tt.status as TraineeSummary["status"] | undefined) ??
           (t.isActive ? "active" : "deactivated");
 
-        if (filter === "pending" && status !== "pending") continue;
-        if (filter === "active" && status !== "active") continue;
+        const myBookings = bookingsByTrainee.get(t.id) ?? [];
+        const mySlots = myBookings
+          .map((b) => ({ booking: b, slot: slotById.get(b.slotId) }))
+          .filter((x): x is { booking: Booking; slot: Slot } => x.slot !== undefined);
 
-        const weekBookings = await store.getTraineeBookingsForWeek(t.id, weekStart);
-        const bookedThisWeek = weekBookings.length > 0;
-
+        const bookedThisWeek = mySlots.some(
+          (x) => x.slot.date >= weekStart && x.slot.date < weekEndStr
+        );
         if (filter === "unbooked-this-week" && (bookedThisWeek || !t.isActive)) continue;
 
-        const agg = await progressAggregates(t.id);
+        let latestPastMs = -Infinity;
+        for (const x of mySlots) {
+          const ms = israelSlotToUTC(x.slot.date, x.slot.startTime).getTime();
+          if (ms <= now && ms > latestPastMs) latestPastMs = ms;
+        }
+
+        const entries = mySlots.map((x) =>
+          rosterEntryFromSlot(x.booking, x.booking.status, x.slot, byId)
+        );
+
+        const agg = aggregatesFromMeasurements(measurementsByTrainee.get(t.id) ?? []);
         summaries.push({
           id: t.id,
           name: t.name,
@@ -235,11 +271,11 @@ export function makeCoachReadModel(
           preferredDay: t.preferredDay,
           preferredTime: t.preferredTime,
           bookedThisWeek,
-          lastSessionAt: await lastSessionAt(t.id),
+          lastSessionAt: latestPastMs > -Infinity ? new Date(latestPastMs).toISOString() : null,
           lastWeightKg: agg.lastWeightKg,
           weightTrend14d: agg.weightTrend14d,
           lastMeasurementAt: agg.lastMeasurementAt,
-          attendanceRate: await attendanceForTrainee(t.id, byId),
+          attendanceRate: computeAttendanceRate(entries),
         });
       }
 

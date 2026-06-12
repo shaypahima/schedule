@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { isPgDriver } from "@/lib/pg/client";
 import { verifyDevToken } from "@/lib/pg/dev-auth";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 export type JwtSession = { userId: string; email: string };
 
@@ -13,11 +13,7 @@ export async function getJwtSession(req: NextRequest): Promise<JwtSession | null
   // Local dev on native Postgres: verify our own HS256 token (no GoTrue).
   if (isPgDriver()) return verifyDevToken(jwt);
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
-  const { data, error } = await supabase.auth.getUser(jwt);
+  const { data, error } = await getSupabaseClient().auth.getUser(jwt);
   if (error || !data.user.email) return null;
   return { userId: data.user.id, email: data.user.email };
 }

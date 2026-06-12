@@ -6,6 +6,7 @@ import type {
   SessionLogInput,
 } from "@/lib/types";
 import { ProgressStore, validateMeasurementInput } from "@/lib/services/progress-store";
+import { mapMeasurementRow, mapSessionLogRow } from "@/lib/services/row-mappers";
 
 export class SupabaseProgressStore implements ProgressStore {
   constructor(private db: SupabaseClient) {}
@@ -29,7 +30,7 @@ export class SupabaseProgressStore implements ProgressStore {
       .select("*")
       .single();
     if (error || !data) throw new Error(error?.message ?? "insert failed");
-    return this.mapMeasurement(data);
+    return mapMeasurementRow(data);
   }
 
   async listMeasurements(
@@ -47,7 +48,7 @@ export class SupabaseProgressStore implements ProgressStore {
     }
     if (opts.limit) q = q.limit(opts.limit);
     const { data } = await q;
-    return (data ?? []).map((r: Record<string, unknown>) => this.mapMeasurement(r));
+    return (data ?? []).map((r: Record<string, unknown>) => mapMeasurementRow(r));
   }
 
   async getLastMeasurement(
@@ -55,6 +56,24 @@ export class SupabaseProgressStore implements ProgressStore {
   ): Promise<MeasurementLog | undefined> {
     const rows = await this.listMeasurements(traineeId, { limit: 1 });
     return rows[0];
+  }
+
+  async listMeasurementsForTrainees(
+    traineeIds: string[],
+    opts: { sinceDays?: number } = {}
+  ): Promise<MeasurementLog[]> {
+    if (traineeIds.length === 0) return [];
+    let q = this.db
+      .from("measurement_logs")
+      .select("*")
+      .in("trainee_id", traineeIds)
+      .order("logged_at", { ascending: false });
+    if (opts.sinceDays) {
+      const cutoff = new Date(Date.now() - opts.sinceDays * 86_400_000).toISOString();
+      q = q.gte("logged_at", cutoff);
+    }
+    const { data } = await q;
+    return (data ?? []).map((r: Record<string, unknown>) => mapMeasurementRow(r));
   }
 
   async upsertSessionLog(
@@ -73,7 +92,7 @@ export class SupabaseProgressStore implements ProgressStore {
       .select("*")
       .single();
     if (error || !data) throw new Error(error?.message ?? "upsert failed");
-    return this.mapSessionLog(data);
+    return mapSessionLogRow(data);
   }
 
   async getSessionLog(bookingId: string): Promise<SessionLog | undefined> {
@@ -82,7 +101,7 @@ export class SupabaseProgressStore implements ProgressStore {
       .select("*")
       .eq("booking_id", bookingId)
       .maybeSingle();
-    return data ? this.mapSessionLog(data) : undefined;
+    return data ? mapSessionLogRow(data) : undefined;
   }
 
   async listSessionLogsForTrainee(
@@ -96,28 +115,7 @@ export class SupabaseProgressStore implements ProgressStore {
       .order("updated_at", { ascending: false });
     if (opts.limit) q = q.limit(opts.limit);
     const { data } = await q;
-    return (data ?? []).map((r: Record<string, unknown>) => this.mapSessionLog(r));
+    return (data ?? []).map((r: Record<string, unknown>) => mapSessionLogRow(r));
   }
 
-  private mapMeasurement(row: Record<string, unknown>): MeasurementLog {
-    return {
-      id: row.id as string,
-      traineeId: row.trainee_id as string,
-      loggedAt: new Date(row.logged_at as string),
-      weightKg: row.weight_kg != null ? Number(row.weight_kg) : null,
-      metrics: (row.metrics as Record<string, unknown> | null) ?? null,
-      photoUrl: (row.photo_url as string) ?? null,
-      note: (row.note as string) ?? null,
-    };
-  }
-
-  private mapSessionLog(row: Record<string, unknown>): SessionLog {
-    return {
-      bookingId: row.booking_id as string,
-      feedback: (row.feedback as Record<string, unknown> | null) ?? null,
-      coachNotes: (row.coach_notes as string) ?? null,
-      createdAt: new Date(row.created_at as string),
-      updatedAt: new Date(row.updated_at as string),
-    };
-  }
 }

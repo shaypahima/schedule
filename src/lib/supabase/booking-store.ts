@@ -1,7 +1,12 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Booking, Slot, EditLog, ChangeRequest, ReminderKind } from "@/lib/types";
+import { Booking, Slot, ChangeRequest, ReminderKind } from "@/lib/types";
 import { BookingStore, REMINDER_DB_COLUMN } from "@/lib/services/booking-store";
 import { israelSlotToUTC } from "@/lib/services/israel-time";
+import {
+  mapSlotRow,
+  mapBookingRow,
+  mapChangeRequestRow,
+} from "@/lib/services/row-mappers";
 
 /**
  * Supabase-backed BookingStore implementation.
@@ -29,7 +34,7 @@ export class SupabaseBookingStore implements BookingStore {
       .eq("slot_id", slotId)
       .eq("status", "confirmed");
 
-    return this.mapSlot(slot, count ?? 0);
+    return mapSlotRow(slot, count ?? 0);
   }
 
   async updateSlot(slot: Slot): Promise<void> {
@@ -91,7 +96,7 @@ export class SupabaseBookingStore implements BookingStore {
     }
 
     return slots.map((s: Record<string, unknown>) =>
-      this.mapSlot(s, countMap.get(s.id as string) ?? 0)
+      mapSlotRow(s, countMap.get(s.id as string) ?? 0)
     );
   }
 
@@ -116,7 +121,7 @@ export class SupabaseBookingStore implements BookingStore {
       .eq("id", bookingId)
       .single();
 
-    return data ? this.mapBooking(data) : undefined;
+    return data ? mapBookingRow(data) : undefined;
   }
 
   async updateBooking(booking: Booking): Promise<void> {
@@ -139,7 +144,7 @@ export class SupabaseBookingStore implements BookingStore {
       .eq("slot_id", slotId)
       .eq("status", "confirmed");
 
-    return (data ?? []).map((b: Record<string, unknown>) => this.mapBooking(b));
+    return (data ?? []).map((b: Record<string, unknown>) => mapBookingRow(b));
   }
 
   async getTraineeBookings(traineeId: string): Promise<Booking[]> {
@@ -149,7 +154,23 @@ export class SupabaseBookingStore implements BookingStore {
       .eq("trainee_id", traineeId)
       .eq("status", "confirmed");
 
-    return (data ?? []).map((b: Record<string, unknown>) => this.mapBooking(b));
+    return (data ?? []).map((b: Record<string, unknown>) => mapBookingRow(b));
+  }
+
+  async getConfirmedBookingsForTrainees(traineeIds: string[]): Promise<Booking[]> {
+    if (traineeIds.length === 0) return [];
+    const { data } = await this.db
+      .from("bookings")
+      .select("*")
+      .in("trainee_id", traineeIds)
+      .eq("status", "confirmed");
+    return (data ?? []).map((b: Record<string, unknown>) => mapBookingRow(b));
+  }
+
+  async getSlotsByIds(slotIds: string[]): Promise<Slot[]> {
+    if (slotIds.length === 0) return [];
+    const { data } = await this.db.from("slots").select("*").in("id", slotIds);
+    return (data ?? []).map((s: Record<string, unknown>) => mapSlotRow(s, 0));
   }
 
   async getTraineeBookingsForWeek(
@@ -169,7 +190,7 @@ export class SupabaseBookingStore implements BookingStore {
       .gte("slots.date", weekStart)
       .lte("slots.date", endStr);
 
-    return (data ?? []).map((b: Record<string, unknown>) => this.mapBooking(b));
+    return (data ?? []).map((b: Record<string, unknown>) => mapBookingRow(b));
   }
 
   async getAllBookings(): Promise<Booking[]> {
@@ -178,49 +199,10 @@ export class SupabaseBookingStore implements BookingStore {
       .select("*")
       .order("created_at", { ascending: false });
 
-    return (data ?? []).map((b: Record<string, unknown>) => this.mapBooking(b));
+    return (data ?? []).map((b: Record<string, unknown>) => mapBookingRow(b));
   }
 
   // --- Edit log methods ---
-
-  async getEditLog(
-    traineeId: string,
-    weekStart: string
-  ): Promise<EditLog | undefined> {
-    const { data } = await this.db
-      .from("edit_log")
-      .select("*")
-      .eq("trainee_id", traineeId)
-      .eq("week_start", weekStart)
-      .maybeSingle();
-
-    return data ? this.mapEditLog(data) : undefined;
-  }
-
-  async incrementEditCount(
-    traineeId: string,
-    weekStart: string
-  ): Promise<void> {
-    const { data: existing } = await this.db
-      .from("edit_log")
-      .select("id, edit_count")
-      .eq("trainee_id", traineeId)
-      .eq("week_start", weekStart)
-      .maybeSingle();
-
-    if (existing) {
-      await this.db
-        .from("edit_log")
-        .update({ edit_count: existing.edit_count + 1 })
-        .eq("id", existing.id);
-    } else {
-      await this.db.from("edit_log").insert({
-        trainee_id: traineeId,
-        week_start: weekStart,
-        edit_count: 1,
-      });
-    }
-  }
 
   async resetEditCount(
     traineeId: string,
@@ -251,10 +233,10 @@ export class SupabaseBookingStore implements BookingStore {
     for (const row of data ?? []) {
       const slotRow = (row as Record<string, unknown>).slots as Record<string, unknown>;
       if (!slotRow) continue;
-      const slot = this.mapSlot(slotRow, 0);
+      const slot = mapSlotRow(slotRow, 0);
       const slotMs = israelSlotToUTC(slot.date, slot.startTime).getTime();
       if (slotMs < startMs || slotMs >= endMs) continue;
-      const booking = this.mapBooking(row as Record<string, unknown>);
+      const booking = mapBookingRow(row as Record<string, unknown>);
       out.push({ booking, slot });
     }
     return out;
@@ -274,50 +256,6 @@ export class SupabaseBookingStore implements BookingStore {
     if (error) throw new Error(error.message);
   }
 
-  // --- Mappers ---
-
-  private mapSlot(row: Record<string, unknown>, currentBookings: number): Slot {
-    return {
-      id: row.id as string,
-      date: String(row.date).slice(0, 10),
-      startTime: String(row.start_time).slice(0, 5),
-      capacity: row.capacity as number,
-      lockoutOverride: row.lockout_override as boolean,
-      currentBookings,
-      version: row.version as number | undefined,
-    };
-  }
-
-  private mapBooking(row: Record<string, unknown>): Booking {
-    return {
-      id: row.id as string,
-      slotId: row.slot_id as string,
-      traineeId: row.trainee_id as string,
-      googleEventId: (row.google_event_id as string) ?? null,
-      isAutoBooked: row.is_auto_booked as boolean,
-      status: row.status as Booking["status"],
-      createdAt: new Date(row.created_at as string),
-      reminder24hSentAt: row.reminder_24h_sent_at
-        ? new Date(row.reminder_24h_sent_at as string)
-        : null,
-      reminder2hSentAt: row.reminder_2h_sent_at
-        ? new Date(row.reminder_2h_sent_at as string)
-        : null,
-      postSessionPromptSentAt: row.postsession_prompt_sent_at
-        ? new Date(row.postsession_prompt_sent_at as string)
-        : null,
-    };
-  }
-
-  private mapEditLog(row: Record<string, unknown>): EditLog {
-    return {
-      id: row.id as string,
-      traineeId: row.trainee_id as string,
-      weekStart: String(row.week_start).slice(0, 10),
-      editCount: row.edit_count as number,
-    };
-  }
-
   // --- Phase 15: cancel-request methods ---
 
   async createChangeRequest(input: {
@@ -335,7 +273,7 @@ export class SupabaseBookingStore implements BookingStore {
       .select("*")
       .single();
     if (error) throw new Error(error.message);
-    return this.mapChangeRequest(data);
+    return mapChangeRequestRow(data);
   }
 
   async getChangeRequest(id: string): Promise<ChangeRequest | undefined> {
@@ -344,7 +282,7 @@ export class SupabaseBookingStore implements BookingStore {
       .select("*")
       .eq("id", id)
       .maybeSingle();
-    return data ? this.mapChangeRequest(data) : undefined;
+    return data ? mapChangeRequestRow(data) : undefined;
   }
 
   async getPendingRequestForBooking(bookingId: string): Promise<ChangeRequest | undefined> {
@@ -354,7 +292,7 @@ export class SupabaseBookingStore implements BookingStore {
       .eq("booking_id", bookingId)
       .eq("status", "pending")
       .maybeSingle();
-    return data ? this.mapChangeRequest(data) : undefined;
+    return data ? mapChangeRequestRow(data) : undefined;
   }
 
   async listPendingRequests(): Promise<ChangeRequest[]> {
@@ -363,7 +301,7 @@ export class SupabaseBookingStore implements BookingStore {
       .select("*")
       .eq("status", "pending")
       .order("requested_at", { ascending: true });
-    return (data ?? []).map((r: Record<string, unknown>) => this.mapChangeRequest(r));
+    return (data ?? []).map((r: Record<string, unknown>) => mapChangeRequestRow(r));
   }
 
   async updateChangeRequest(
@@ -387,19 +325,5 @@ export class SupabaseBookingStore implements BookingStore {
       .update(dbPatch)
       .eq("id", id);
     if (error) throw new Error(error.message);
-  }
-
-  private mapChangeRequest(row: Record<string, unknown>): ChangeRequest {
-    return {
-      id: row.id as string,
-      bookingId: row.booking_id as string,
-      requestedNewSlotId: (row.requested_new_slot_id as string) ?? null,
-      reason: row.reason as string,
-      status: row.status as ChangeRequest["status"],
-      decisionNote: (row.decision_note as string) ?? null,
-      requestedAt: new Date(row.requested_at as string),
-      decidedAt: row.decided_at ? new Date(row.decided_at as string) : null,
-      decidedBy: (row.decided_by as string) ?? null,
-    };
   }
 }

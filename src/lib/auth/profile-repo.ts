@@ -1,5 +1,5 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { isPgDriver, pgQuery } from "@/lib/pg/client";
+import { getSupabaseAdminClient } from "@/lib/supabase/client";
 
 export type Profile = {
   userId: string;
@@ -11,14 +11,6 @@ export type Profile = {
   hasIntro: boolean;
   createdAt: string;
 };
-
-function admin(): SupabaseClient {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
-}
 
 function statusOf(row: { status?: unknown; is_active?: unknown }): Profile["status"] {
   return (
@@ -82,7 +74,7 @@ async function createProfilePg(row: {
 
 export async function loadProfile(userId: string): Promise<Profile | null> {
   if (isPgDriver()) return loadProfilePg(userId);
-  const db = admin();
+  const db = getSupabaseAdminClient();
   const { data, error } = await db
     .from("profiles")
     .select("id, email, name, role, status, is_active, created_at")
@@ -121,7 +113,7 @@ export async function createProfile(row: {
   role: "coach" | "trainee";
 }): Promise<Profile> {
   if (isPgDriver()) return createProfilePg(row);
-  const { data, error } = await admin()
+  const { data, error } = await getSupabaseAdminClient()
     .from("profiles")
     .insert({
       id: row.userId,

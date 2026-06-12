@@ -21,6 +21,11 @@ export interface ProgressStore {
     opts?: { limit?: number; sinceDays?: number }
   ): Promise<MeasurementLog[]>;
   getLastMeasurement(traineeId: string): Promise<MeasurementLog | undefined>;
+  /** Batch form of listMeasurements — newest-first across many trainees in one query. */
+  listMeasurementsForTrainees(
+    traineeIds: string[],
+    opts?: { sinceDays?: number }
+  ): Promise<MeasurementLog[]>;
 
   upsertSessionLog(
     bookingId: string,
@@ -101,6 +106,20 @@ export class MockProgressStore implements ProgressStore {
   ): Promise<MeasurementLog | undefined> {
     const list = await this.listMeasurements(traineeId, { limit: 1 });
     return list[0];
+  }
+
+  async listMeasurementsForTrainees(
+    traineeIds: string[],
+    opts: { sinceDays?: number } = {}
+  ): Promise<MeasurementLog[]> {
+    const ids = new Set(traineeIds);
+    const cutoff = opts.sinceDays
+      ? Date.now() - opts.sinceDays * 86_400_000
+      : -Infinity;
+    return Array.from(this.measurements.values())
+      .filter((m) => ids.has(m.traineeId) && m.loggedAt.getTime() >= cutoff)
+      .sort((a, b) => b.loggedAt.getTime() - a.loggedAt.getTime())
+      .map((m) => ({ ...m }));
   }
 
   async upsertSessionLog(

@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { AuthService } from "@/lib/services/auth";
-import { Profile, UserRole } from "@/lib/types";
+import { Profile } from "@/lib/types";
+import { mapProfileRow } from "@/lib/services/row-mappers";
 
 /**
  * Supabase-backed AuthService. Login itself is handled by the mobile app via
@@ -20,7 +21,7 @@ export class SupabaseAuthService implements AuthService {
       .eq("id", user.id)
       .single();
 
-    return data ? this.mapProfile(data) : null;
+    return data ? mapProfileRow(data) : null;
   }
 
   async signOut(): Promise<void> {
@@ -34,7 +35,7 @@ export class SupabaseAuthService implements AuthService {
       .eq("role", "trainee")
       .order("name");
 
-    return (data ?? []).map((p: Record<string, unknown>) => this.mapProfile(p));
+    return (data ?? []).map((p: Record<string, unknown>) => mapProfileRow(p));
   }
 
   async deleteTrainee(id: string): Promise<void> {
@@ -79,25 +80,9 @@ export class SupabaseAuthService implements AuthService {
 
     if (error) throw new Error(error.message);
     if (!data) throw new Error("Trainee not found");
-    return this.mapProfile(data);
+    return mapProfileRow(data);
   }
 
-  private mapProfile(row: Record<string, unknown>): Profile & { email?: string | null; status?: string } {
-    return {
-      id: row.id as string,
-      name: row.name as string,
-      role: row.role as UserRole,
-      isRecurring: (row.is_recurring as boolean) ?? false,
-      preferredDay: row.preferred_day as number | null,
-      preferredTime: row.preferred_time
-        ? String(row.preferred_time).slice(0, 5)
-        : null,
-      isActive: (row.is_active as boolean) ?? true,
-      createdAt: new Date(row.created_at as string),
-      email: (row.email as string | null) ?? null,
-      status: (row.status as string) ?? ((row.is_active as boolean) ? "active" : "deactivated"),
-    };
-  }
 }
 
 /**
