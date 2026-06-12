@@ -10,10 +10,10 @@ import { israelSlotToUTC, isLockedOut, weekStartForDate } from "./israel-time";
  * Collapses what used to be split across BookingService (exception-based)
  * + BookingTransaction (result-based) + WeeklyLimits (shallow wrapper).
  *
- * Per ADR-0005, the booking domain is about to grow (cancel-request flow,
- * no-show status, only-active-trainees-may-book). The verbs `decideRequest`
- * and `markNoShow` are stubbed on the interface from day 1 so Phase 15/16
- * just wire the data without changing the shape.
+ * Owns the full cancel-request lifecycle (ADR-0005 24h window, ADR-0007
+ * book-new-before-cancel): requestCancel / requestReschedule create a pending
+ * ChangeRequest; decideRequest moves it to approved/rejected and effects the
+ * booking change. markNoShow covers Phase 16 attendance.
  */
 
 export type BookingError_Code =
@@ -84,9 +84,7 @@ export interface Bookings {
 
   // --- Limits (collapsed from WeeklyLimits) ---
   assertCanBook(traineeId: string, slotDate: string): Promise<void>;
-  assertCanCancel(traineeId: string, slotDate: string, isAutoBooked?: boolean): Promise<void>;
-  assertCanReschedule(traineeId: string, slotDate: string, isAutoBooked?: boolean): Promise<void>;
-  trackEdit(traineeId: string, slotDate: string, isAutoBooked?: boolean): Promise<void>;
+  /** Always Infinity since the 3-edit cap was removed; callers still render it. */
   getRemainingEdits(traineeId: string, weekStart: string): Promise<number>;
   status(
     traineeId: string,
@@ -502,21 +500,6 @@ export function makeBookings(
 
     async assertCanBook(traineeId, slotDate) {
       await checkBookingLimit(traineeId, slotDate);
-    },
-
-    // The 3-edits-per-week cap was removed when the 24h approval flow became
-    // the sole cancel/reschedule gate (per ADR-0005 update). These helpers
-    // stay on the interface for backward compatibility but are now no-ops.
-    async assertCanCancel() {
-      /* no-op: 24h approval flow replaces the per-week edit cap */
-    },
-
-    async assertCanReschedule() {
-      /* no-op: 24h approval flow replaces the per-week edit cap */
-    },
-
-    async trackEdit() {
-      /* no-op: edits are no longer counted */
     },
 
     async getRemainingEdits() {

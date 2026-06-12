@@ -1,10 +1,9 @@
-import { Booking, Slot, EditLog, ChangeRequest, ReminderKind } from "@/lib/types";
+import { Booking, Slot, ChangeRequest, ReminderKind } from "@/lib/types";
 import { BookingStore, REMINDER_DB_COLUMN } from "@/lib/services/booking-store";
 import { israelSlotToUTC } from "@/lib/services/israel-time";
 import {
   mapSlotRow,
   mapBookingRow,
-  mapEditLogRow,
   mapChangeRequestRow,
 } from "@/lib/services/row-mappers";
 import { pgQuery } from "./client";
@@ -129,23 +128,6 @@ export class PgBookingStore implements BookingStore {
   }
 
   // --- Edit log methods ---
-
-  async getEditLog(traineeId: string, weekStart: string): Promise<EditLog | undefined> {
-    const rows = await pgQuery(
-      "select * from edit_log where trainee_id = $1 and week_start = $2",
-      [traineeId, weekStart],
-    );
-    return rows[0] ? mapEditLogRow(rows[0]) : undefined;
-  }
-
-  async incrementEditCount(traineeId: string, weekStart: string): Promise<void> {
-    await pgQuery(
-      `insert into edit_log (trainee_id, week_start, edit_count) values ($1, $2, 1)
-         on conflict (trainee_id, week_start) do update
-           set edit_count = edit_log.edit_count + 1`,
-      [traineeId, weekStart],
-    );
-  }
 
   async resetEditCount(traineeId: string, weekStart: string): Promise<void> {
     await pgQuery(

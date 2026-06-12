@@ -33,8 +33,6 @@ export interface BookingStore {
   updateBooking(booking: Booking): Promise<void> | void;
   getConfirmedBookingsForSlot(slotId: string): Promise<Booking[]> | Booking[];
   getTraineeBookings(traineeId: string): Promise<Booking[]> | Booking[];
-  getEditLog(traineeId: string, weekStart: string): Promise<EditLog | undefined> | EditLog | undefined;
-  incrementEditCount(traineeId: string, weekStart: string): Promise<void> | void;
   getTraineeBookingsForWeek(traineeId: string, weekStart: string): Promise<Booking[]> | Booking[];
   getAllSlotsForDate(date: string): Promise<Slot[]> | Slot[];
   getAllBookings(): Promise<Booking[]> | Booking[];
@@ -127,25 +125,6 @@ export class MockBookingStore implements BookingStore {
       const slot = this.slots.get(b.slotId);
       return slot && slot.date >= weekStart && slot.date < weekEndStr;
     });
-  }
-
-  getEditLog(traineeId: string, weekStart: string): EditLog | undefined {
-    return this.editLogs.get(`${traineeId}:${weekStart}`);
-  }
-
-  incrementEditCount(traineeId: string, weekStart: string): void {
-    const key = `${traineeId}:${weekStart}`;
-    const existing = this.editLogs.get(key);
-    if (existing) {
-      existing.editCount++;
-    } else {
-      this.editLogs.set(key, {
-        id: `edit-${Date.now()}`,
-        traineeId,
-        weekStart,
-        editCount: 1,
-      });
-    }
   }
 
   getAllSlotsForDate(date: string): Slot[] {

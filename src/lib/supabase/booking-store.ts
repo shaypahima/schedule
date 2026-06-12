@@ -1,11 +1,10 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Booking, Slot, EditLog, ChangeRequest, ReminderKind } from "@/lib/types";
+import { Booking, Slot, ChangeRequest, ReminderKind } from "@/lib/types";
 import { BookingStore, REMINDER_DB_COLUMN } from "@/lib/services/booking-store";
 import { israelSlotToUTC } from "@/lib/services/israel-time";
 import {
   mapSlotRow,
   mapBookingRow,
-  mapEditLogRow,
   mapChangeRequestRow,
 } from "@/lib/services/row-mappers";
 
@@ -188,45 +187,6 @@ export class SupabaseBookingStore implements BookingStore {
   }
 
   // --- Edit log methods ---
-
-  async getEditLog(
-    traineeId: string,
-    weekStart: string
-  ): Promise<EditLog | undefined> {
-    const { data } = await this.db
-      .from("edit_log")
-      .select("*")
-      .eq("trainee_id", traineeId)
-      .eq("week_start", weekStart)
-      .maybeSingle();
-
-    return data ? mapEditLogRow(data) : undefined;
-  }
-
-  async incrementEditCount(
-    traineeId: string,
-    weekStart: string
-  ): Promise<void> {
-    const { data: existing } = await this.db
-      .from("edit_log")
-      .select("id, edit_count")
-      .eq("trainee_id", traineeId)
-      .eq("week_start", weekStart)
-      .maybeSingle();
-
-    if (existing) {
-      await this.db
-        .from("edit_log")
-        .update({ edit_count: existing.edit_count + 1 })
-        .eq("id", existing.id);
-    } else {
-      await this.db.from("edit_log").insert({
-        trainee_id: traineeId,
-        week_start: weekStart,
-        edit_count: 1,
-      });
-    }
-  }
 
   async resetEditCount(
     traineeId: string,
