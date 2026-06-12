@@ -130,7 +130,7 @@ class _HistoryTile extends StatelessWidget {
       case 'cancelled':
         return (BrandColors.inkMuted, 'בוטל');
       case 'no_show':
-        return (BrandColors.orange, 'לא הגיע');
+        return (BrandColors.error, 'לא הגיע');
       default:
         return (BrandColors.inkMuted, status);
     }

@@ -10,7 +10,6 @@ import 'package:velofit/features/auth/role_router.dart';
 import 'package:velofit/features/coach/admin_repository.dart';
 import 'package:velofit/features/coach/coach_week_screen.dart';
 import 'package:velofit/features/coach/coach_info_repository.dart';
-import 'package:velofit/features/bookings/booking.dart';
 import 'package:velofit/features/bookings/booking_repository.dart';
 import 'package:velofit/features/profile/profile.dart';
 import 'package:velofit/features/profile/profile_repository.dart';

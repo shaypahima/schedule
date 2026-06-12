@@ -227,18 +227,15 @@ class _WelcomeHero extends ConsumerWidget {
 
     return Column(
       children: [
-        // Slim warm greeting band.
+        // Flat editorial greeting: big ink type on the paper bg. No band, no
+        // gradient — the date is the headline, everything else whispers.
         Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.lg,
+            AppSpacing.sm,
             AppSpacing.lg,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          decoration: const BoxDecoration(
-            gradient: BrandColors.gradientHero,
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+            AppSpacing.md,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,16 +243,14 @@ class _WelcomeHero extends ConsumerWidget {
               Text(
                 '${hebrewGreeting(now)}${profile != null ? ', ${profile.name.split(' ').first}' : ''}',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: BrandColors.inkSoft,
                       fontWeight: FontWeight.w500,
                     ),
               ),
               const SizedBox(height: 2),
               Text(
                 hebrewDayHeader(now),
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Colors.white,
-                    ),
+                style: Theme.of(context).textTheme.headlineLarge,
               ),
               if (monthsSince > 0) ...[
                 const SizedBox(height: 4),
@@ -265,7 +260,7 @@ class _WelcomeHero extends ConsumerWidget {
                       : 'חבר/ה כבר $monthsSince חודשים',
                   key: const Key('member-since'),
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.85),
+                        color: BrandColors.inkMuted,
                       ),
                 ),
               ],
@@ -288,7 +283,7 @@ class _WelcomeHero extends ConsumerWidget {
               StatItem(
                 label: 'רצף',
                 value: streakValue,
-                valueColor: streakActive ? BrandColors.orange : null,
+                valueColor: streakActive ? BrandColors.tealDark : null,
               ),
               StatItem(
                 label: 'אימונים השבוע',
@@ -329,18 +324,18 @@ class _NextSessionPill extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: BrandColors.teal.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.calendar_today, size: 14, color: Colors.white),
+          const Icon(Icons.calendar_today, size: 14, color: BrandColors.tealDark),
           const SizedBox(width: 6),
           Text(
             'האימון הבא: $label',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: Colors.white,
+                  color: BrandColors.tealDark,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -417,18 +412,18 @@ class _QuickActionChip extends StatelessWidget {
             horizontal: AppSpacing.xs,
           ),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
+            color: BrandColors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+            border: Border.all(color: BrandColors.sand),
           ),
           child: Column(
             children: [
-              Icon(icon, color: Colors.white, size: 20),
+              Icon(icon, color: BrandColors.teal, size: 20),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white,
+                      color: BrandColors.ink,
                       fontWeight: FontWeight.w600,
                     ),
               ),
@@ -455,7 +450,7 @@ class _CoachNoteCard extends ConsumerWidget {
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
           child: Card(
-            color: Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.6),
+            color: BrandColors.cream.withValues(alpha: 0.55),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
               child: Column(
@@ -954,7 +949,7 @@ class _DayChip extends StatelessWidget {
                 width: 4,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: selected ? scheme.onPrimary : BrandColors.orange,
+                  color: selected ? scheme.onPrimary : BrandColors.teal,
                   shape: BoxShape.circle,
                 ),
               ),

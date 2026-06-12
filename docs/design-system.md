@@ -6,30 +6,30 @@ Canonical reference for visual + interaction patterns. Behavioral rules live in 
 
 ### Color (`mobile/lib/theme.dart` → `BrandColors`)
 
-Palette: "warm studio" — muted teal anchor + warm peach→amber→terracotta family (teal↔orange complementary). Source swatch: `#588B8B #FFFFFF #FFD5C2 #F28F3B #C8553D`.
+Palette: "cream editorial" (ADR-0011, supersedes warm-studio ADR-0009) — warm paper neutrals + ink typography; teal is the **only** action color. No gradients, no decorative color: anything colored is tappable or semantic.
 
-| Token         | Hex       | Role |
-|---------------|-----------|------|
-| `teal`        | `#588B8B` | Primary. CTAs, links, focus, dominant brand element. |
-| `tealDark`    | `#3F6766` | Primary-pressed, hero gradient end. |
-| `orange`      | `#F28F3B` | Accent only. Streak, single hero stat, FAB. **Never** dominant. |
-| `orangeDark`  | `#C8553D` | Orange pressed (terracotta). |
-| `terracotta`  | `#C8553D` | Strong accent (alias of `orangeDark`). |
-| `peach`       | `#FFD5C2` | Soft fill — chips, hero-stat tiles, highlight pills. |
-| `bg`          | `#FAF5F1` | Page background. Warm off-white — never pure white. |
-| `surface`     | `#FFFFFF` | Card surface on top of `bg`. |
-| `ink`         | `#2E2A27` | Primary text. Warm near-black. |
-| `inkSoft`     | `#6F655E` | Secondary text, labels, meta. |
-| `inkMuted`    | `#A99E96` | Tertiary text, placeholders, "חסר". |
-| `line`        | `#ECE3DB` | Hairlines, dividers, inactive borders. |
-| `success`     | `#2F8F6B` | Confirmed, approved, attended (harmonized green). |
-| `error`       | `#C8553D` | Rejected, no-show, validation errors (terracotta). |
+| Token       | Hex       | Role |
+|-------------|-----------|------|
+| `teal`      | `#4F7E7E` | Action color. CTAs, links, focus, badges, FAB. |
+| `tealDark`  | `#3A6160` | Pressed / emphasis text. |
+| `bg`        | `#F7F2EA` | Cream paper page background. |
+| `surface`   | `#FFFDF8` | Ivory card on top of `bg`. |
+| `cream`     | `#EFE6D8` | Soft fill — icon discs, banners, chips. |
+| `sand`      | `#D9CBB4` | Strong hairline, chip borders, action-chip outlines. |
+| `sandDeep`  | `#A08B66` | Warm taupe — quiet *data* accents (pills, stripes). |
+| `ink`       | `#2B2723` | Primary text. Warm near-black. |
+| `inkSoft`   | `#6B6258` | Secondary text, labels, meta. |
+| `inkMuted`  | `#A1968A` | Tertiary text, placeholders, "חסר". |
+| `line`      | `#E9E0D2` | Default hairline / divider. |
+| `success`   | `#2F8F6B` | Confirmed, approved, attended. |
+| `warning`   | `#B45309` | Legible amber-700 on light bg. |
+| `error`     | `#B3503C` | Rejected, no-show, validation errors (warm clay). |
 
 **Rules:**
 - Never `Colors.*` (Material defaults). Always `BrandColors`.
-- Orange/amber is accent — appears once per screen max. Teal is dominant. Peach is a soft fill, not a CTA.
-- Status colors (success/error) carry semantics; never use for decoration.
-- Cards lift on a brand-tinted soft shadow (`BrandColors.cardShadow`, teal α0.10), radius 20. Shadows hue-shifted, never pure black.
+- **Color == meaning.** Teal marks actions (tap targets, badges, fill bars); `sandDeep` marks quiet data accents; status colors carry semantics. Nothing else is colored.
+- **No gradients, anywhere.** Heroes are flat type on the paper bg.
+- Cards are **flat**: ivory `surface` + `line` hairline border, radius 16, elevation 0. No shadows.
 
 ### Spacing (`mobile/lib/design/spacing.dart` → `AppSpacing`)
 
@@ -118,9 +118,11 @@ Haptic is the reward signal — explicitly NOT confetti (behavioral rule 3). Cen
 
 ## 4. Layout rules
 
-- **Hero gradient direction**: `Alignment.topRight → Alignment.bottomLeft` everywhere. Don't invert per screen.
-- **Avatar gradient**: gone. Use solid `teal` fill with white initial. Gradient on avatars reads as overdesigned.
-- **Card surface**: `surface` (white) on `bg` (warm neutral). Container background only via `surfaceContainerHighest` when nesting.
+- **Heroes are flat**: big ink typography directly on the paper `bg` — greeting whispers (`inkSoft`), date is the headline. No bands, no gradients.
+- **Data vs action separation**: read-only numbers live in `StatGroupCard` (quiet, ink); anything requiring the user to act lives in a teal-accented surface (inbox card, outlined teal icon buttons). Never mix the two in one container.
+- **Chronological navigation is LTR** even in the Hebrew UI — prev/next week arrows wrap in `Directionality(TextDirection.ltr)`: back is left, forward is right, dates render unmangled by bidi.
+- **Avatar**: solid `teal` fill with white initial (or `cream` disc + ink initial for list rows).
+- **Card surface**: `surface` (ivory) on `bg` (cream). Container background only via `surfaceContainerHighest` when nesting.
 - **One dominant element per screen.** Hero owns dominance on home; everywhere else, the primary action does.
 - **Section spacing**: `xl` (32) between conceptually distinct blocks; `lg` (24) inside a section.
 

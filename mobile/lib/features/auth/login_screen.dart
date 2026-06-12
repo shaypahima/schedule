@@ -66,8 +66,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Container(
                     width: 80,
                     height: 80,
-                    decoration: BoxDecoration(
-                      color: BrandColors.peach.withValues(alpha: 0.55),
+                    decoration: const BoxDecoration(
+                      color: BrandColors.cream,
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,

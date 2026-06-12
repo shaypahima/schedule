@@ -172,73 +172,6 @@ class HeroNumber extends StatelessWidget {
   }
 }
 
-/// Soft, brand-tinted container — replaces the heavy translucent glass on hero stats.
-/// Use over the gradient hero only. Pass [valueWidget] (e.g. a [HeroNumber])
-/// to render an animated number instead of the plain [value] string.
-class HeroStat extends StatelessWidget {
-  final String value;
-  final Widget? valueWidget;
-  final String label;
-  final IconData? icon;
-  final Color? accent;
-
-  const HeroStat({
-    super.key,
-    required this.value,
-    this.valueWidget,
-    required this.label,
-    this.icon,
-    this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final accentColor = accent ?? Colors.white;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.sm,
-          AppSpacing.xs,
-          AppSpacing.sm,
-          AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border(
-            top: BorderSide(color: accentColor.withValues(alpha: 0.9), width: 3),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.85)),
-              const SizedBox(height: AppSpacing.xxs),
-            ],
-            valueWidget ??
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        height: 1.05,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                ),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85),
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// Error card — error-tinted container with icon, message, and optional retry.
 /// Replaces bare `Text('שגיאה: $err')`.
 class ErrorCard extends StatelessWidget {
@@ -320,16 +253,16 @@ class EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Icon in a soft peach disc — friendlier than a bare glyph.
+          // Icon in a soft cream disc — friendlier than a bare glyph.
           Container(
             width: 56,
             height: 56,
-            decoration: BoxDecoration(
-              color: BrandColors.peach.withValues(alpha: 0.5),
+            decoration: const BoxDecoration(
+              color: BrandColors.cream,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Icon(icon, size: 28, color: BrandColors.orangeDark),
+            child: Icon(icon, size: 28, color: BrandColors.inkSoft),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(

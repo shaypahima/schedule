@@ -71,7 +71,7 @@ class CoachAboutCard extends ConsumerWidget {
                         _Pill(
                           text: '${info.yearsExperience} שנות ניסיון',
                           icon: Icons.workspace_premium,
-                          accent: BrandColors.orange,
+                          accent: BrandColors.sandDeep,
                         ),
                     ],
                   ),
