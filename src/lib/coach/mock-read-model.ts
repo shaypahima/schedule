@@ -1,6 +1,7 @@
 import {
   CoachReadModel,
   DashboardView,
+  MonthlyStats,
   RosterEntry,
   TraineeDetailView,
   TraineeSummary,
@@ -104,27 +105,30 @@ export function makeCoachReadModel(
     return { trainees, byId };
   }
 
-  async function lastSessionAt(traineeId: string): Promise<string | null> {
-    const all = await store.getTraineeBookings(traineeId);
+  /** Batch-resolve the slots referenced by a set of bookings into a map. */
+  async function slotMapFor(
+    bookingsList: Pick<Booking, "slotId">[]
+  ): Promise<Map<string, Slot>> {
+    const ids = [...new Set(bookingsList.map((b) => b.slotId))];
+    const slots = await store.getSlotsByIds(ids);
+    return new Map(slots.map((s) => [s.id, s]));
+  }
+
+  /** lastSessionAt computed from already-loaded bookings + a slot map (no I/O). */
+  function lastSessionAtFrom(
+    bookingsList: Booking[],
+    slotById: Map<string, Slot>
+  ): string | null {
     const now = Date.now();
-    let latestPast: { slotDate: string; slotTime: string } | null = null;
-    for (const b of all) {
+    let latestPastMs = -Infinity;
+    for (const b of bookingsList) {
       if (b.status !== "confirmed") continue;
-      const slot = await store.getSlot(b.slotId);
+      const slot = slotById.get(b.slotId);
       if (!slot) continue;
       const ms = israelSlotToUTC(slot.date, slot.startTime).getTime();
-      if (ms > now) continue;
-      if (
-        !latestPast ||
-        israelSlotToUTC(slot.date, slot.startTime).getTime() >
-          israelSlotToUTC(latestPast.slotDate, latestPast.slotTime).getTime()
-      ) {
-        latestPast = { slotDate: slot.date, slotTime: slot.startTime };
-      }
+      if (ms <= now && ms > latestPastMs) latestPastMs = ms;
     }
-    return latestPast
-      ? israelSlotToUTC(latestPast.slotDate, latestPast.slotTime).toISOString()
-      : null;
+    return latestPastMs > -Infinity ? new Date(latestPastMs).toISOString() : null;
   }
 
   function rosterEntryFromSlot(
@@ -146,17 +150,19 @@ export function makeCoachReadModel(
     };
   }
 
-  async function buildRosterEntry(
-    bookingId: string,
-    slotId: string,
-    traineeId: string,
-    isAutoBooked: boolean,
-    status: RosterEntry["status"],
+  /** Roster entries for a list of bookings, slots resolved from a prefetched map. */
+  function rosterEntriesFrom(
+    bookingsList: Booking[],
+    slotById: Map<string, Slot>,
     byId: Map<string, Profile>
-  ): Promise<RosterEntry | null> {
-    const slot = await store.getSlot(slotId);
-    if (!slot) return null;
-    return rosterEntryFromSlot({ id: bookingId, slotId, traineeId, isAutoBooked }, status, slot, byId);
+  ): RosterEntry[] {
+    const out: RosterEntry[] = [];
+    for (const b of bookingsList) {
+      const slot = slotById.get(b.slotId);
+      if (!slot) continue;
+      out.push(rosterEntryFromSlot(b, b.status, slot, byId));
+    }
+    return out;
   }
 
   async function pendingApprovalsCount(): Promise<number> {
@@ -171,14 +177,46 @@ export function makeCoachReadModel(
     const end = new Date(y, m - 1, d + 7);
     const weekEndStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
     const all = await store.getAllBookings();
+    const noShows = all.filter((b) => b.status === "no_show");
+    const slotById = await slotMapFor(noShows);
     let count = 0;
-    for (const b of all) {
-      if (b.status !== "no_show") continue;
-      const slot = await store.getSlot(b.slotId);
+    for (const b of noShows) {
+      const slot = slotById.get(b.slotId);
       if (!slot) continue;
       if (slot.date >= weekStart && slot.date < weekEndStr) count++;
     }
     return count;
+  }
+
+  /**
+   * Held/no-show aggregates for slots in [fromDate, toDate) that already
+   * started. One pass over all bookings; slots resolved from a prefetched map.
+   */
+  async function monthlyStats(fromDate: string, toDate: string): Promise<MonthlyStats> {
+    const all = await store.getAllBookings();
+    const slots = await store.getSlotsByIds([...new Set(all.map((b) => b.slotId))]);
+    const slotById = new Map(slots.map((s) => [s.id, s]));
+    const now = Date.now();
+
+    let sessionsHeld = 0;
+    let noShows = 0;
+    const traineeIds = new Set<string>();
+    for (const b of all) {
+      if (b.status !== "confirmed" && b.status !== "no_show") continue;
+      const slot = slotById.get(b.slotId);
+      if (!slot || slot.date < fromDate || slot.date >= toDate) continue;
+      if (israelSlotToUTC(slot.date, slot.startTime).getTime() > now) continue;
+      if (b.status === "no_show") noShows++;
+      else sessionsHeld++;
+      traineeIds.add(b.traineeId);
+    }
+    const total = sessionsHeld + noShows;
+    return {
+      sessionsHeld,
+      noShows,
+      attendanceRate: total > 0 ? sessionsHeld / total : null,
+      activeTrainees: traineeIds.size,
+    };
   }
 
   return {
@@ -188,10 +226,23 @@ export function makeCoachReadModel(
       const pendingRequests = await this.getPendingChangeRequests();
       const weekStart = weekStartForDate(today);
       const noShowsThisWeek = await countNoShowsForWeek(weekStart);
+
+      const [y, m] = today.split("-").map(Number);
+      const fmt = (yy: number, mm: number) =>
+        `${mm > 12 ? yy + 1 : yy}-${String(mm > 12 ? 1 : mm).padStart(2, "0")}-01`;
+      const monthStart = fmt(y, m);
+      const nextMonthStart = fmt(y, m + 1);
+      const prevMonthStart = m === 1 ? fmt(y - 1, 12) : fmt(y, m - 1);
+
+      const current = await monthlyStats(monthStart, nextMonthStart);
+      const prev = await monthlyStats(prevMonthStart, monthStart);
+      const prevEmpty = prev.sessionsHeld + prev.noShows === 0;
+
       return {
         pendingApprovals: await pendingApprovalsCount(),
         pendingChangeRequests: pendingRequests.length,
         noShowsThisWeek,
+        monthly: { ...current, prev: prevEmpty ? null : prev },
         todayRoster,
         urgentRequests: pendingRequests.slice(0, 3),
       };
@@ -214,10 +265,13 @@ export function makeCoachReadModel(
         return true;
       });
 
-      // Three batch reads for the whole roster instead of ~4 reads per trainee.
+      // Four batch reads for the whole roster instead of ~4 reads per trainee.
       const ids = candidates.map((t) => t.id);
       const allBookings = await store.getConfirmedBookingsForTrainees(ids);
-      const slots = await store.getSlotsByIds([...new Set(allBookings.map((b) => b.slotId))]);
+      const noShowBookings = await store.getNoShowBookingsForTrainees(ids);
+      const slots = await store.getSlotsByIds([
+        ...new Set([...allBookings, ...noShowBookings].map((b) => b.slotId)),
+      ]);
       const slotById = new Map(slots.map((s) => [s.id, s]));
       const measurements = await progress.listMeasurementsForTrainees(ids, { sinceDays: 30 });
 
@@ -226,6 +280,12 @@ export function makeCoachReadModel(
         const list = bookingsByTrainee.get(b.traineeId);
         if (list) list.push(b);
         else bookingsByTrainee.set(b.traineeId, [b]);
+      }
+      const noShowsByTrainee = new Map<string, Booking[]>();
+      for (const b of noShowBookings) {
+        const list = noShowsByTrainee.get(b.traineeId);
+        if (list) list.push(b);
+        else noShowsByTrainee.set(b.traineeId, [b]);
       }
       const measurementsByTrainee = new Map<string, MeasurementLog[]>();
       for (const ml of measurements) {
@@ -252,10 +312,34 @@ export function makeCoachReadModel(
         if (filter === "unbooked-this-week" && (bookedThisWeek || !t.isActive)) continue;
 
         let latestPastMs = -Infinity;
+        let hasUpcoming = false;
         for (const x of mySlots) {
           const ms = israelSlotToUTC(x.slot.date, x.slot.startTime).getTime();
           if (ms <= now && ms > latestPastMs) latestPastMs = ms;
+          if (ms > now) hasUpcoming = true;
         }
+
+        // At-risk (#83): no_shows beats inactive — an upcoming booking proves
+        // engagement but not attendance.
+        const fourWeeksAgo = now - 28 * 86_400_000;
+        let recentNoShows = 0;
+        for (const b of noShowsByTrainee.get(t.id) ?? []) {
+          const slot = slotById.get(b.slotId);
+          if (!slot) continue;
+          const ms = israelSlotToUTC(slot.date, slot.startTime).getTime();
+          if (ms > fourWeeksAgo && ms <= now) recentNoShows++;
+        }
+        const inactive =
+          !hasUpcoming &&
+          (latestPastMs === -Infinity || now - latestPastMs >= FOURTEEN_DAYS_MS);
+        const atRisk: TraineeSummary["atRisk"] =
+          status !== "active"
+            ? null
+            : recentNoShows >= 2
+              ? "no_shows"
+              : inactive
+                ? "inactive"
+                : null;
 
         const entries = mySlots.map((x) =>
           rosterEntryFromSlot(x.booking, x.booking.status, x.slot, byId)
@@ -276,6 +360,7 @@ export function makeCoachReadModel(
           weightTrend14d: agg.weightTrend14d,
           lastMeasurementAt: agg.lastMeasurementAt,
           attendanceRate: computeAttendanceRate(entries),
+          atRisk,
         });
       }
 
@@ -294,23 +379,14 @@ export function makeCoachReadModel(
       const remainingEdits = await bookings.getRemainingEdits(traineeId, weekStart);
 
       const all = await store.getTraineeBookings(traineeId);
+      // One batched slot read covers both the recent roster and lastSessionAt.
+      const slotById = await slotMapFor(all);
       // Sort by createdAt desc, take 10
       const recent = [...all]
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .slice(0, 10);
 
-      const recentBookings: RosterEntry[] = [];
-      for (const b of recent) {
-        const entry = await buildRosterEntry(
-          b.id,
-          b.slotId,
-          b.traineeId,
-          b.isAutoBooked,
-          b.status,
-          byId
-        );
-        if (entry) recentBookings.push(entry);
-      }
+      const recentBookings = rosterEntriesFrom(recent, slotById, byId);
 
       // Attendance rate: confirmed-past / (confirmed-past + no_show). Today the
       // only past terminal state is `confirmed` (auto-attended). Until Phase 16
@@ -333,11 +409,13 @@ export function makeCoachReadModel(
           preferredDay: t.preferredDay,
           preferredTime: t.preferredTime,
           bookedThisWeek: weekBookings.length > 0,
-          lastSessionAt: await lastSessionAt(traineeId),
+          lastSessionAt: lastSessionAtFrom(all, slotById),
           lastWeightKg: agg.lastWeightKg,
           weightTrend14d: agg.weightTrend14d,
           lastMeasurementAt: agg.lastMeasurementAt,
           attendanceRate: rate,
+          // Detail view doesn't render the flag; the list computes it batched.
+          atRisk: null,
         },
         recentBookings,
         attendanceRate,
@@ -348,26 +426,13 @@ export function makeCoachReadModel(
 
     async getDayBookings(date: string): Promise<RosterEntry[]> {
       const slots = await store.getAllSlotsForDate(date);
-      const slotIds = new Set(slots.map((s) => s.id));
+      const slotById = new Map(slots.map((s) => [s.id, s]));
       const all = await store.getAllBookings();
       const dayBookings = all.filter(
-        (b) => b.status === "confirmed" && slotIds.has(b.slotId)
+        (b) => b.status === "confirmed" && slotById.has(b.slotId)
       );
-
       const { byId } = await traineesByStatus();
-      const out: RosterEntry[] = [];
-      for (const b of dayBookings) {
-        const entry = await buildRosterEntry(
-          b.id,
-          b.slotId,
-          b.traineeId,
-          b.isAutoBooked,
-          b.status,
-          byId
-        );
-        if (entry) out.push(entry);
-      }
-      return out;
+      return rosterEntriesFrom(dayBookings, slotById, byId);
     },
 
     async getPendingApprovals(): Promise<PendingApprovalView[]> {
@@ -394,14 +459,26 @@ export function makeCoachReadModel(
     async getPendingChangeRequests(): Promise<ChangeRequestEntry[]> {
       const pending = await store.listPendingRequests();
       const { byId } = await traineesByStatus();
+      // Batch: one bookings scan + one slots read instead of 3 point reads/request.
+      const allBookings = await store.getAllBookings();
+      const bookingById = new Map(allBookings.map((b) => [b.id, b]));
+      const slotIds = new Set<string>();
+      for (const r of pending) {
+        const booking = bookingById.get(r.bookingId);
+        if (booking) slotIds.add(booking.slotId);
+        if (r.requestedNewSlotId) slotIds.add(r.requestedNewSlotId);
+      }
+      const slots = await store.getSlotsByIds([...slotIds]);
+      const slotById = new Map(slots.map((s) => [s.id, s]));
+
       const out: ChangeRequestEntry[] = [];
       for (const r of pending) {
-        const booking = await store.getBooking(r.bookingId);
+        const booking = bookingById.get(r.bookingId);
         if (!booking) continue;
-        const fromSlot = await store.getSlot(booking.slotId);
+        const fromSlot = slotById.get(booking.slotId);
         if (!fromSlot) continue;
         const toSlot = r.requestedNewSlotId
-          ? await store.getSlot(r.requestedNewSlotId)
+          ? slotById.get(r.requestedNewSlotId) ?? null
           : null;
         const t = byId.get(booking.traineeId);
         out.push({

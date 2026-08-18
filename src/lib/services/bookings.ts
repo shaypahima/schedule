@@ -95,10 +95,22 @@ export interface Bookings {
 const LOCKOUT_HOURS = 7;
 const MAX_SESSIONS_PER_WEEK = 2;
 
+/**
+ * Waitlist hooks (ADR-0012). Bookings only *emits* — it never reads the
+ * waitlist or books on its behalf. Both fire-and-forget.
+ */
+export interface WaitlistHooks {
+  /** A confirmed spot was freed on this slot. */
+  spotOpened(slot: Slot): Promise<void>;
+  /** A trainee booked this slot — their waitlist entry (if any) is obsolete. */
+  booked(slotId: string, traineeId: string): Promise<void>;
+}
+
 export function makeBookings(
   store: BookingStore,
   calendar: GoogleCalendarService | null,
-  notifier: NotificationService | null
+  notifier: NotificationService | null,
+  waitlist: WaitlistHooks | null = null
 ): Bookings {
   // --- Internal helpers ---
 
@@ -149,6 +161,24 @@ export function makeBookings(
     }
   }
 
+  async function emitSpotOpened(slot: Slot): Promise<void> {
+    if (!waitlist) return;
+    try {
+      await waitlist.spotOpened(slot);
+    } catch {
+      // fire-and-forget
+    }
+  }
+
+  async function emitBooked(slotId: string, traineeId: string): Promise<void> {
+    if (!waitlist) return;
+    try {
+      await waitlist.booked(slotId, traineeId);
+    } catch {
+      // fire-and-forget
+    }
+  }
+
   // --- Verbs ---
 
   return {
@@ -158,15 +188,19 @@ export function makeBookings(
       if (!slot && slotId.startsWith("new-")) {
         const match = slotId.match(/^new-(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2})$/);
         if (match) {
-          slot = {
+          await store.upsertSlot({
             id: crypto.randomUUID(),
             date: match[1],
             startTime: match[2],
             capacity: 2,
             lockoutOverride: false,
             currentBookings: 0,
-          };
-          await store.upsertSlot(slot);
+          });
+          // On (date, start_time) conflict the upsert keeps the existing row's
+          // id — re-read for the canonical slot, or a stale client holding the
+          // virtual id would book a phantom row.
+          const all = await store.getAllSlotsForDate(match[1]);
+          slot = all.find((s) => s.startTime === match[2]);
         }
       }
 
@@ -228,6 +262,7 @@ export function makeBookings(
       };
 
       await store.addBooking(booking);
+      await emitBooked(resolvedSlotId, traineeId);
       return { ok: true, booking };
     },
 
@@ -266,6 +301,7 @@ export function makeBookings(
         slotDate: slot.date,
         slotTime: slot.startTime,
       });
+      await emitSpotOpened(slot);
 
       return { ok: true, booking: { ...booking, status: "cancelled" } };
     },
@@ -344,6 +380,8 @@ export function makeBookings(
         newSlotDate: newSlot.date,
         newSlotTime: newSlot.startTime,
       });
+      await emitSpotOpened(oldSlot);
+      await emitBooked(newSlotId, traineeId);
 
       return { ok: true, booking: newBooking };
     },
@@ -469,6 +507,7 @@ export function makeBookings(
         slotDate: oldSlot.date,
         slotTime: oldSlot.startTime,
       });
+      await emitSpotOpened(oldSlot);
 
       const updated = await store.getChangeRequest(requestId);
       return { ok: true, request: updated!, effectedBooking };

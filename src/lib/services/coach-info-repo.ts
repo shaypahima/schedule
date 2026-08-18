@@ -1,4 +1,4 @@
-import { isPgDriver } from "@/lib/pg/client";
+import { pickAdapter } from "./driver";
 import { PgCoachInfoRepo } from "@/lib/pg/coach-info-repo";
 import { SupabaseCoachInfoRepo } from "@/lib/supabase/coach-info-repo";
 
@@ -27,7 +27,10 @@ export interface CoachInfoRepo {
 let repo: CoachInfoRepo | undefined;
 
 function getRepo(): CoachInfoRepo {
-  return (repo ??= isPgDriver() ? new PgCoachInfoRepo() : new SupabaseCoachInfoRepo());
+  return (repo ??= pickAdapter<CoachInfoRepo>({
+    pg: () => new PgCoachInfoRepo(),
+    supabase: () => new SupabaseCoachInfoRepo(),
+  }));
 }
 
 /** Test seam: override the adapter (pass undefined to restore driver selection). */

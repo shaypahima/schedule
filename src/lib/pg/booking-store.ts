@@ -8,6 +8,13 @@ import {
 } from "@/lib/services/row-mappers";
 import { pgQuery } from "./client";
 
+// Client-supplied ids (virtual "new-<date>-<time>" slot ids, garbage input)
+// are legitimately not uuids; querying `where id = $1` with one makes Postgres
+// throw 22P02. The store contract is unknown id → undefined, so short-circuit.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (id: string) => UUID_RE.test(id);
+
 /**
  * Native-Postgres BookingStore (local dev, DB_DRIVER=pg). Mirrors
  * SupabaseBookingStore's behavior and row→domain mapping, but issues SQL
@@ -18,6 +25,7 @@ export class PgBookingStore implements BookingStore {
   // --- Slot methods ---
 
   async getSlot(slotId: string): Promise<Slot | undefined> {
+    if (!isUuid(slotId)) return undefined;
     const slots = await pgQuery("select * from slots where id = $1", [slotId]);
     if (slots.length === 0) return undefined;
     const counts = await pgQuery<{ n: string }>(
@@ -80,6 +88,7 @@ export class PgBookingStore implements BookingStore {
   }
 
   async getBooking(bookingId: string): Promise<Booking | undefined> {
+    if (!isUuid(bookingId)) return undefined;
     const rows = await pgQuery("select * from bookings where id = $1", [bookingId]);
     return rows[0] ? mapBookingRow(rows[0]) : undefined;
   }
@@ -111,6 +120,15 @@ export class PgBookingStore implements BookingStore {
     if (traineeIds.length === 0) return [];
     const rows = await pgQuery(
       "select * from bookings where trainee_id = any($1) and status = 'confirmed'",
+      [traineeIds],
+    );
+    return rows.map((b) => mapBookingRow(b));
+  }
+
+  async getNoShowBookingsForTrainees(traineeIds: string[]): Promise<Booking[]> {
+    if (traineeIds.length === 0) return [];
+    const rows = await pgQuery(
+      "select * from bookings where trainee_id = any($1) and status = 'no_show'",
       [traineeIds],
     );
     return rows.map((b) => mapBookingRow(b));
@@ -200,6 +218,7 @@ export class PgBookingStore implements BookingStore {
   }
 
   async getChangeRequest(id: string): Promise<ChangeRequest | undefined> {
+    if (!isUuid(id)) return undefined;
     const rows = await pgQuery("select * from booking_change_request where id = $1", [id]);
     return rows[0] ? mapChangeRequestRow(rows[0]) : undefined;
   }

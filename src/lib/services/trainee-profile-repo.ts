@@ -1,4 +1,4 @@
-import { isPgDriver } from "@/lib/pg/client";
+import { pickAdapter } from "./driver";
 import { PgTraineeProfileRepo } from "@/lib/pg/trainee-profile-repo";
 import { SupabaseTraineeProfileRepo } from "@/lib/supabase/trainee-profile-repo";
 
@@ -60,9 +60,10 @@ export function mapTraineeProfileRow(
 let repo: TraineeProfileRepo | undefined;
 
 function getRepo(): TraineeProfileRepo {
-  return (repo ??= isPgDriver()
-    ? new PgTraineeProfileRepo()
-    : new SupabaseTraineeProfileRepo());
+  return (repo ??= pickAdapter<TraineeProfileRepo>({
+    pg: () => new PgTraineeProfileRepo(),
+    supabase: () => new SupabaseTraineeProfileRepo(),
+  }));
 }
 
 /** Test seam: override the adapter (pass undefined to restore driver selection). */

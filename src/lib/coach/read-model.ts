@@ -38,6 +38,12 @@ export type TraineeSummary = {
   weightTrend14d: "up" | "flat" | "down" | null; // vs a >=14d-older point; null if insufficient data
   lastMeasurementAt: string | null; // ISO of most-recent measurement (any kind)
   attendanceRate: number | null; // 0..1 over past bookings; null if no past sessions yet
+  /**
+   * At-risk signal (#83). "no_shows" = 2+ no-shows in the trailing 4 weeks
+   * (wins over inactive); "inactive" = no session in 14+ days AND nothing
+   * upcoming. null = healthy, or not an active trainee.
+   */
+  atRisk: "inactive" | "no_shows" | null;
 };
 
 export type TraineeDetailView = {
@@ -57,10 +63,20 @@ export type ChangeRequestEntry = {
   toSlot: { id: string; startsAt: string } | null;
 };
 
+/** One calendar month of held-session aggregates (#84). */
+export type MonthlyStats = {
+  sessionsHeld: number; // past confirmed (attended) sessions in the month
+  noShows: number;
+  attendanceRate: number | null; // held / (held + noShows); null when no past sessions
+  activeTrainees: number; // distinct trainees with a held or no-show session
+};
+
 export type DashboardView = {
   pendingApprovals: number;
   pendingChangeRequests: number; // 0 until Phase 15
   noShowsThisWeek: number; // 0 until Phase 16
+  /** Current calendar month + previous (null when previous month was empty). */
+  monthly: MonthlyStats & { prev: MonthlyStats | null };
   todayRoster: RosterEntry[];
   urgentRequests: ChangeRequestEntry[]; // [] until Phase 15
 };
