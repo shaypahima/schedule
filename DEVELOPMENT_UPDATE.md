@@ -7,8 +7,26 @@ CONTEXT.md — domain glossary
 docs/adr/ — architecture decisions
 GitHub issues — roadmap
 
-1. Product Vision & Success Metrics
-Velofit replaces WhatsApp/calendar chaos with a frictionless habit loop for both coach and trainees:
+## 0. Read this first — web-only pivot (2026-08-18)
+
+Velofit is a **web application**. The Flutter mobile app was deleted outright
+(PR #95). It never shipped to distribution and had no live users, so there was
+no cutover and nothing to migrate.
+
+Everything below describing Flutter, Riverpod, widgets, app stores or push via
+FCM is **history**, kept only to explain why decisions look the way they do.
+Sections 5 (design system) and 8 (stack) were rewritten; ADRs 0001, 0008, 0009
+and 0011 are now historical — they describe a client that no longer exists.
+
+The web client was built on the existing, already-tested service layer
+(PR #96): Server Components read through `src/lib/services/*` directly, Server
+Actions write through the same. No HTTP hop, and `/api/*` — built for mobile's
+JWT bearer auth — is now unused by the app and a candidate for pruning.
+
+## 1. Product Vision & Success Metrics
+
+Velofit replaces WhatsApp/calendar chaos with a frictionless habit loop for
+both coach and trainees:
 
 Cue → 24h + 2h reminders + auto-booking for recurring trainees
 Action → one-tap booking, one-tap log, one-tap approve
@@ -27,7 +45,8 @@ Coach daily active time <15 min
 
 Full vision + behavioral rules: docs/product-vision.md
 
-2. User Personas
+## 2. User Personas
+
 Coach (sole proprietor, 35-55, busy):
 
 High openness to tech, zero tolerance for complexity.
@@ -40,162 +59,94 @@ Cognitive load is enemy #1 → wants instant clarity ("Can I book tomorrow 18:00
 Driven by small visible wins + accountability — not guilt.
 Hebrew RTL native.
 
-3. Core User Flows
-Onboarding → Self-signup (Google → intro form → pending → coach approval) OR coach invite (instant active) → welcome screen.
-Booking Loop (trainee) → Home → tap day → see slots with capacity → tap slot → confirmation + Google Calendar event written.
-Coach Dashboard → Today's roster → Quick actions (approve / no-show / notes / manual add).
-Progress Loop (epic #52, not built) → Post-session prompt (within 30min of slot end) → MeasurementLoggerSheet → chart updates instantly.
-Cancel/Reschedule → Outside 24h: trainee acts freely. Inside 24h: trainee submits cancel/reschedule request → coach approves/rejects in inbox.
+## 3. Core User Flows
 
-All flows server-enforced via Bookings service. Spec-locked gate order (tests in bookings.test.ts): LOCKOUT (7h) → WEEKLY_LIMIT (2/wk) → SLOT_FULL (capacity) → ALREADY_BOOKED (duplicate). Bypass flag (coach manual add) skips first two.
+Onboarding → Self-signup (Google → intro form → pending → coach approval) OR
+coach invite (instant active).
+Booking Loop (trainee) → `/` → pick day → slots with capacity → book.
+Coach Dashboard → `/coach` → today's roster + queues + monthly overview.
+Cancel/Reschedule → Outside 24h: trainee acts freely. Inside 24h: submits a
+request the coach decides in `/coach/requests`.
+Waitlist → full slot → join → everyone notified when a spot frees, first to
+book wins (ADR-0012).
+Progress → `/progress` → weight + photo + note; before/after compare.
 
-4. Build Status by Theme
-Latest merges (2026-05-29 AFK session):
+All flows server-enforced via the Bookings service. Spec-locked gate order
+(tests in bookings.test.ts): LOCKOUT (7h) → WEEKLY_LIMIT (2/wk) → SLOT_FULL
+(capacity) → ALREADY_BOOKED (duplicate). Bypass flag (coach manual add) skips
+the first two.
 
-PR #64 — #62 coach progress visibility (CLOSES #62):
-  Backend: CoachReadModel.TraineeSummary gains lastWeightKg / weightTrend14d
-  ('up'|'flat'|'down') / lastMeasurementAt / attendanceRate. Trend = newest
-  weight vs >=14d-older point, 0.5kg flat band. attendanceRate nullable on the
-  summary (null = no past sessions) so the list chip hides instead of showing a
-  misleading 100%; detail view keeps its 1.0 default. progress threaded into the
-  single composed makeCoachReadModel (works mock+prod).
-  Mobile: coach trainee-detail progress card (reuses WeightChart + log rows via
-  existing /api/admin/trainees/:id/progress, no backend change) + trainees-list
-  rows gain teal weight+trend chip + muted attendance chip (hide when null).
-  No new chart dep (custom-painter WeightChart reused). 318 vitest, 124 flutter_test.
-  Adopted the fitness best-practices doc: confirmed habit-loop/streak/3-notif
-  rules; rejected confetti (rule 3) + fl_chart; filed 5 follow-ups (#65-#69).
+## 4. Build Status
 
-PR #60 — #52 progress tracking mobile:
-  ProgressScreen w/ last-weight snapshot card + weekly-delta + custom-painted line chart + log list.
-  MeasurementLoggerSheet (weight + energy/soreness 1-5 + free-text + comma-decimal parsing).
-  Home-screen quick action (Icons.timeline → 'התקדמות'). 117/117 mobile tests.
+**Web client — complete** (PR #96, branch `shay/web-app-backend`).
 
-PR #59 — #52 progress tracking backend:
-  3 migrations: measurement_logs (weight + jsonb metrics + photo_url + note, RLS),
-  session_logs (1:1 booking, jsonb feedback + coach_notes, RLS),
-  progress-photos Storage bucket policy (trainee writes own folder, coach reads all).
-  ProgressStore service (Mock + Supabase). 4 API routes. 308/308 backend.
+Trainee: sign-in, intro, pending/rejected/deactivated screens, booking board
+with day strip and capacity, waitlist join/leave, cancel + reschedule (both
+sides of the 24h window), history, coach notes, profile editor, completion
+nudge, progress log with photo upload and before/after compare.
 
-PR #58 — #53 reminder cadence retune:
-  Drops 1h-before reminder. Three windows: 24h-before, 2h-before, 30min-after-slot-end.
-  Migration 00016 (reminder_24h_sent_at + reminder_2h_sent_at + postsession_prompt_sent_at).
-  ReminderKind type + Hebrew copy per kind. Post-session push silently no-ops until FCM (#36).
+Coach: dashboard (queues, monthly overview, today's roster, no-show marking),
+week view with manual add/remove and waitlist depth, approvals, trainees list
+with weight-trend/attendance/at-risk chips, invite by email, deactivate,
+trainee detail with notes, change-request inbox, settings (Google Calendar
+connect + per-hour capacity/lockout overrides).
 
-PR #57 — #55 reschedule race fix:
-  Reorders Bookings.decideRequest: book new slot first, then cancel old. Race on full target now
-  returns SLOT_FULL + leaves request pending + old booking intact. ADR-0007.
+461 tests passing, lint/tsc/build clean.
 
-PR #56 — Epic #54 (40 items, 5 vertical slices):
+Backend was already complete before the pivot; PR #96 pulled forward the
+waitlist, photo-storage, profile-nudge, analytics and read-model work that had
+been stranded on unmerged branches.
 
-Epic #54 — UI remediation closed. All 40 items shipped (R1-R40):
-  Slice 1 — trainee home: drop dup greeting, hero gradient teal→tealDark, SkeletonList, EmptyState, hero stat trim
-  Slice 2 — coach week: ErrorCard with retry, EmptyState, canonical gradient direction, DashStat color semantics
-  Slice 3 — profile pair: solid teal avatars, BrandColors.warning, ErrorCard, SectionHeader extract, integer-only height/weight
-  Slice 4 — detail/requests/about/history: muted intro placeholder, EmptyState everywhere, differentiated pills (teal+orange), inkSoft subtitle
-  Slice 5 — cross-cutting: SkeletonList everywhere, EmptyState pattern adopted, canonical BrandColors.gradientHero constant
-Fix /api/slots accepts coach role (helper requireCoachOrActiveTrainee) — coach week had been silently 403'd
-Fix slot-availability returns full slots (mobile "מלא" tag now works in prod)
-Test sweep — gate-matrix, design widgets unit tests, reschedule races, booking-gate-order spec-lock (+18 tests)
+## 5. Design System Snapshot
 
-PR #51 (earlier) — phases 11-18 already on master:
-  Trainee profile editor, dashboard streak/member-since, coach dashboard stats, history screen, trainee detail with bio, coach about card, change-requests inbox, design polish, dev-env.json gitignore
+**Deliberately unstyled.** The web client ships plain, functional Tailwind:
+Hebrew RTL shell (`lang="he" dir="rtl"`), Heebo via next/font, black/white
+plus semantic greens/reds/ambers for state.
 
-Open epics:
+The visual direction is an open decision. ADR-0011 (cream-editorial) and
+ADR-0009 (warm-studio) describe the *Flutter* palette and were never ported;
+whether to port cream-editorial's tokens to CSS or design fresh for the web
+medium is unresolved and deliberately deferred.
 
-#52 — Progress tracking. Backend + mobile core + coach visibility shipped (PRs #59 + #60 + #64). Open deferrals:
-  #61 — photo upload (image_picker native plumbing + photo timeline + side-by-side overlay) — top with-user item
-  post-session deep link blocked on #36
-  Best-practices follow-ups filed this session: #65 roster photo cards (blocked on #61),
-  #66 searchable/sorted trainee list, #67 coach inbox hero, #68 onboarding-shows-slots, #69 haptics map
-
-Open HITL:
-
-#25 — Firebase project setup (blocks #36)
-#36 — FCM scaffold + push fan-out
-#39 — Distribution prep (Apple/Play accounts + Fastlane + CI)
-#41 — Calendar OAuth email-match + mobile deep link
-
-Closed/deprecated:
-
-#53 — Reminder cron retune (closed by PR #58)
-#55 — Reschedule race (closed by PR #57)
-#54 — UI remediation epic (closed by PR #56)
-#1 — original PRD (kept for history; deprecation header points at CONTEXT.md + ADRs)
-
-ADRs added this session:
-
-ADR-0007 — Reschedule approval books new slot before cancelling old (#55)
-
-5. Design System Snapshot
-Color (BrandColors in mobile/lib/theme.dart):
-
-Primary: Teal #0EA89A
-Accent: Orange #FF6B35 (one per screen max, never dominant)
-Background: warm neutral #FAF8F5 (never pure white)
-Status: success #1F9D55, warning #B45309 (amber-700), error #C53030
-Canonical hero: BrandColors.gradientHero (teal→tealDark, topRight→bottomLeft)
-
-Spacing (AppSpacing in mobile/lib/design/spacing.dart):
-
-4pt grid: xxs(4) / xs(8) / sm(12) / md(16) / lg(24) / xl(32) / xxl(48)
-Radius scale: sm(8) / md(12) / lg(16) / xl(20) / pill(999)
-
-Typography:
-
-Heebo (Google Fonts, Hebrew-native)
-Sizes via Theme.of(context).textTheme.* — never hardcoded fontSize
-
-Shipped widgets (mobile/lib/design/widgets.dart, all unit-tested in test/design/widgets_test.dart):
-
-SectionHeader — caption-style header replacing duplicated _section() helpers
-InfoRow / DataGrid — label/value pair + 2-col grid
-HeroStat — gradient-hero stat tile with accent-top border
-StatusStripeTile — list row with 3px leading stripe (replaces CircleAvatar+icon)
-SkeletonList — static greys, ListView-backed (no overflow, no animation hang)
-EmptyState — icon + headline + helper + optional action
-ErrorCard — error-tinted card with retry button
-
-Pattern specs not yet built (see docs/design-system.md § 3):
-
-Capacity bar, lockout badge, swipe-to-cancel, haptic patterns
-
-6. Behavioral Rules (non-negotiable, from docs/product-vision.md)
+## 6. Behavioral Rules (non-negotiable, from docs/product-vision.md)
 
 No dark patterns. No fake urgency, no fake scarcity, no guilt framing.
 Streaks positive only — "growth streak," never "don't break it."
-No confetti on transactional actions. Haptic + checkmark + instant next-session update is the celebration.
+No confetti on transactional actions.
 Progress visibility creates reward — the trainee earned it, we just surface it.
 Coach speaks through notes (ADR-0006) — more powerful than gamification.
-Notification cap: max 3/day per trainee (24h + 2h + post-session = the natural three).
-Real-time feedback — booking → instant confirmation; log → chart updates.
+Notification cap: max 3/day per trainee.
+Profile completion nudges, never gates — booking is always allowed.
 
-7. Reminder Cadence (committed, in-flight as #53)
+## 7. Reminder Cadence
 
-24h before — "tomorrow at HH:MM" + quick-cancel deep link (fires before 24h window closes)
+24h before — "tomorrow at HH:MM"
 2h before — final warmup nudge
-30 min after slot end — "how did it feel?" → opens log sheet
+30 min after slot end — "how did it feel?"
 
-Current 1h-before reminder is dropped, not duplicated.
+Delivery is currently in-app/console only. Push was FCM-based and died with
+the mobile app; a web equivalent (Web Push) is unscoped new work.
 
-8. Stack
-Backend — Next.js 16 App Router (TypeScript), Vitest, lives in src/
+## 8. Stack
 
-Postgres via Supabase. Service-role key for admin; anon key for auth.
-Auth: Supabase OTP (email). JWT bearer on every API request.
-Domain code under src/lib/: BookingStore (writes) + CoachReadModel (reads) — CQRS-lite.
-Bookings service handles book/cancel/reschedule with calendar rollback.
-15 migrations in supabase/migrations/, applied via Supabase CLI.
-API routes: /api/me/* (trainee), /api/admin/* (coach), /api/coach-info, /api/coach-settings, /api/cron/*
+Next.js 16 App Router (TypeScript), React 19, Tailwind 4, Vitest. All of it in
+`src/`.
 
-Mobile — Flutter 3.44, Dart 3.12, lives in mobile/
-
-State: Riverpod 2.x (Provider + FutureProvider)
-HTTP: Dio + AuthedHttpClient (auto-injects JWT, unwraps DioException → ApiException)
-Auth: supabase_flutter
-Theme: BrandColors + Heebo + AppSpacing tokens
-Env: --dart-define-from-file=dev-env.json (gitignored)
-117 widget tests via mocktail + flutter_test (backend: 308 vitest)
+- Postgres via Supabase. Service-role key for admin; anon key for auth.
+- Auth: Google OAuth via Supabase, session in SSR cookies (`@supabase/ssr`).
+  `src/lib/auth/session.ts` resolves cookies → `{role, status}` and
+  `resolveDestination()` is the single place deciding which screen someone
+  belongs on. Page guards bounce the wrong role to their own destination.
+- COACH_EMAIL (comma-separated) always wins over the stored role.
+- Reads: Server Components → `src/lib/services/*` and the CoachReadModel /
+  TraineeReadModel (CQRS-lite, batched).
+- Writes: Server Actions → the same services. Bookings handles
+  book/cancel/reschedule with calendar rollback.
+- 20 migrations in supabase/migrations/.
+- Local dev without Supabase: `DB_DRIVER=pg` + the dev sign-in form on
+  `/sign-in`, gated on the driver so a dev token can never authenticate
+  against the cloud.
+- `/api/*` still exists (mobile's old surface) but the web app does not use it.
 
 Infra
 
@@ -204,34 +155,32 @@ New-format API keys (sb_publishable_* / sb_secret_*)
 No CI yet; local test before merge
 Single-coach env: COACH_EMAIL on backend = source of truth for coach role
 
-9. Architecture Decisions Worth Knowing
+## 9. Architecture Decisions Worth Knowing
 
-ADR-0001 — Riverpod over Bloc (state mgmt)
-ADR-0002 — Calendar OAuth server-side; mobile only opens the URL (email-match enforcement = #41)
+ADR-0002 — Calendar OAuth server-side (email-match enforcement = #41)
 ADR-0003 — Dev-mode uses real Supabase auth (no parallel auth path)
 ADR-0004 — Self-signups require coach approval (intro form → pending → active)
 ADR-0005 — 24h cancel window is the only gate; 3-edits/week removed
-ADR-0006 — Coach notes are v1 progress primitive (#52 graduates this to v2)
-ADR-0007 — Reschedule approval books new slot before cancelling old (race fix #55)
-ADR-0008 — Motion layer = flutter_animate + global infinite-motion gate (reduce-motion + test-safe); confetti/fl_chart stay rejected
-ADR-0009 — Warm-studio palette (muted teal #588B8B + peach/amber/terracotta), warm curved hero, card depth; supersedes "don't re-open colors" — user-chosen swatch
+ADR-0006 — Coach notes are v1 progress primitive
+ADR-0007 — Reschedule approval books new slot before cancelling old
+ADR-0010 — Store seam: interface + adapter + shared row-mappers
+ADR-0012 — Waitlist notifies all, first to book wins
 
-10. Next Immediate Actions
-Order (vertical slices, no parallelism):
+Historical (described the deleted Flutter client): ADR-0001 (Riverpod),
+ADR-0008 (motion layer), ADR-0009 (warm-studio), ADR-0011 (cream-editorial).
 
-DONE earlier: #62 coach progress visibility (PR #64), #66 searchable/sorted trainee list (PR #70), #67 coach inbox hero (PR #71), #69 haptics vocabulary (PR #72), #68 first-session CTA (PR #73).
+## 10. Next Immediate Actions
 
-DONE — Motion/UX overhaul (audit found app was static despite a solid palette/type system; colors+Heebo kept, motion added). 5 PRs, all gated for reduce-motion + tests (159 flutter tests, analyze clean):
-- #74 motion foundation — flutter_animate + AppMotion tokens + PressableScale + gated shimmer (ADR-0008)
-- #75 hero numbers — count-up HeroNumber + tabular figures app-wide (weekly count, progress weight)
-- #76 staggered entry reveals (Reveal) on coach trainee list, coach week slots, trainee home slots
-- #77 success burst — teal checkmark-draw + ripple on book/log (rule-3 reward, NOT confetti)
-- #78 micro-interactions — press-scale on chips/tiles, inbox badge pop, next-session pulse
-#61 progress photos — image_picker mobile plumbing + upload to progress-photos bucket + photo timeline. TOP remaining item, do WITH user present (native iOS Info.plist + Android manifest config). Doc rates photos the biggest retention driver. #65 roster photo cards blocked on this.
-#68 follow-up (optional, product call): broader new-user card reordering on HomeScreen (float slots above coach cards). The first-session CTA shipped; reorder deferred.
-#25 Firebase project setup (HITL) — unblocks #36.
-#36 FCM scaffold + push fan-out — blocked on #25 (also blocks #52 post-session deep link).
-#41 Calendar OAuth callback (build from scratch) — email-match + state HMAC + redirect to mobile deep link.
-#39 Distribution prep (HITL) — Apple Dev + Play Console + Fastlane + CI.
+1. **HITL — Supabase Google provider**: add the OAuth redirect URL and Google
+   client credentials so sign-in works against real Google. Local dev works
+   today via the dev sign-in form.
+2. **Merge the stack**: PR #95 (mobile deletion) → PR #96 (backend pull-forward
+   + web client) → master.
+3. **Visual direction** (open decision): port cream-editorial tokens to CSS, or
+   design fresh for web.
+4. #41 Calendar OAuth email-match — the "mobile deep link" half is dead; the
+   email-match enforcement half still applies.
+5. Prune `/api/*` once nothing depends on it.
+6. Web Push, if push is still wanted.
 
 This doc is the only "current state" file. If something here doesn't match what's shipped, fix this doc first.
