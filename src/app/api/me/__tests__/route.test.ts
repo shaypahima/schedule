@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 const mockJwtSession = vi.fn();
 const mockLoadProfile = vi.fn();
 const mockCreateProfile = vi.fn();
+const mockSetProfileStatus = vi.fn();
 
 vi.mock("@/lib/services/jwt-session", () => ({
   getJwtSession: (req: NextRequest) => mockJwtSession(req),
@@ -12,6 +13,7 @@ vi.mock("@/lib/services/jwt-session", () => ({
 vi.mock("@/lib/auth/profile-repo", () => ({
   loadProfile: (id: string) => mockLoadProfile(id),
   createProfile: (row: unknown) => mockCreateProfile(row),
+  setProfileStatus: (id: string, status: string) => mockSetProfileStatus(id, status),
 }));
 
 import { GET } from "../route";

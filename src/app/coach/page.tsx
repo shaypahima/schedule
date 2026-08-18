@@ -1,12 +1,12 @@
-import { requireActiveTraineeSession } from "@/lib/auth/session";
-import { signOut } from "./auth/actions";
+import { requireCoachSession } from "@/lib/auth/session";
+import { signOut } from "../auth/actions";
 
-export default async function TraineeHomePage() {
-  const session = await requireActiveTraineeSession();
+export default async function CoachHomePage() {
+  const session = await requireCoachSession();
 
   return (
     <main className="flex-1 p-6">
-      <div className="mx-auto w-full max-w-2xl space-y-6">
+      <div className="mx-auto w-full max-w-3xl space-y-6">
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">שלום, {session.name}</h1>
           <form action={signOut}>
@@ -16,9 +16,9 @@ export default async function TraineeHomePage() {
           </form>
         </header>
 
-        {/* Slot browsing and booking arrive with #99. */}
+        {/* Roster, approvals and the request inbox arrive with #103, #104, #105. */}
         <p className="rounded-lg border border-dashed border-black/15 p-6 text-center text-black/50">
-          קביעת אימונים תופיע כאן.
+          לוח המאמן יופיע כאן.
         </p>
       </div>
     </main>

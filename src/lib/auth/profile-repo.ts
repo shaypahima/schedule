@@ -106,6 +106,17 @@ export async function loadProfile(userId: string): Promise<Profile | null> {
   };
 }
 
+export async function setProfileStatus(
+  userId: string,
+  status: Profile["status"],
+): Promise<void> {
+  if (isPgDriver()) {
+    await pgQuery("update profiles set status = $1 where id = $2", [status, userId]);
+    return;
+  }
+  await getSupabaseAdminClient().from("profiles").update({ status }).eq("id", userId);
+}
+
 export async function createProfile(row: {
   userId: string;
   email: string;
