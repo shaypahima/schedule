@@ -10,8 +10,11 @@ vi.mock("@/lib/services/jwt-session", () => ({
   getJwtSession: (req: NextRequest) => mockJwtSession(req),
 }));
 
+const mockSetProfileStatus = vi.fn();
+
 vi.mock("@/lib/auth/profile-repo", () => ({
   loadProfile: (id: string) => mockLoadProfile(id),
+  setProfileStatus: (id: string, status: string) => mockSetProfileStatus(id, status),
 }));
 
 vi.mock("@supabase/supabase-js", () => ({
@@ -84,7 +87,7 @@ describe("POST /api/admin/trainees/:id/approve", () => {
   it("flips pending+hasIntro trainee to active", async () => {
     const res = await approve(makeReq("t1"), params);
     expect(res.status).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledWith({ status: "active" });
+    expect(mockSetProfileStatus).toHaveBeenCalledWith("t1", "active");
   });
 
   it("rejects non-pending trainee", async () => {
@@ -151,7 +154,7 @@ describe("POST /api/admin/trainees/:id/reject", () => {
   it("flips pending trainee to rejected (with or without intro)", async () => {
     const res = await reject(makeReq("t1"), params);
     expect(res.status).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledWith({ status: "rejected" });
+    expect(mockSetProfileStatus).toHaveBeenCalledWith("t1", "rejected");
   });
 
   it("rejects non-pending trainee", async () => {
