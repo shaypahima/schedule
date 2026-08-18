@@ -20,12 +20,13 @@ export default async function CoachWeekPage({
   const days = upcomingDays(today, DAYS_AHEAD);
   const selected = days.some((d) => d.date === date) ? date! : today;
 
-  const { coachRead } = getContainer();
+  const { coachRead, waitlist } = getContainer();
   const [roster, slots, trainees] = await Promise.all([
     coachRead.getDayBookings(selected),
     getDaySlots(selected),
     coachRead.getTraineesList("active"),
   ]);
+  const waitlistCounts = await waitlist.countsForSlots(slots.map((s) => s.id));
 
   const bySlot = new Map<string, typeof roster>();
   for (const entry of roster) {
@@ -74,6 +75,11 @@ export default async function CoachWeekPage({
                   <span className="text-lg font-semibold">{slot.startTime}</span>
                   <span className="text-sm text-black/50">
                     {booked.length} / {slot.capacity}
+                    {waitlistCounts[slot.id] > 0 && (
+                      <span className="mr-2 text-black/40">
+                        · {waitlistCounts[slot.id]} בהמתנה
+                      </span>
+                    )}
                   </span>
                 </div>
 

@@ -22,6 +22,11 @@ export default async function CoachHomePage() {
 
   const roster = withPastFlag(dashboard.todayRoster);
 
+  // Only worth a comparison when there was a previous month to compare to.
+  const delta = dashboard.monthly.prev
+    ? dashboard.monthly.sessionsHeld - dashboard.monthly.prev.sessionsHeld
+    : null;
+
   return (
     <main className="flex-1 p-6">
       <div className="mx-auto w-full max-w-3xl space-y-8">
@@ -57,6 +62,33 @@ export default async function CoachHomePage() {
             href="/coach/requests"
           />
           <Stat label="אי-הגעות השבוע" value={dashboard.noShowsThisWeek} />
+        </section>
+
+        <section className="space-y-3 rounded-lg border border-black/15 p-4">
+          <h2 className="text-lg font-semibold">החודש</h2>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <p className="text-2xl font-bold">{dashboard.monthly.sessionsHeld}</p>
+              <p className="text-xs text-black/60">אימונים שהתקיימו</p>
+              {delta !== null && (
+                <p className="text-xs text-black/40">
+                  {delta > 0 ? `+${delta}` : delta} מהחודש הקודם
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-2xl font-bold">
+                {dashboard.monthly.attendanceRate === null
+                  ? "—"
+                  : `${Math.round(dashboard.monthly.attendanceRate * 100)}%`}
+              </p>
+              <p className="text-xs text-black/60">נוכחות</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{dashboard.monthly.activeTrainees}</p>
+              <p className="text-xs text-black/60">מתאמנים פעילים</p>
+            </div>
+          </div>
         </section>
 
         <section className="space-y-3">
