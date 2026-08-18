@@ -36,6 +36,12 @@ export default async function TraineeHomePage({
             <Link href="/bookings" className="text-sm underline">
               האימונים שלי
             </Link>
+            <Link href="/history" className="text-sm underline">
+              היסטוריה
+            </Link>
+            <Link href="/profile" className="text-sm underline">
+              פרופיל
+            </Link>
             <form action={signOut}>
               <button type="submit" className="text-sm text-black/50 underline">
                 התנתקות
