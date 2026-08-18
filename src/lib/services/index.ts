@@ -6,14 +6,18 @@ import { AuthService } from "./auth";
 import { BookingStore, MockBookingStore } from "./booking-store";
 import { NotificationService, MockNotificationService } from "./notification";
 import { Bookings, makeBookings } from "./bookings";
+import { TraineeReadModel, makeTraineeReadModel } from "./trainee-read";
 import { ProgressStore, MockProgressStore } from "./progress-store";
+import { Waitlist, WaitlistStore, MockWaitlistStore, makeWaitlist } from "./waitlist";
+import { PgWaitlistStore } from "@/lib/pg/waitlist-store";
+import { SupabaseWaitlistStore } from "@/lib/supabase/waitlist-store";
 import { CoachReadModel } from "@/lib/coach/read-model";
 import { makeCoachReadModel } from "@/lib/coach/mock-read-model";
 import { SupabaseBookingStore } from "@/lib/supabase/booking-store";
 import { SupabaseProgressStore } from "@/lib/supabase/progress-store";
 import { SupabaseAuthService, MockAuthService } from "@/lib/supabase/auth-service";
 import { getSupabaseClient, getSupabaseAdminClient } from "@/lib/supabase/client";
-import { isPgDriver } from "@/lib/pg/client";
+import { pickAdapter } from "./driver";
 import { PgBookingStore } from "@/lib/pg/booking-store";
 import { PgProgressStore } from "@/lib/pg/progress-store";
 import { PgAuthService } from "@/lib/pg/auth-service";
@@ -33,6 +37,7 @@ let authService: AuthService;
 let bookingStore: BookingStore;
 let notificationService: NotificationService;
 let progressStore: ProgressStore;
+let waitlistStore: WaitlistStore;
 
 export function getTokenStore(): TokenStore {
   if (!tokenStore) tokenStore = new InMemoryTokenStore();
@@ -58,22 +63,23 @@ export function getRealCalendarService(): RealGoogleCalendarService | null {
 
 export function getAuthService(): AuthService {
   if (!authService) {
-    authService = isFullMock()
-      ? new MockAuthService()
-      : isPgDriver()
-        ? new PgAuthService()
-        : new SupabaseAuthService(getSupabaseClient(), getSupabaseAdminClient());
+    authService = pickAdapter<AuthService>({
+      mock: () => new MockAuthService(),
+      pg: () => new PgAuthService(),
+      supabase: () =>
+        new SupabaseAuthService(getSupabaseClient(), getSupabaseAdminClient()),
+    });
   }
   return authService;
 }
 
 export function getBookingStore(): BookingStore {
   if (!bookingStore) {
-    bookingStore = isFullMock()
-      ? new MockBookingStore()
-      : isPgDriver()
-        ? new PgBookingStore()
-        : new SupabaseBookingStore(getSupabaseAdminClient());
+    bookingStore = pickAdapter<BookingStore>({
+      mock: () => new MockBookingStore(),
+      pg: () => new PgBookingStore(),
+      supabase: () => new SupabaseBookingStore(getSupabaseAdminClient()),
+    });
   }
   return bookingStore;
 }
@@ -85,13 +91,24 @@ export function getNotificationService(): NotificationService {
   return notificationService;
 }
 
+export function getWaitlistStore(): WaitlistStore {
+  if (!waitlistStore) {
+    waitlistStore = pickAdapter<WaitlistStore>({
+      mock: () => new MockWaitlistStore(),
+      pg: () => new PgWaitlistStore(),
+      supabase: () => new SupabaseWaitlistStore(),
+    });
+  }
+  return waitlistStore;
+}
+
 export function getProgressStore(): ProgressStore {
   if (!progressStore) {
-    progressStore = isFullMock()
-      ? new MockProgressStore()
-      : isPgDriver()
-        ? new PgProgressStore()
-        : new SupabaseProgressStore(getSupabaseAdminClient());
+    progressStore = pickAdapter<ProgressStore>({
+      mock: () => new MockProgressStore(),
+      pg: () => new PgProgressStore(),
+      supabase: () => new SupabaseProgressStore(getSupabaseAdminClient()),
+    });
   }
   return progressStore;
 }
@@ -107,7 +124,9 @@ export interface Container {
   bookings: Bookings;
   auth: AuthService;
   coachRead: CoachReadModel;
+  traineeRead: TraineeReadModel;
   progress: ProgressStore;
+  waitlist: Waitlist;
 }
 
 let _container: Container | null = null;
@@ -127,15 +146,18 @@ export function resetContainer(): void {
   bookingStore = undefined!;
   notificationService = undefined!;
   progressStore = undefined!;
+  waitlistStore = undefined!;
 }
 
 function buildContainer(): Container {
   const store = getBookingStore();
   const calendar = isMockCalendar() ? null : getCalendarService();
   const notifier = getNotificationService();
-  const bookings = makeBookings(store, calendar, notifier);
+  const waitlist = makeWaitlist(getWaitlistStore(), store, notifier);
+  const bookings = makeBookings(store, calendar, notifier, waitlist);
   const auth = getAuthService();
   const progress = getProgressStore();
   const coachRead = makeCoachReadModel(store, auth, bookings, progress);
-  return { store, bookings, auth, coachRead, progress };
+  const traineeRead = makeTraineeReadModel(store, bookings);
+  return { store, bookings, auth, coachRead, traineeRead, progress, waitlist };
 }

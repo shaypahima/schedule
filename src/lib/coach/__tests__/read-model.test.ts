@@ -72,6 +72,196 @@ describe("CoachReadModel", () => {
     });
   });
 
+  describe("read batching (#88 — no per-item N+1)", () => {
+    function addSlot(id: string, date: string, time = "10:00") {
+      store.addSlot({
+        id,
+        date,
+        startTime: time,
+        capacity: 2,
+        lockoutOverride: false,
+        currentBookings: 0,
+      });
+    }
+
+    it("getCoachDashboard resolves every slot via batch reads — zero per-item getSlot", async () => {
+      addSlot("apr-1", "2026-04-01");
+      addSlot("apr-2", "2026-04-02");
+      addSlot("today-1", "2026-04-06");
+      addSlot("today-2", "2026-04-06", "11:00");
+      await bookings.book("t1", "apr-1", { bypass: true });
+      await bookings.book("t2", "apr-2", { bypass: true });
+      await bookings.book("t1", "today-1", { bypass: true });
+      const b = await bookings.book("t2", "today-2", { bypass: true });
+      if (!b.ok) throw new Error("setup failed");
+      // A pending change request exercises the getPendingChangeRequests path.
+      await bookings.requestReschedule(b.booking.id, "t2", "today-1", "swap");
+
+      const getSlotSpy = vi.spyOn(store, "getSlot");
+      await coachRead.getCoachDashboard();
+
+      expect(getSlotSpy).not.toHaveBeenCalled();
+    });
+
+    it("getTraineeDetail resolves slots via batch reads — zero per-item getSlot", async () => {
+      addSlot("apr-1", "2026-04-01");
+      addSlot("apr-2", "2026-04-02");
+      addSlot("future-1", "2026-04-20");
+      await bookings.book("t1", "apr-1", { bypass: true });
+      await bookings.book("t1", "apr-2", { bypass: true });
+      await bookings.book("t1", "future-1", { bypass: true });
+
+      const getSlotSpy = vi.spyOn(store, "getSlot");
+      const detail = await coachRead.getTraineeDetail("t1");
+
+      expect(detail).not.toBeNull();
+      expect(getSlotSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("getCoachDashboard — monthly overview (#84)", () => {
+    function addSlot(id: string, date: string, time = "10:00") {
+      store.addSlot({
+        id,
+        date,
+        startTime: time,
+        capacity: 2,
+        lockoutOverride: false,
+        currentBookings: 0,
+      });
+    }
+
+    it("aggregates the current calendar month and deltas vs the previous", async () => {
+      // now = 2026-04-06. April: 2 held (1 attended t1, 1 attended t2) + 1 no-show.
+      addSlot("apr-1", "2026-04-01");
+      addSlot("apr-2", "2026-04-02");
+      addSlot("apr-3", "2026-04-03");
+      addSlot("apr-future", "2026-04-25"); // upcoming — must not count as held
+      // March: 1 held, 0 no-shows.
+      addSlot("mar-1", "2026-03-10");
+
+      await bookings.book("t1", "apr-1", { bypass: true });
+      await bookings.book("t2", "apr-2", { bypass: true });
+      const ns = await bookings.book("t1", "apr-3", { bypass: true });
+      await bookings.book("t1", "apr-future", { bypass: true });
+      await bookings.book("t1", "mar-1", { bypass: true });
+      if (!ns.ok) throw new Error("setup failed");
+      await bookings.markNoShow(ns.booking.id);
+
+      const view = await coachRead.getCoachDashboard();
+      expect(view.monthly).toEqual({
+        sessionsHeld: 2,
+        noShows: 1,
+        attendanceRate: 2 / 3,
+        activeTrainees: 2, // t1 + t2 trained in April
+        prev: {
+          sessionsHeld: 1,
+          noShows: 0,
+          attendanceRate: 1,
+          activeTrainees: 1,
+        },
+      });
+    });
+
+    it("prev is null when the previous month had no sessions", async () => {
+      addSlot("apr-1", "2026-04-01");
+      await bookings.book("t1", "apr-1", { bypass: true });
+
+      const view = await coachRead.getCoachDashboard();
+      expect(view.monthly.sessionsHeld).toBe(1);
+      expect(view.monthly.prev).toBeNull();
+    });
+
+    it("an empty current month still reports zeros", async () => {
+      const view = await coachRead.getCoachDashboard();
+      expect(view.monthly).toMatchObject({
+        sessionsHeld: 0,
+        noShows: 0,
+        attendanceRate: null,
+        activeTrainees: 0,
+      });
+    });
+  });
+
+  describe("getTraineesList — at-risk flags (#83)", () => {
+    const get = async (id: string) =>
+      (await coachRead.getTraineesList()).find((t) => t.id === id)!;
+
+    function addPastSlot(id: string, date: string) {
+      store.addSlot({
+        id,
+        date,
+        startTime: "10:00",
+        capacity: 2,
+        lockoutOverride: false,
+        currentBookings: 0,
+      });
+    }
+
+    it("flags inactive when last session is 14+ days ago and nothing upcoming", async () => {
+      // now = 2026-04-06. Last session 2026-03-20 (17 days ago).
+      addPastSlot("slot-old", "2026-03-20");
+      await bookings.book("t1", "slot-old", { bypass: true });
+
+      expect((await get("t1")).atRisk).toBe("inactive");
+    });
+
+    it("does not flag when a session happened within 14 days", async () => {
+      addPastSlot("slot-recent", "2026-03-30"); // 7 days ago
+      await bookings.book("t1", "slot-recent", { bypass: true });
+
+      expect((await get("t1")).atRisk).toBeNull();
+    });
+
+    it("an upcoming booking clears the inactive flag — they re-engaged", async () => {
+      addPastSlot("slot-old", "2026-03-01");
+      addPastSlot("slot-future", "2026-04-20");
+      await bookings.book("t1", "slot-old", { bypass: true });
+      await bookings.book("t1", "slot-future", { bypass: true });
+
+      expect((await get("t1")).atRisk).toBeNull();
+    });
+
+    it("flags no_shows at 2+ no-shows within 4 weeks (boundary: exactly 2)", async () => {
+      addPastSlot("slot-ns1", "2026-03-25");
+      addPastSlot("slot-ns2", "2026-04-01");
+      addPastSlot("slot-future", "2026-04-20"); // upcoming — must NOT mask no-shows
+      const b1 = await bookings.book("t1", "slot-ns1", { bypass: true });
+      const b2 = await bookings.book("t1", "slot-ns2", { bypass: true });
+      await bookings.book("t1", "slot-future", { bypass: true });
+      if (!b1.ok || !b2.ok) throw new Error("setup failed");
+      await bookings.markNoShow(b1.booking.id);
+      await bookings.markNoShow(b2.booking.id);
+
+      expect((await get("t1")).atRisk).toBe("no_shows");
+    });
+
+    it("a single no-show within 4 weeks does not flag", async () => {
+      addPastSlot("slot-ns1", "2026-04-01");
+      addPastSlot("slot-recent", "2026-04-03");
+      const b1 = await bookings.book("t1", "slot-ns1", { bypass: true });
+      await bookings.book("t1", "slot-recent", { bypass: true });
+      if (!b1.ok) throw new Error("setup failed");
+      await bookings.markNoShow(b1.booking.id);
+
+      expect((await get("t1")).atRisk).toBeNull();
+    });
+
+    it("old no-shows (>4 weeks) do not count", async () => {
+      addPastSlot("slot-ns1", "2026-02-01");
+      addPastSlot("slot-ns2", "2026-02-08");
+      addPastSlot("slot-recent", "2026-04-03");
+      const b1 = await bookings.book("t1", "slot-ns1", { bypass: true });
+      const b2 = await bookings.book("t1", "slot-ns2", { bypass: true });
+      await bookings.book("t1", "slot-recent", { bypass: true });
+      if (!b1.ok || !b2.ok) throw new Error("setup failed");
+      await bookings.markNoShow(b1.booking.id);
+      await bookings.markNoShow(b2.booking.id);
+
+      expect((await get("t1")).atRisk).toBeNull();
+    });
+  });
+
   describe("getTraineesList", () => {
     it("returns all seeded trainees by default", async () => {
       const list = await coachRead.getTraineesList();

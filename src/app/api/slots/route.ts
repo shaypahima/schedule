@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCalendarService, getContainer } from "@/lib/services";
-import { generateAvailableSlots } from "@/lib/services/slot-availability";
-import { israelSlotToUTC } from "@/lib/services/israel-time";
 import { requireCoachOrActiveTrainee } from "@/lib/auth/require";
+import { getDaySlots } from "@/lib/slots/board";
 
 export async function GET(request: NextRequest) {
   const r = await requireCoachOrActiveTrainee(request);
@@ -18,16 +16,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const dayStart = israelSlotToUTC(date, "00:00");
-  const dayEnd = israelSlotToUTC(date, "23:59");
-
-  const calendar = getCalendarService();
-  const { busy } = await calendar.getFreeBusy(dayStart, dayEnd);
-
-  const { store } = getContainer();
-  const existingSlots = await store.getAllSlotsForDate(date);
-
-  const slots = generateAvailableSlots(date, busy, existingSlots);
+  const slots = await getDaySlots(date);
 
   return NextResponse.json({ date, slots });
 }

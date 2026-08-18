@@ -1,5 +1,5 @@
 import { CoachNote } from "@/lib/types";
-import { isPgDriver } from "@/lib/pg/client";
+import { pickAdapter } from "./driver";
 import { PgNotesRepo } from "@/lib/pg/notes-repo";
 import { SupabaseNotesRepo } from "@/lib/supabase/notes-repo";
 
@@ -18,7 +18,10 @@ export interface NotesRepo {
 let repo: NotesRepo | undefined;
 
 function getRepo(): NotesRepo {
-  return (repo ??= isPgDriver() ? new PgNotesRepo() : new SupabaseNotesRepo());
+  return (repo ??= pickAdapter<NotesRepo>({
+    pg: () => new PgNotesRepo(),
+    supabase: () => new SupabaseNotesRepo(),
+  }));
 }
 
 /** Test seam: override the adapter (pass undefined to restore driver selection). */

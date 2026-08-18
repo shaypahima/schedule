@@ -5,6 +5,7 @@ import {
   upsertTraineeProfile,
   TraineeProfilePatch,
 } from "@/lib/services/trainee-profile-repo";
+import { validateProfilePatch } from "@/lib/profile/validate";
 
 export async function GET(request: NextRequest) {
   // Pending trainees can also read their own profile (to confirm what they
@@ -24,19 +25,13 @@ export async function PATCH(request: NextRequest) {
 
   const body = (await request.json()) as TraineeProfilePatch;
 
-  // Lightweight validation. Phone, if provided, must be E.164.
-  if (body.phone !== undefined && !/^\+\d{8,15}$/.test(body.phone)) {
-    return NextResponse.json({ error: "PHONE_INVALID" }, { status: 400 });
-  }
-  if (body.heightCm !== undefined && body.heightCm !== null && (body.heightCm < 50 || body.heightCm > 250)) {
-    return NextResponse.json({ error: "HEIGHT_OUT_OF_RANGE" }, { status: 400 });
-  }
-  if (body.weightKg !== undefined && body.weightKg !== null && (body.weightKg < 20 || body.weightKg > 400)) {
-    return NextResponse.json({ error: "WEIGHT_OUT_OF_RANGE" }, { status: 400 });
+  const parsed = validateProfilePatch(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
   try {
-    const profile = await upsertTraineeProfile(r.trainee.userId, body);
+    const profile = await upsertTraineeProfile(r.trainee.userId, parsed.value);
     return NextResponse.json({ profile });
   } catch (e) {
     return NextResponse.json(

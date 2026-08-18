@@ -25,19 +25,23 @@ export async function GET(request: NextRequest) {
   const { store, bookings } = getContainer();
   const myBookings = await store.getTraineeBookings(r.trainee.userId);
 
-  const enriched = await Promise.all(
-    myBookings.map(async (b) => {
-      const slot = await store.getSlot(b.slotId);
-      const isLocked = slot
-        ? !slot.lockoutOverride && isLockedOut(slot.date, slot.startTime, LOCKOUT_HOURS)
-        : false;
-      return {
-        ...b,
-        slot: slot ? { date: slot.date, startTime: slot.startTime } : null,
-        isLocked,
-      };
-    })
-  );
+  // One batched slot read instead of getSlot() per booking.
+  const slots = await store.getSlotsByIds([
+    ...new Set(myBookings.map((b) => b.slotId)),
+  ]);
+  const slotById = new Map(slots.map((s) => [s.id, s]));
+
+  const enriched = myBookings.map((b) => {
+    const slot = slotById.get(b.slotId);
+    const isLocked = slot
+      ? !slot.lockoutOverride && isLockedOut(slot.date, slot.startTime, LOCKOUT_HOURS)
+      : false;
+    return {
+      ...b,
+      slot: slot ? { date: slot.date, startTime: slot.startTime } : null,
+      isLocked,
+    };
+  });
 
   const remainingEdits = await bookings.getRemainingEdits(r.trainee.userId, todayIL());
   return NextResponse.json({ bookings: enriched, remainingEdits });

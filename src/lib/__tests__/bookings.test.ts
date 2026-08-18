@@ -74,6 +74,22 @@ describe("Bookings", () => {
       expect(result).toEqual({ ok: false, error: "NOT_FOUND", message: "Slot not found" });
     });
 
+    it("books a virtual 'new-' id onto an existing row for that date/time", async () => {
+      // slot-6 already materialized at 2026-04-06 10:00; a stale client still
+      // holding the virtual id must land on the same row, not duplicate it.
+      const result = await tx.book("t1", "new-2026-04-06-10:00");
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.booking.slotId).toBe("slot-6");
+      expect(store.getAllSlotsForDate("2026-04-06")).toHaveLength(1);
+    });
+
+    it("materializes a virtual 'new-' id once when no row exists", async () => {
+      const r1 = await tx.book("t1", "new-2026-04-09-12:00");
+      const r2 = await tx.book("t2", "new-2026-04-09-12:00");
+      expect(r1.ok && r2.ok).toBe(true);
+      if (r1.ok && r2.ok) expect(r2.booking.slotId).toBe(r1.booking.slotId);
+    });
+
     it("returns WEEKLY_LIMIT after 2 bookings in same week", async () => {
       await tx.book("t1", "slot-6");
       await tx.book("t1", "slot-7");

@@ -16,7 +16,11 @@ process.env.MOCK_SERVICES = "true";
 
 import { POST, GET, DELETE, PATCH } from "../route";
 import { getContainer, resetContainer } from "@/lib/services";
+import { MockBookingStore } from "@/lib/services/booking-store";
 import type { Profile } from "@/lib/auth/require";
+
+/** The test container always runs the Mock store (MOCK_SERVICES=true). */
+const mockStore = () => getContainer().store as MockBookingStore;
 
 const traineeProfile: Profile = {
   userId: "t1",
@@ -47,8 +51,8 @@ describe("POST /api/bookings", () => {
   beforeEach(() => {
     vi.setSystemTime(new Date("2026-04-04T06:00:00Z"));
     resetContainer();
-    const { store } = getContainer();
-    store.upsertSlot({
+    const store = mockStore();
+    store.addSlot({
       id: "slot-6",
       date: "2026-04-06",
       startTime: "10:00",
@@ -91,8 +95,8 @@ describe("POST /api/bookings", () => {
   it("returns 409 when slot is full", async () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
     mockLoadProfile.mockResolvedValue(traineeProfile);
-    const { store } = getContainer();
-    store.upsertSlot({
+    const store = mockStore();
+    store.addSlot({
       id: "slot-6",
       date: "2026-04-06",
       startTime: "10:00",
@@ -157,8 +161,8 @@ describe("GET /api/bookings", () => {
     // Book at a time well before the slots so book() doesn't lockout-reject.
     vi.setSystemTime(new Date("2026-04-05T06:00:00Z"));
 
-    const { store } = getContainer();
-    store.upsertSlot({
+    const store = mockStore();
+    store.addSlot({
       id: "slot-soon",
       date: "2026-04-06",
       startTime: "11:00", // 08:00 UTC (UTC+3 in April)
@@ -166,7 +170,7 @@ describe("GET /api/bookings", () => {
       lockoutOverride: false,
       currentBookings: 0,
     });
-    store.upsertSlot({
+    store.addSlot({
       id: "slot-later",
       date: "2026-04-06",
       startTime: "19:00", // 16:00 UTC
@@ -194,8 +198,8 @@ describe("DELETE /api/bookings", () => {
   beforeEach(() => {
     vi.setSystemTime(new Date("2026-04-04T06:00:00Z"));
     resetContainer();
-    const { store } = getContainer();
-    store.upsertSlot({
+    const store = mockStore();
+    store.addSlot({
       id: "slot-6",
       date: "2026-04-06",
       startTime: "10:00",
@@ -232,8 +236,8 @@ describe("PATCH /api/bookings", () => {
   beforeEach(() => {
     vi.setSystemTime(new Date("2026-04-04T06:00:00Z"));
     resetContainer();
-    const { store } = getContainer();
-    store.upsertSlot({
+    const store = mockStore();
+    store.addSlot({
       id: "slot-6",
       date: "2026-04-06",
       startTime: "10:00",
@@ -241,7 +245,7 @@ describe("PATCH /api/bookings", () => {
       lockoutOverride: false,
       currentBookings: 0,
     });
-    store.upsertSlot({
+    store.addSlot({
       id: "slot-7",
       date: "2026-04-07",
       startTime: "14:00",
@@ -277,8 +281,8 @@ describe("PATCH /api/bookings", () => {
     mockJwtSession.mockResolvedValue({ userId: "t1", email: "t1@example.com" });
     mockLoadProfile.mockResolvedValue(traineeProfile);
 
-    const { store } = getContainer();
-    store.upsertSlot({
+    const store = mockStore();
+    store.addSlot({
       id: "slot-7",
       date: "2026-04-07",
       startTime: "14:00",

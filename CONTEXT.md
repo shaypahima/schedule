@@ -34,6 +34,8 @@ Domain terms used by trainees, coach, and the booking app. Implementation detail
 
 **Cancel/reschedule policy** (revised — supersedes the old "Edit limit" rule): the 24h **cancel window** is the only gate. Outside the window: trainee cancels/reschedules freely (no per-week cap). Inside the window: trainee submits a **cancel request** the coach must approve. The previous 3-edits-per-week counter has been removed.
 
+**Waitlist**: trainees who asked to be told when a **full** slot frees up. Joining is open to any active trainee; it is *not* a reservation and holds nothing. When a spot opens (cancellation or approved cancel request), **every** waitlisted trainee is notified ("מקום התפנה") and the first to complete the normal booking flow wins — no auto-booking, no exclusive hold. An entry expires silently at the slot's start time. Weekly caps and booking rules are enforced at booking time, not at join time.
+
 ## Attendance
 
 **Attended**: a confirmed booking whose slot start time has passed and the coach has not flagged it as a no-show. Default state for past confirmed bookings — no coach action needed.
@@ -45,5 +47,7 @@ Domain terms used by trainees, coach, and the booking app. Implementation detail
 **Coach note**: a free-text Hebrew note the coach writes about a trainee. Notes are the v1 progress-tracking primitive — no structured measurements, no training programs. Structured data may be added later if the coach asks for charts. Each note carries a **visible-to-trainee** flag; private by default. Notes flagged visible appear on the trainee's dashboard (most-recent first); the rest stay in the coach's view.
 
 ## Trainee profile data
+
+**Profile completion**: how much of the optional **trainee profile data** (goals, body data, medical) a trainee has filled in. Incomplete profiles trigger a dismissible *nudge* on the trainee's home — never a gate: booking is always allowed regardless of completion. Distinct from **intro**, which is the mandatory minimum at self-signup.
 
 **Trainee profile data**: the fitness-side of a trainee — phone, intro message, photo, optional age/height/weight/goals/medical notes. Lives in its own table (`trainee_profile`), 1:1 with `profiles`. Keeps `profiles` focused on auth + role; `trainee_profile` holds everything the coach cares about as a coach. The **intro** fields (phone + intro text) are required at self-signup; the rest is filled in over time. Photo lives in Supabase Storage; only the URL is on the row.

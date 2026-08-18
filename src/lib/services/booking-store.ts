@@ -35,6 +35,8 @@ export interface BookingStore {
   getTraineeBookings(traineeId: string): Promise<Booking[]> | Booking[];
   /** Batch form of getTraineeBookings — confirmed bookings for many trainees in one query. */
   getConfirmedBookingsForTrainees(traineeIds: string[]): Promise<Booking[]> | Booking[];
+  /** Batched no_show bookings for many trainees — feeds the at-risk roster flags (#83). */
+  getNoShowBookingsForTrainees(traineeIds: string[]): Promise<Booking[]> | Booking[];
   /** Slots by id. currentBookings is NOT computed (always 0) — for date/time lookups only. */
   getSlotsByIds(slotIds: string[]): Promise<Slot[]> | Slot[];
   getTraineeBookingsForWeek(traineeId: string, weekStart: string): Promise<Booking[]> | Booking[];
@@ -127,6 +129,13 @@ export class MockBookingStore implements BookingStore {
     );
   }
 
+  getNoShowBookingsForTrainees(traineeIds: string[]): Booking[] {
+    const ids = new Set(traineeIds);
+    return Array.from(this.bookings.values()).filter(
+      (b) => ids.has(b.traineeId) && b.status === "no_show"
+    );
+  }
+
   getSlotsByIds(slotIds: string[]): Slot[] {
     const out: Slot[] = [];
     for (const id of slotIds) {
@@ -156,7 +165,20 @@ export class MockBookingStore implements BookingStore {
   }
 
   upsertSlot(slot: Slot): void {
-    this.slots.set(slot.id, slot);
+    // Mirrors the DB unique (date, start_time): conflict keeps the existing
+    // row's id and only refreshes capacity/lockout.
+    const existing = Array.from(this.slots.values()).find(
+      (s) => s.date === slot.date && s.startTime === slot.startTime,
+    );
+    if (existing) {
+      this.slots.set(existing.id, {
+        ...existing,
+        capacity: slot.capacity,
+        lockoutOverride: slot.lockoutOverride,
+      });
+    } else {
+      this.slots.set(slot.id, slot);
+    }
   }
 
   resetEditCount(traineeId: string, weekStart: string): void {
