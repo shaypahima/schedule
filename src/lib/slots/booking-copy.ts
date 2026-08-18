@@ -12,6 +12,8 @@ const MESSAGES: Partial<Record<BookingError_Code, string>> = {
   ALREADY_BOOKED: "כבר קבעת את האימון הזה.",
   NOT_FOUND: "האימון הזה כבר לא זמין.",
   CONFLICT: "מישהו הספיק לפניך. רעננו ונסו שוב.",
+  REASON_REQUIRED: "צריך לכתוב סיבה לבקשה.",
+  ALREADY_REQUESTED: "כבר יש בקשה ממתינה לאימון הזה.",
 };
 
 const FALLBACK = "לא הצלחנו לקבוע את האימון. נסו שוב.";

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireActiveTraineeSession } from "@/lib/auth/session";
 import { todayIL } from "@/lib/services/israel-time";
 import { upcomingDays } from "@/lib/slots/day-strip";
@@ -31,11 +32,16 @@ export default async function TraineeHomePage({
       <div className="mx-auto w-full max-w-2xl space-y-6">
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">שלום, {session.name}</h1>
-          <form action={signOut}>
-            <button type="submit" className="text-sm text-black/50 underline">
-              התנתקות
-            </button>
-          </form>
+          <nav className="flex items-center gap-4">
+            <Link href="/bookings" className="text-sm underline">
+              האימונים שלי
+            </Link>
+            <form action={signOut}>
+              <button type="submit" className="text-sm text-black/50 underline">
+                התנתקות
+              </button>
+            </form>
+          </nav>
         </header>
 
         {booked && (
@@ -53,7 +59,7 @@ export default async function TraineeHomePage({
           {days.map((day) => {
             const isSelected = day.date === selected;
             return (
-              <a
+              <Link
                 key={day.date}
                 href={`/?date=${day.date}`}
                 aria-current={isSelected ? "date" : undefined}
@@ -65,7 +71,7 @@ export default async function TraineeHomePage({
               >
                 <span className="text-xs">{day.label}</span>
                 <span className="text-lg font-semibold">{day.dayOfMonth}</span>
-              </a>
+              </Link>
             );
           })}
         </nav>
